@@ -1,0 +1,20 @@
+{
+  "name": "local-wordle",
+  "version": "1.0.0",
+  "description": "Local Wordle game",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:e2e": "npx playwright test",
+    "lint": "eslint src/wordle.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "eslint": "^9.39.2",
+    "eslint-plugin-es-x": "^9.3.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "serve": "^14.2.4"
+  }
+}

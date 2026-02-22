@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Left Wordle — Testing Guide</title>
+    <style>
+        :root {
+            --green: #6aaa64;
+            --yellow: #c9b458;
+            --black: #212121;
+            --white: #fff;
+            --gray: #86888a;
+            --light-gray: #d3d6da;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+            color: var(--black);
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 24px 16px 64px;
+            line-height: 1.6;
+        }
+        h1 {
+            font-size: 28px;
+            letter-spacing: 0.1rem;
+            margin-bottom: 8px;
+        }
+        h2 {
+            font-size: 20px;
+            margin-top: 36px;
+            margin-bottom: 12px;
+            padding-bottom: 4px;
+            border-bottom: 2px solid var(--green);
+        }
+        h3 {
+            font-size: 16px;
+            margin-top: 20px;
+            margin-bottom: 8px;
+        }
+        p, li { font-size: 15px; }
+        p { margin-bottom: 10px; }
+        ul, ol { margin-left: 24px; margin-bottom: 12px; }
+        li { margin-bottom: 6px; }
+        code {
+            background: #f0f0f0;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        .warning-box {
+            background: #fff8e1;
+            border-left: 4px solid var(--yellow);
+            padding: 14px 16px;
+            margin-bottom: 20px;
+            border-radius: 0 4px 4px 0;
+        }
+        .warning-box p { margin-bottom: 6px; }
+        .warning-box p:last-child { margin-bottom: 0; }
+        .warning-box strong { color: #8a7530; }
+        .info-box {
+            background: #e8f5e9;
+            border-left: 4px solid var(--green);
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            border-radius: 0 4px 4px 0;
+        }
+        .section-num {
+            display: inline-block;
+            background: var(--green);
+            color: var(--white);
+            width: 26px;
+            height: 26px;
+            text-align: center;
+            line-height: 26px;
+            border-radius: 50%;
+            font-size: 14px;
+            font-weight: 700;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid var(--light-gray);
+            padding: 8px 10px;
+            text-align: left;
+        }
+        th { background: #f6f7f8; font-weight: 700; }
+        a { color: var(--green); }
+        .back-link { margin-top: 12px; display: inline-block; }
+        .icon-ref {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            vertical-align: middle;
+        }
+        .icon-ref svg {
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Left Wordle — Testing Guide</h1>
+<p><a href="/" class="back-link">&larr; Back to Left Wordle</a></p>
+
+<div class="warning-box">
+    <p><strong>Work in Progress.</strong> Left Wordle's save/sync features are under active development. Functionality,
+        UI, and data formats are subject to change without notice.</p>
+</div>
+
+<div class="warning-box">
+    <p><strong>Cloud data is temporary.</strong> All cloud-synced data will be deleted when sync is promoted to
+        production. Do not rely on cloud sync as your only backup.</p>
+</div>
+
+<div class="warning-box">
+    <p><strong>Staging environment.</strong> Cloud sync testing takes place on <code>staging.left-wordle.com</code>.
+        The staging site connects to a shared Supabase project. If something breaks, clearing your browser's
+        localStorage for the staging site is a safe reset.</p>
+</div>
+
+<div class="warning-box">
+    <p><strong>Staging environment.</strong>The Words "Left Wordle" in the header will appear in yellow on the staging site, indicating
+    that you're on Staging. Stats and streaks <strong>Do Not Sync</strong> between staging and production. please
+    continue to play in production daily to build your stats and keep your streak alive.
+    </p>
+</div>
+
+<!-- ───────────────────────────────────────────────── -->
+<h2><span class="section-num">1</span> Import &amp; Export (Save Menu)</h2>
+
+<p>Open the save menu by clicking the <span class="icon-ref">
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">
+        <path fill="#878a8c" stroke="#86888a" stroke-width="1.5" d="M3,20.05V3.72H17.48L21,7.58V20.05ZM6.85,9.64m0-5.92V9.64h8.23V3.72m-2.76,0v4M6.85,13.11h8.23M6.85,16.46H17.13"/>
+    </svg> <strong>Save / Sync</strong></span> button to the immediate right of "Left Wordle" in the header.</p>
+
+<h3>1a. Export History</h3>
+<ol>
+    <li>Play at least one game to completion (or load sample data — see 1c).</li>
+    <li>
+        Open the save menu and click <strong>Export History (JSON)</strong>. A file named <code>wordle_history_YYYY-MM-DD.json</code>
+        should download.
+    </li>
+    <li>Repeat with <strong>Export History (CSV)</strong>. A <code>.csv</code> file should download.</li>
+    <li>
+        Open each file and verify the entries match your played games. Each entry should include: <code>puzzle_num</code>,
+        <code>date</code>, <code>result</code>, <code>answer</code>, <code>mode</code>, <code>starter</code>, <code>completed_at</code>,
+        <code>updated_at</code>, <code>device_id</code>, <code>origin</code>.
+    </li>
+    <li>Games played in the app should have <code>origin: "played"</code>.</li>
+</ol>
+
+<h3>1b. Import History</h3>
+<ol>
+    <li>Click <strong>Import History (CSV or JSON)</strong> in the save menu.</li>
+    <li>Select a previously exported file (JSON or CSV).</li>
+    <li>After import, a summary dialog should appear showing:
+        <ul>
+            <li>Number of rows processed and newly added</li>
+            <li>A table of flagged rows (duplicates, validation errors), if any</li>
+        </ul>
+    </li>
+    <li>Imported entries should have <code>origin: "imported"</code> when re-exported.</li>
+    <li>Open the statistics modal (<span class="icon-ref">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">
+        <path fill="#86888a" d="M16,11V3H8v6H2v12h20V11H16z M10,5h4v14h-4V5z M4,11h4v8H4V11z M20,19h-4v-6h4V19z"/>
+        </svg> <strong>Statistics</strong></span> button) and confirm the counts reflect the imported games.</li>
+</ol>
+
+<h3>1c. Import Test Scenarios</h3>
+
+<table>
+    <tr>
+        <th>Scenario</th>
+        <th>Expected Result</th>
+    </tr>
+    <tr>
+        <td>Import a valid JSON file with new games</td>
+        <td>All rows added; no flags</td>
+    </tr>
+    <tr>
+        <td>Import a valid CSV file with new games</td>
+        <td>All rows added; no flags</td>
+    </tr>
+    <tr>
+        <td>Import a file containing a game already in history</td>
+        <td>Duplicate row flagged as "already exists in history"</td>
+    </tr>
+    <tr>
+        <td>Import a file with two rows for the same puzzle</td>
+        <td>First row imported; second flagged as duplicate within file</td>
+    </tr>
+    <tr>
+        <td>Import a row missing <code>puzzle_num</code>, <code>date</code>, and <code>answer</code></td>
+        <td>Row flagged as missing deterministic fields</td>
+    </tr>
+    <tr>
+        <td>Import a row with conflicting <code>puzzle_num</code> and <code>date</code></td>
+        <td>Row flagged with conflict message</td>
+    </tr>
+    <tr>
+        <td>Import a row with <code>result</code> of "X" or "fail"</td>
+        <td>Imported successfully with result normalized to 7</td>
+    </tr>
+</table>
+
+<h3>1d. Save &amp; Load Statistics</h3>
+<ol>
+    <li>Click <strong>Save Stats</strong> in the save menu. A JSON file should download.</li>
+    <li>Clear localStorage (DevTools &rarr; Application &rarr; Local Storage &rarr; clear the site).</li>
+    <li>Reload the page and click <strong>Load Stats</strong>. Select the saved file.</li>
+    <li>The page should reload and the statistics modal should show your restored data.</li>
+</ol>
+
+<h3>1e. Adjust Statistics</h3>
+<ol>
+    <li>Click <strong>Adjust Stats</strong> in the save menu.</li>
+    <li>Modify a value (e.g., increase Games Played by 1).</li>
+    <li>Verify the live preview updates Win % and Average Guesses correctly.</li>
+    <li>Save and confirm the statistics modal reflects the change.</li>
+</ol>
+
+<!-- ───────────────────────────────────────────────── -->
+<h2><span class="section-num">2</span> Cloud Sync</h2>
+
+<div class="info-box">
+    <p>Cloud sync is available on <strong>staging.left-wordle.com</strong>. It is not yet enabled on the production site.</p>
+</div>
+
+<h3>2a. Sign In</h3>
+<ol>
+    <li>Open the save menu on <code>staging.left-wordle.com</code>.</li>
+    <li>Scroll to the <strong>Cloud Sync (Beta)</strong> section.</li>
+    <li>Enter your email address and click <strong>Send Magic Link</strong>.</li>
+    <li>Check your inbox for the magic link email and click the link.</li>
+    <li>You should be redirected to a brief "Completing Sync Sign-In..." page, then back to the game.</li>
+    <li>Reopen the save menu — it should now show "Signed in as [your email]".</li>
+</ol>
+
+<h3>2b. Basic Sync — Single Device</h3>
+<ol>
+    <li>Sign in on staging (see 2a).</li>
+    <li>Play a game to completion.</li>
+    <li>Open the save menu and click <strong>Sync Now</strong>.</li>
+    <li>Clear localStorage for the staging site, then reload the page.</li>
+    <li>Sign in again with the same email.</li>
+    <li>Your game history and statistics should be restored from the cloud.</li>
+</ol>
+
+<h3>2c. Cross-Device Sync</h3>
+<ol>
+    <li>Sign in on Device A (or Browser A) and play a game.</li>
+    <li>Click <strong>Sync Now</strong> on Device A.</li>
+    <li>Sign in with the same email on Device B (or a different browser / incognito window).</li>
+    <li>After sign-in, your history and stats from Device A should appear on Device B.</li>
+    <li>Play a game on Device B and sync.</li>
+    <li>Return to Device A, click <strong>Sync Now</strong>, and confirm the new game appears.</li>
+</ol>
+
+<h3>2d. In-Progress Game Sync</h3>
+<ol>
+    <li>Start today's puzzle on Device A (make 2-3 guesses but don't finish).</li>
+    <li>Sync on Device A.</li>
+    <li>Open Device B, sign in with the same email.</li>
+    <li>Today's puzzle should load with the same guesses already on the board.</li>
+    <li>Finish the game on Device B and sync.</li>
+    <li>Return to Device A and sync — the completed game should appear.</li>
+</ol>
+
+<h3>2e. Background Sync</h3>
+<ol>
+    <li>Sign in and start a game.</li>
+    <li>After each guess, changes should sync automatically in the background (within ~1 second).</li>
+    <li>You can verify this by watching the browser's Network tab in DevTools for Supabase API calls after each guess.</li>
+</ol>
+
+<h3>2f. Sign Out</h3>
+<ol>
+    <li>Open the save menu while signed in.</li>
+    <li>Click <strong>Sign Out</strong>.</li>
+    <li>The sync section should return to the email input form.</li>
+    <li>Local data should remain intact after sign-out.</li>
+</ol>
+
+<!-- ───────────────────────────────────────────────── -->
+<h2><span class="section-num">3</span> General Testing Notes</h2>
+
+<h3>Reporting Issues</h3>
+<p>The best way to report a bug is to email me: scott at left-wordle dot com</p>
+<p>When reporting a bug, please include:</p>
+<ul>
+    <li>Browser name and version</li>
+    <li>Steps to reproduce</li>
+    <li>What you expected to happen vs. what actually happened</li>
+    <li>Screenshots, if applicable</li>
+    <li>Any errors in the browser console (F12 &rarr; Console tab)</li>
+</ul>
+
+<h3>Resetting Your Environment</h3>
+<p>If things get into a bad state, you can reset by clearing localStorage:</p>
+<ol>
+    <li>Open DevTools (F12 or Cmd+Option+I).</li>
+    <li>Go to <strong>Application</strong> &rarr; <strong>Local Storage</strong>.</li>
+    <li>Right-click the site entry and select <strong>Clear</strong>.</li>
+    <li>Reload the page.</li>
+</ol>
+
+</body>
+</html>

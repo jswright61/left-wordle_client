@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Left Wordle Sync Sign-In</title>
+  <meta name="robots" content="noindex" />
+  <style>
+    :root {
+      --bg: #121213;
+      --panel: #1b1b1d;
+      --text: #f2f2f2;
+      --muted: #a8a8a8;
+      --ok: #6aaa64;
+      --err: #d84f4f;
+      --border: #3a3a3c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 20% 20%, #1d2328 0%, var(--bg) 55%);
+      color: var(--text);
+      font-family: "Libre Franklin", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      padding: 24px;
+    }
+
+    .card {
+      width: min(540px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 20px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 22px;
+      letter-spacing: 0.2px;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    #status {
+      margin-top: 14px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    #status.ok { border-color: color-mix(in oklab, var(--ok) 60%, black); }
+    #status.error { border-color: color-mix(in oklab, var(--err) 60%, black); }
+
+    .actions {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-block;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      text-decoration: none;
+      color: var(--text);
+      background: #262629;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Completing Sync Sign-In...</h1>
+    <p>This page finalizes your magic link sign-in and returns you to Left Wordle.</p>
+    <div id="status" aria-live="polite">Checking authentication state...</div>
+    <div class="actions">
+      <a class="btn" href="/">Go To Left Wordle</a>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../src/supabase-config.js"></script>
+  <script>
+    (function () {
+      "use strict";
+
+      var statusEl = document.getElementById("status");
+
+      function setStatus(text, stateClass) {
+        statusEl.textContent = text;
+        statusEl.classList.remove("ok", "error");
+        if (stateClass) statusEl.classList.add(stateClass);
+      }
+
+      function sanitizeNext(rawNext) {
+        if (!rawNext) return "/";
+        try {
+          var parsed = new URL(rawNext, window.location.origin);
+          if (parsed.origin !== window.location.origin) return "/";
+          return parsed.pathname + parsed.search + parsed.hash;
+        } catch (e) {
+          return "/";
+        }
+      }
+
+      var query = new URLSearchParams(window.location.search);
+      var nextPath = sanitizeNext(query.get("next") || "/");
+
+      async function completeAuth() {
+        if (!window.supabase || !window.SUPABASE_URL || !window.SUPABASE_ANON_KEY ||
+            window.SUPABASE_URL === "YOUR_SUPABASE_URL" ||
+            window.SUPABASE_ANON_KEY === "YOUR_SUPABASE_ANON_KEY") {
+          setStatus("Sync configuration is missing. Update Supabase settings and try again.", "error");
+          return;
+        }
+
+        try {
+          var client = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, {
+            auth: {
+              persistSession: true,
+              autoRefreshToken: true,
+              detectSessionInUrl: true
+            }
+          });
+
+          var authCode = query.get("code");
+          if (authCode) {
+            var exchangeResult = await client.auth.exchangeCodeForSession(authCode);
+            if (exchangeResult.error) {
+              throw exchangeResult.error;
+            }
+          } else {
+            var sessionResult = await client.auth.getSession();
+            if (sessionResult.error) {
+              throw sessionResult.error;
+            }
+          }
+
+          var userResult = await client.auth.getUser();
+          if (userResult.error || !userResult.data || !userResult.data.user) {
+            throw userResult.error || new Error("No signed-in user found");
+          }
+
+          var email = userResult.data.user.email || "your account";
+          setStatus("Signed in as " + email + ". Redirecting...", "ok");
+
+          setTimeout(function () {
+            window.location.replace(nextPath);
+          }, 1000);
+        } catch (err) {
+          console.error("sync-resolve error", err);
+          setStatus("Sign-in could not be completed. Open Left Wordle and try Send Magic Link again.", "error");
+        }
+      }
+
+      completeAuth();
+    })();
+  </script>
+</body>
+</html>

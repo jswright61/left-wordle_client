@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+[[ "$branch" == "main" ]] || exit 0
+
+version_file="app_version.js"
+
+today="$(date -u +%F)"
+tomorrow="$(
+  python3 - <<'PY'
+from datetime import datetime, timedelta, timezone
+now = datetime.now(timezone.utc)
+print((now.date() + timedelta(days=1)).isoformat())
+PY
+)"
+
+since="${today}T00:00:00Z"
+until="${tomorrow}T00:00:00Z"
+
+count="$(git rev-list --count --since="$since" --until="$until" main 2>/dev/null || echo 0)"
+x="$(printf "%03d" $((count + 1)))"
+version="${today}_${x}"
+
+content=$(
+  cat <<EOF
+// generated; do not edit
+window.APP_VERSION = "${version}";
+EOF
+)
+
+printf "%s\n" "$content" > "$version_file"
+git add -- "$version_file"
+
+# Guard: on main, every commit must include a staged change to app_version.js
+if git diff --cached --quiet -- "$version_file"; then
+  echo "ERROR: $version_file did not end up staged as a change for this commit on main." >&2
+  echo "       This usually means hooks aren't running (core.hooksPath not set) or staging is unusual." >&2
+  echo "" >&2
+  echo "Fix: git config core.hooksPath .githooks" >&2
+  exit 1
+fi

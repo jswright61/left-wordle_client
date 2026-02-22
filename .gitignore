@@ -1,0 +1,13 @@
+tmp/*
+!.keep
+
+# Node.js
+node_modules/
+coverage/
+*.log
+docs_private/*
+
+# Playwright
+test-results/
+playwright-report/
+.private_env/*

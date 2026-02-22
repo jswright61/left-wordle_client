@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+remote="${1:-}"
+url="${2:-}"
+
+# Only act on pushes to the GitHub Pages origin
+if [[ "$url" != "git@github-1995p:1995p-wordle/1995p-wordle.github.io.git" ]]; then
+  exit 0
+fi
+
+branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+if [[ "$branch" != "main" ]]; then
+  exit 0
+fi
+
+version_file="app_version.js"
+if [[ ! -f "$version_file" ]]; then
+  echo "pre-push: missing $version_file" >&2
+  exit 1
+fi
+
+release="$(sed -n 's/.*APP_VERSION = "\([^"]*\)".*/\1/p' "$version_file" | head -n 1)"
+[[ -n "$release" ]] || exit 0
+
+SENTRY_CLI="/opt/homebrew/bin/sentry-cli"
+if [[ ! -x "$SENTRY_CLI" ]]; then
+  echo "pre-push: sentry-cli not found at $SENTRY_CLI" >&2
+  exit 1
+fi
+
+token_file=".private_env/sentry_auth_token.txt"
+if [[ ! -f "$token_file" ]]; then
+  echo "pre-push: missing $token_file" >&2
+  exit 1
+fi
+
+export SENTRY_AUTH_TOKEN
+SENTRY_AUTH_TOKEN="$(tr -d '\r\n' < "$token_file")"
+
+if [[ -z "$SENTRY_AUTH_TOKEN" ]]; then
+  echo "pre-push: empty SENTRY_AUTH_TOKEN" >&2
+  exit 1
+fi
+
+export SENTRY_PROJECT="left-wordle"
+export SENTRY_ORG="salon-suites"
+
+# Idempotent: skip if already created
+if "$SENTRY_CLI" releases info "$release" >/dev/null 2>&1; then
+  exit 0
+fi
+
+echo "Creating Sentry release: $release"
+
+"$SENTRY_CLI" releases new "$release"
+"$SENTRY_CLI" releases set-commits "$release" --auto
+"$SENTRY_CLI" releases finalize "$release"

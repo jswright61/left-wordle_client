@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://browser.sentry-cdn.com/8.0.0/bundle.min.js" crossorigin="anonymous"></script>
+    <script>
+      (function () {
+          const s = document.createElement("script");
+          s.src = `/app_version.js?cb=${Date.now()}`;
+          s.defer = true;
+
+          s.onload = function () {
+              if (!window.location.hostname.endsWith("left-wordle.com")) return;
+              if (!window.APP_VERSION) {
+                  console.warn("APP_VERSION missing; Sentry not initialized");
+                  return;
+              }
+              Sentry.init({
+                  dsn: "https://9697e52d1ad89c70c7209f2b26a81e74@o299183.ingest.us.sentry.io/4510838879617024",
+                  release: window.APP_VERSION,
+                  environment: "production",
+              });
+          };
+
+          s.onerror = function () {
+              console.warn("Failed to load app_version.js; Sentry not initialized");
+          };
+
+          document.head.appendChild(s);
+      })();
+    </script>
+    <meta name="robots" content="noindex, nofollow, noai, noimageai">
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;700&display=swap" rel="stylesheet">
+    <title>Left Wordle</title>
+    <meta name="description" content="Guess the hidden word in 6 tries. A new puzzle is available each day.">
+    <!-- FB Meta Tags -->
+    <meta property="og:url" content="https://left-wordle.com">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Wordle - A Wordle Alternative">
+    <meta property="og:description" content="Guess the hidden word in 6 tries. A new puzzle is available each day.">
+    <meta property="og:image" content="src/left_wordle_1200x630.png">
+    <!-- Twitter Meta Tags -->
+    <meta name="twitter:card" content="src/left_wordle_1200x630.png">
+    <meta name="theme-color" content="#6aaa64">
+    <link href="src/wordle_logo_32x32.png" rel="icon shortcut" sizes="3232">
+    <link rel="stylesheet" type="text/css" href="src/wordle.css" />
+</head>
+
+<body>
+    <script>if(location.hostname==="staging.left-wordle.com")document.body.classList.add("staging");</script>
+    <game-app></game-app>
+    <div id='header-container' style='display: none;'>
+        <game-theme-manager>
+            <div id="game">
+                <header>
+                    <div class="menu">
+                        <button id="help-button" class="icon" aria-label="help" title="Help">
+                            <game-icon icon="help"></game-icon>
+                        </button>
+                    </div>
+                    <div class="title">
+                        Left Wordle
+                    </div>
+                    <div class="menu">
+                        <button id="save-button" class="icon" aria-label="save" title="Save / Sync">
+                            <game-icon icon="save"></game-icon>
+                        </button>
+                        <button id="statistics-button" class="icon" aria-label="statistics" title="Statistics">
+                            <game-icon icon="statistics"></game-icon>
+                        </button>
+                        <button id="settings-button" class="icon" aria-label="settings" title="Settings">
+                            <game-icon icon="settings"></game-icon>
+                        </button>
+                    </div>
+                </header>
+                <div id="board-container">
+                    <div id="board"></div>
+                </div>
+                <game-keyboard></game-keyboard>
+                <game-modal></game-modal>
+                <game-page></game-page>
+                <div class="toaster" id="game-toaster"></div>
+                <div class="toaster" id="system-toaster"></div>
+        </game-theme-manager>
+    </div>
+    <div id="debug-tools"></div>
+    </div>
+    <div id="save" class="hidden">
+        <div class="overlay">
+            <div class="content">
+                <header>
+                    <h1>
+                        <slot></slot>
+                    </h1>
+                    <game-icon id="save-close" icon="close"></game-icon>
+                </header>
+                <div class="content-container">
+                    <slot name="content">
+                      <div class="sections">
+    <section>
+      <h2 class="save-section-heading">Statistics</h2>
+      <div class="save-row">
+        <button class="save-item-left save-action-button" id="saveButton" type="button"
+                title="Save your statistics to a local json file.">Save Stats</button>
+        <label class="save-item-right save-action-button" for="inputload"
+               title="Upload statistics from a local json file.">
+          Load Stats
+          <input id="inputload" type="file" accept=".json" class="save-file-input">
+        </label>
+      </div>
+      <hr class="save-divider">
+    </section>
+    <section>
+      <h2 class="save-section-heading">Game History</h2>
+      <div class="save-row">
+        <button class="save-item-left save-action-button" id="exportHistoryJsonButton" type="button"
+                title="Save your game history to a local json file.">Save as JSON</button>
+        <button class="save-item-center save-action-button" id="exportHistoryCsvButton" type="button"
+                title="Save your game history to a local comma separated values file.">Save as CSV</button>
+        <label class="save-item-right save-action-button" id="loadHistoryButton" for="inputHistoryLoad"
+               title="Add historical games from either a json or CSV file.">
+          Import Games
+          <input id="inputHistoryLoad" type="file" accept=".json,.csv,text/csv,application/json" class="save-file-input">
+        </label>
+      </div>
+      <hr class="save-divider">
+    </section>
+    <section>
+      <h2 class="save-section-heading">Cloud Sync <span class="save-beta-badge">Beta</span></h2>
+      <div class="save-row">
+        <button class="save-item-left save-action-button" id="sync-signin-button" type="button"
+                title="Sign in to enable cloud sync across devices using a magic link.">Send Link</button>
+        <button class="save-item-center save-action-button" id="sync-now-button" type="button"
+                title="Manually trigger a sync with the cloud.">Sync Now</button>
+        <button class="save-item-right save-action-button" id="sync-signout-button" type="button"
+                title="Sign out of cloud sync." disabled>Sign Out</button>
+      </div>
+      <hr class="save-divider">
+    </section>
+    <section>
+      <div id="sync-status" class="save-status-message"></div>
+    </section>
+  </div>
+  <div id="send-link-modal" class="save-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="send-link-modal-title">
+    <div class="save-inline-modal-card">
+      <h3 id="send-link-modal-title">Get a Magic Link to Sync a New Device or Browser</h3>
+      <p>Each device / browser needs its own magic link to sync. Use the same email address for all devices you wish to sync.</p>
+      <label for="sync-email-input">Email address</label>
+      <input id="sync-email-input" type="email" autocomplete="email" placeholder="you@example.com" />
+      <div id="send-link-status" class="description"></div>
+      <div class="save-inline-modal-actions">
+        <button id="send-link-submit" type="button">Send Link</button>
+        <button id="send-link-cancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <div id="history-import-summary-modal" class="save-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="history-import-summary-title">
+    <div class="save-inline-modal-card">
+      <h3 id="history-import-summary-title">Import Complete</h3>
+      <p id="history-import-summary-line1"></p>
+      <p id="history-import-summary-line2"></p>
+      <p id="history-import-summary-line3"></p>
+      <p id="history-import-summary-line4"></p>
+      <p>When you close this window, your updated stats will be shown.</p>
+      <p>If totals need correction, go to Save / Sync and choose Adjust Stats.</p>
+      <div id="history-import-summary-flagged" class="hidden">
+        <h4>Flagged Rows (not imported)</h4>
+        <div class="flagged-table-scroll">
+          <table id="history-import-summary-flagged-table">
+            <thead><tr><th>Row</th><th>Reason</th><th>Data</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button id="history-import-summary-download-flagged" type="button">Download Flagged Rows</button>
+      </div>
+      <div class="save-inline-modal-actions">
+        <button id="history-import-summary-view-stats" type="button">View Updated Stats</button>
+        <button id="history-import-summary-close" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+  <div id="adjust-stats-modal" class="save-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="adjust-stats-title">
+    <div class="save-inline-modal-card">
+      <h3 id="adjust-stats-title">Adjust Stats</h3>
+      <p>Enter totals you want to see. History stays unchanged and baseline is recalculated automatically.</p>
+      <div class="adjust-stats-grid">
+        <label>Games Played<input id="adjust-gamesPlayed" type="number" min="0" step="1" /></label>
+        <label>Games Won<input id="adjust-gamesWon" type="number" min="0" step="1" /></label>
+        <label>Current Streak<input id="adjust-currentStreak" type="number" min="0" step="1" /></label>
+        <label>Max Streak<input id="adjust-maxStreak" type="number" min="0" step="1" /></label>
+        <label>1 Guess<input id="adjust-g1" type="number" min="0" step="1" /></label>
+        <label>2 Guesses<input id="adjust-g2" type="number" min="0" step="1" /></label>
+        <label>3 Guesses<input id="adjust-g3" type="number" min="0" step="1" /></label>
+        <label>4 Guesses<input id="adjust-g4" type="number" min="0" step="1" /></label>
+        <label>5 Guesses<input id="adjust-g5" type="number" min="0" step="1" /></label>
+        <label>6 Guesses<input id="adjust-g6" type="number" min="0" step="1" /></label>
+        <label>Failed Games<input id="adjust-gfail" type="number" min="0" step="1" /></label>
+      </div>
+      <div class="adjust-stats-preview">
+        <div><strong>Win %:</strong> <span id="adjust-preview-winPercentage">0</span></div>
+        <div><strong>Average Guesses:</strong> <span id="adjust-preview-averageGuesses">0</span></div>
+      </div>
+      <div id="adjust-stats-error" class="description"></div>
+      <div class="save-inline-modal-actions">
+        <button id="adjust-stats-apply" type="button">Apply Adjustment</button>
+        <button id="adjust-stats-cancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+                    </slot>
+                </div>
+            </div>
+        </div>
+    </div>
+    <template id="settings-template">
+      <div class="sections">
+        <section>
+          <div class="setting">
+            <div class="text">
+              <div class="title">Hard Mode</div>
+              <div class="description">Any revealed hints must be used in subsequent guesses</div>
+            </div>
+            <div class="control">
+              <game-switch id="hard-mode" name="hard-mode"></game-switch>
+            </div>
+          </div>
+          <div class="setting">
+            <div class="text">
+              <div class="title">Dark Theme</div>
+            </div>
+            <div class="control">
+              <game-switch id="dark-theme" name="dark-theme"></game-switch>
+            </div>
+          </div>
+          <div class="setting">
+            <div class="text">
+              <div class="title">Color Blind Mode</div>
+              <div class="description">High contrast colors</div>
+            </div>
+            <div class="control">
+              <game-switch id="color-blind-theme" name="color-blind-theme"></game-switch>
+            </div>
+          </div>
+          <h3 class="section-heading">Share Format</h3>
+          <div class="share-format-setting">
+            <label class="share-format-option">
+              <input type="radio" name="share-format" value="grid">
+              <span>Emoji grid</span>
+            </label>
+            <label class="share-format-option">
+              <input type="radio" name="share-format" value="accessible">
+              <span>Accessible text</span>
+            </label>
+            <label class="share-format-option">
+              <input type="radio" name="share-format" value="both">
+              <span>Both</span>
+            </label>
+          </div>
+          <h3 class="section-heading">Share Text Additions</h3>
+          <div class="share-text-row">
+            <div class="share-text-field">
+              <label for="share-header-append">Header Line</label>
+              <textarea id="share-header-append" name="share-header-append" rows="3"></textarea>
+            </div>
+            <div class="share-text-field">
+              <label for="share-after-grid">After Grid</label>
+              <textarea id="share-after-grid" name="share-after-grid" rows="3"></textarea>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div id="footnote">
+        <div>
+          <div id="privacy-policy"><a href="https://www.powerlanguage.co.uk/privacy-policy.html" target="_blank">Privacy Policy</a></div>
+          <div id="copyright">Copyright 2021-2022. All Rights Reserved.</div>
+        </div>
+        <div>
+          <div id="puzzle-number"></div>
+          <div id="hash"></div>
+        </div>
+      </div>
+    </template>
+
+    <template id="modal-overlay-template">
+      <div class="modal-overlay">
+        <div class="modal-content">
+          <div class="close-icon">
+            <game-icon icon="close"></game-icon>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template id="stats-container-template">
+      <div class="stats-container">
+        <h1>Statistics</h1>
+        <div id="statistics"></div>
+        <h1>Guess Distribution</h1>
+        <div id="guess-distribution"></div>
+        <div class="stats-footer"></div>
+      </div>
+    </template>
+
+    <template id="statistic-item-template">
+      <div class="statistic-container">
+        <div class="statistic"></div>
+        <div class="label"></div>
+      </div>
+    </template>
+
+    <template id="graph-bar-template">
+      <div class="graph-container">
+        <div class="guess"></div>
+        <div class="graph">
+          <div class="graph-bar">
+            <div class="num-guesses"></div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template id="countdown-template">
+      <div class="countdown">
+        <h1>Next WORDLE</h1>
+        <div id="timer">
+          <div class="statistic-container">
+            <div class="statistic timer">
+              <countdown-timer></countdown-timer>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="share">
+        <button id="share-button">
+          Share <game-icon icon="share"></game-icon>
+        </button>
+      </div>
+    </template>
+
+    <template id="help-template">
+      <section>
+        <div class="instructions">
+          <p>Guess the <strong>WORDLE</strong> in 6 tries.</p>
+          <p>Each guess must be a valid 5 letter word. Hit the enter button to submit.</p>
+          <p>After each guess, the color of the tiles will change to show how close your guess was to the word.</p>
+          <div class="examples">
+            <p><strong>Examples</strong></p>
+            <div class="example">
+              <div class="row">
+                <game-tile letter="w" evaluation="correct" reveal></game-tile>
+                <game-tile letter="e"></game-tile>
+                <game-tile letter="a"></game-tile>
+                <game-tile letter="r"></game-tile>
+                <game-tile letter="y"></game-tile>
+              </div>
+              <p>The letter <strong>W</strong> is in the word and in the correct spot.</p>
+            </div>
+            <div class="example">
+              <div class="row">
+                <game-tile letter="p"></game-tile>
+                <game-tile letter="i" evaluation="present" reveal></game-tile>
+                <game-tile letter="l"></game-tile>
+                <game-tile letter="l"></game-tile>
+                <game-tile letter="s"></game-tile>
+              </div>
+              <p>The letter <strong>I</strong> is in the word but in the wrong spot.</p>
+            </div>
+            <div class="example">
+              <div class="row">
+                <game-tile letter="v"></game-tile>
+                <game-tile letter="a"></game-tile>
+                <game-tile letter="g"></game-tile>
+                <game-tile letter="u" evaluation="absent" reveal></game-tile>
+                <game-tile letter="e"></game-tile>
+              </div>
+              <p>The letter <strong>U</strong> is not in the word in any spot.</p>
+            </div>
+          </div>
+          <p><strong>A new WORDLE will be available each day!</strong></p>
+        </div>
+      </section>
+    </template>
+
+    <template id="page-overlay-template">
+      <div class="page-overlay">
+        <div class="page-content">
+          <header>
+            <h1 class="page-title"></h1>
+            <game-icon icon="close"></game-icon>
+          </header>
+          <div class="page-content-container"></div>
+        </div>
+      </div>
+    </template>
+
+    <script src="src/answer_list.js"></script>
+    <script src="src/valid_guesses.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="src/supabase-config.js"></script>
+    <script src="src/supabase-sync.js"></script>
+    <script src="src/wordle.js"></script>
+    <script src="src/savemenu.js"></script>
+    <script>
+    (function() {
+        window.wordle = window.wordle || {};
+        window.wordle.hash = 'e65ce0a5';
+    })();
+    </script>
+    <script>
+    (function() {
+        var loadedVersion = null;
+
+        document.addEventListener("game-modal-closed", function() {
+            if (!loadedVersion) {
+                loadedVersion = window.APP_VERSION;
+                if (!loadedVersion) return;
+            }
+
+            fetch("/app_version.js?cb=" + Date.now())
+                .then(function(resp) { return resp.text(); })
+                .then(function(text) {
+                    var match = text.match(/APP_VERSION\s*=\s*"([^"]+)"/);
+                    if (match && match[1] !== loadedVersion) {
+                        showUpdateModal();
+                    }
+                })
+                .catch(function() {});
+        });
+
+        function showUpdateModal() {
+            var overlay = document.createElement("div");
+            overlay.id = "update-modal-overlay";
+            overlay.innerHTML =
+                '<div id="update-modal">' +
+                    '<p>There\'s an updated version of Left Wordle available. Do you want to update?</p>' +
+                    '<div id="update-modal-buttons">' +
+                        '<button id="update-now-btn">Update Now</button>' +
+                        '<button id="update-later-btn">Maybe Later</button>' +
+                    '</div>' +
+                '</div>';
+            document.body.appendChild(overlay);
+
+            document.getElementById("update-now-btn").addEventListener("click", function() {
+                window.location.reload();
+            });
+            document.getElementById("update-later-btn").addEventListener("click", function() {
+                overlay.remove();
+            });
+        }
+    })();
+    </script>
+</body>
+
+</html>
