@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backup Local</title>
+    <style>
+        body {
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+            background-color: #fff;
+            color: #1a1a1b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 0.1rem;
+            text-transform: uppercase;
+            border-bottom: 1px solid #d3d6da;
+            padding-bottom: 16px;
+            margin-bottom: 32px;
+            width: 100%;
+            max-width: 480px;
+            text-align: center;
+        }
+        .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+            max-width: 480px;
+            margin-bottom: 24px;
+        }
+        label {
+            font-size: 0.875rem;
+            font-weight: 700;
+            letter-spacing: 0.05rem;
+            text-transform: uppercase;
+            color: #787c7e;
+        }
+        input[type="text"] {
+            font-family: inherit;
+            font-size: 0.9rem;
+            padding: 10px 12px;
+            border: 2px solid #d3d6da;
+            border-radius: 4px;
+            color: #1a1a1b;
+            background: #fff;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #878a8c;
+        }
+        button {
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 700;
+            letter-spacing: 0.05rem;
+            text-transform: uppercase;
+            background-color: #6aaa64;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 14px 28px;
+            cursor: pointer;
+            width: 100%;
+            max-width: 480px;
+        }
+        button:hover {
+            background-color: #538d4e;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 0.875rem;
+            color: #787c7e;
+            min-height: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Backup Local</h1>
+    <div class="field-group">
+        <label for="filename">Filename</label>
+        <input type="text" id="filename" />
+    </div>
+    <button id="backup-btn">Backup Now</button>
+    <div id="status"></div>
+
+    <script>
+        function defaultFilename() {
+            var now = new Date();
+            var yyyy = now.getFullYear();
+            var mm = String(now.getMonth() + 1).padStart(2, "0");
+            var dd = String(now.getDate()).padStart(2, "0");
+            var hh = String(now.getHours()).padStart(2, "0");
+            var min = String(now.getMinutes()).padStart(2, "0");
+            var host = window.location.hostname.replace(/\./g, "_");
+            return host + "__left-wordle-storage_" + yyyy + "_" + mm + "_" + dd + "__" + hh + "_" + min + ".json";
+        }
+
+        document.getElementById("filename").value = defaultFilename();
+
+        document.getElementById("backup-btn").addEventListener("click", function () {
+            var data = {};
+            for (var i = 0; i < localStorage.length; i++) {
+                var key = localStorage.key(i);
+                var raw = localStorage.getItem(key);
+                try {
+                    data[key] = JSON.parse(raw);
+                } catch (e) {
+                    data[key] = raw;
+                }
+            }
+
+            var json = JSON.stringify(data, null, 2);
+            var blob = new Blob([json], { type: "application/json" });
+            var url = URL.createObjectURL(blob);
+
+            var filename = document.getElementById("filename").value.trim() || defaultFilename();
+
+            var a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            document.getElementById("status").textContent =
+                "Backed up " + Object.keys(data).length + " item(s).";
+        });
+    </script>
+</body>
+</html>
