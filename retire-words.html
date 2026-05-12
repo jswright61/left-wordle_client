@@ -413,6 +413,12 @@
 
         document.getElementById('filter').addEventListener('change', render);
 
+        const nameParam = new URLSearchParams(window.location.search).get('name');
+        if (nameParam && nameParam.trim()) {
+            nameEl.value = nameParam.trim();
+            exportBtn.disabled = false;
+        }
+
         init();
     </script>
 </body>
