@@ -254,7 +254,7 @@
     <div class="search-row">
         <label for="search">Search:</label>
         <input id="search" type="text" placeholder="e.g. *ER or *ER*" maxlength="10" autocomplete="off" spellcheck="false">
-        <span class="search-hint">Use * as wildcard &nbsp;·&nbsp; *ER = ends with ER &nbsp;·&nbsp; *ER* = contains ER</span>
+        <span class="search-hint">Partial match by default &nbsp;·&nbsp; ^ = start &nbsp;·&nbsp; $ = end &nbsp;·&nbsp; * = any chars</span>
     </div>
 
     <div class="controls">
@@ -299,19 +299,22 @@
         });
 
         searchEl.addEventListener('keydown', e => {
-            const allowed = /^[a-zA-Z*]$/;
+            const allowed = /^[a-zA-Z*^$]$/;
             if (e.key.length === 1 && !allowed.test(e.key)) e.preventDefault();
         });
         searchEl.addEventListener('input', () => {
-            const clean = searchEl.value.replace(/[^a-zA-Z*]/g, '').toUpperCase();
+            const clean = searchEl.value.replace(/[^a-zA-Z*^$]/g, '').toUpperCase();
             if (searchEl.value !== clean) searchEl.value = clean;
             render();
         });
 
         function buildPattern(raw) {
             if (!raw) return null;
-            const escaped = raw.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
-            return new RegExp('^' + escaped + '$', 'i');
+            const escaped = raw.replace(/[.+?{}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+            const hasStart = escaped.startsWith('^');
+            const hasEnd   = escaped.endsWith('$');
+            const core = escaped.replace(/^\^/, '').replace(/\$$/, '');
+            return new RegExp((hasStart ? '^' : '^.*') + core + (hasEnd ? '$' : '.*$'), 'i');
         }
 
         async function init() {
