@@ -11,3 +11,7 @@ docs_private/*
 test-results/
 playwright-report/
 .private_env/*
+
+# Backend dirs tracked on their own branches
+ruby-server/
+server/
