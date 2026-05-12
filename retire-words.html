@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retire Words</title>
+    <style>
+        body {
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+            background-color: #fff;
+            color: #1a1a1b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 0.1rem;
+            text-transform: uppercase;
+            border-bottom: 1px solid #d3d6da;
+            padding-bottom: 16px;
+            margin-bottom: 8px;
+            width: 100%;
+            max-width: 700px;
+            text-align: center;
+        }
+        .subtitle {
+            font-size: 0.85rem;
+            color: #787c7e;
+            margin-bottom: 24px;
+        }
+        .name-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            max-width: 700px;
+            margin-bottom: 20px;
+        }
+        .name-row label {
+            font-size: 0.875rem;
+            font-weight: 700;
+            letter-spacing: 0.05rem;
+            text-transform: uppercase;
+            color: #787c7e;
+            white-space: nowrap;
+        }
+        #name {
+            font-family: inherit;
+            font-size: 0.95rem;
+            padding: 6px 10px;
+            border: 2px solid #d3d6da;
+            border-radius: 4px;
+            color: #1a1a1b;
+            background: #fff;
+            width: 220px;
+        }
+        #name:focus {
+            outline: none;
+            border-color: #878a8c;
+        }
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 700px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .controls label {
+            font-size: 0.875rem;
+            font-weight: 700;
+            letter-spacing: 0.05rem;
+            text-transform: uppercase;
+            color: #787c7e;
+        }
+        .controls select {
+            font-family: inherit;
+            font-size: 0.875rem;
+            padding: 6px 10px;
+            border: 2px solid #d3d6da;
+            border-radius: 4px;
+            color: #1a1a1b;
+            background: #fff;
+            cursor: pointer;
+        }
+        .controls select:focus {
+            outline: none;
+            border-color: #878a8c;
+        }
+        button {
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 700;
+            letter-spacing: 0.05rem;
+            text-transform: uppercase;
+            padding: 8px 18px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-export {
+            background-color: #6aaa64;
+            color: #fff;
+        }
+        .btn-export:hover:not(:disabled) {
+            background-color: #538d4e;
+        }
+        .btn-export:disabled {
+            background-color: #d3d6da;
+            color: #878a8c;
+            cursor: not-allowed;
+        }
+        .btn-clear {
+            background-color: #787c7e;
+            color: #fff;
+        }
+        .btn-clear:hover {
+            background-color: #5a5e60;
+        }
+        .count {
+            margin-left: auto;
+            font-size: 0.875rem;
+            color: #787c7e;
+        }
+        table {
+            width: 100%;
+            max-width: 700px;
+            border-collapse: collapse;
+        }
+        thead th {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.08rem;
+            text-transform: uppercase;
+            color: #787c7e;
+            border-bottom: 2px solid #d3d6da;
+            padding: 10px 12px;
+            text-align: left;
+        }
+        thead th.col-retire {
+            text-align: center;
+        }
+        tbody tr {
+            border-bottom: 1px solid #f0f0f0;
+        }
+        tbody tr:hover {
+            background-color: #f9f9f9;
+        }
+        tbody tr.marked {
+            background-color: #fff5f5;
+        }
+        tbody tr.marked:hover {
+            background-color: #ffe8e8;
+        }
+        td {
+            padding: 8px 12px;
+            vertical-align: middle;
+        }
+        td.col-word {
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.05rem;
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+        }
+        td.col-retire {
+            text-align: center;
+            width: 80px;
+        }
+        td.col-retire input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #c9b458;
+        }
+        td.col-reason {
+            width: 100%;
+        }
+        td.col-reason input[type="text"] {
+            font-family: inherit;
+            font-size: 0.875rem;
+            padding: 5px 8px;
+            border: 1px solid #d3d6da;
+            border-radius: 4px;
+            color: #1a1a1b;
+            background: #fff;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        td.col-reason input[type="text"]:focus {
+            outline: none;
+            border-color: #878a8c;
+        }
+        .search-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            max-width: 700px;
+            margin-bottom: 16px;
+        }
+        .search-row label {
+            font-size: 0.875rem;
+            font-weight: 700;
+            letter-spacing: 0.05rem;
+            text-transform: uppercase;
+            color: #787c7e;
+            white-space: nowrap;
+        }
+        #search {
+            font-family: inherit;
+            font-size: 0.95rem;
+            padding: 6px 10px;
+            border: 2px solid #d3d6da;
+            border-radius: 4px;
+            color: #1a1a1b;
+            background: #fff;
+            width: 200px;
+            letter-spacing: 0.05rem;
+            text-transform: uppercase;
+        }
+        #search:focus {
+            outline: none;
+            border-color: #878a8c;
+        }
+        #search.no-match {
+            border-color: #c0392b;
+            color: #c0392b;
+        }
+        .search-hint {
+            font-size: 0.8rem;
+            color: #787c7e;
+        }
+        .error {
+            color: #c0392b;
+            font-size: 0.9rem;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Retire Words</h1>
+    <p class="subtitle">Review words and mark any that should be retired from the answer list.</p>
+
+    <div class="name-row">
+        <label for="name">Your Name:</label>
+        <input id="name" type="text" placeholder="Enter your name" autocomplete="off" spellcheck="false">
+    </div>
+
+    <div class="search-row">
+        <label for="search">Search:</label>
+        <input id="search" type="text" placeholder="e.g. *ER or *ER*" maxlength="10" autocomplete="off" spellcheck="false">
+        <span class="search-hint">Use * as wildcard &nbsp;·&nbsp; *ER = ends with ER &nbsp;·&nbsp; *ER* = contains ER</span>
+    </div>
+
+    <div class="controls">
+        <label for="filter">Show:</label>
+        <select id="filter">
+            <option value="all">All Words</option>
+            <option value="marked">Marked for Retirement</option>
+            <option value="unmarked">Unmarked Only</option>
+        </select>
+        <button class="btn-export" id="btn-export" onclick="exportJSON()" disabled>Export JSON</button>
+        <button class="btn-clear" onclick="clearAll()">Clear All</button>
+        <span class="count" id="count"></span>
+    </div>
+
+    <table id="word-table">
+        <thead>
+            <tr>
+                <th>Word</th>
+                <th class="col-retire">Retire?</th>
+                <th>Reason</th>
+            </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+    </table>
+
+    <p class="error" id="error" style="display:none"></p>
+
+    <script>
+        const state = {};
+        let allWords = [];
+
+        const nameEl   = document.getElementById('name');
+        const searchEl = document.getElementById('search');
+        const exportBtn = document.getElementById('btn-export');
+
+        function currentName() {
+            return nameEl.value.trim();
+        }
+
+        nameEl.addEventListener('input', () => {
+            exportBtn.disabled = currentName() === '';
+        });
+
+        searchEl.addEventListener('keydown', e => {
+            const allowed = /^[a-zA-Z*]$/;
+            if (e.key.length === 1 && !allowed.test(e.key)) e.preventDefault();
+        });
+        searchEl.addEventListener('input', () => {
+            const clean = searchEl.value.replace(/[^a-zA-Z*]/g, '').toUpperCase();
+            if (searchEl.value !== clean) searchEl.value = clean;
+            render();
+        });
+
+        function buildPattern(raw) {
+            if (!raw) return null;
+            const escaped = raw.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+            return new RegExp('^' + escaped + '$', 'i');
+        }
+
+        async function init() {
+            try {
+                const resp = await fetch('data/words_to_eval.json');
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                allWords = await resp.json();
+                allWords.forEach(w => { state[w] = { retire: false, reason: '' }; });
+                render();
+            } catch (e) {
+                document.getElementById('error').textContent = `Failed to load words_to_eval.json: ${e.message}`;
+                document.getElementById('error').style.display = '';
+            }
+        }
+
+        function render() {
+            const filter = document.getElementById('filter').value;
+            const pattern = buildPattern(searchEl.value);
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            const visible = allWords.filter(w => {
+                if (pattern && !pattern.test(w)) return false;
+                if (filter === 'marked') return state[w].retire;
+                if (filter === 'unmarked') return !state[w].retire;
+                return true;
+            });
+
+            searchEl.classList.toggle('no-match', pattern !== null && visible.length === 0);
+
+            visible.forEach(word => {
+                const tr = document.createElement('tr');
+                if (state[word].retire) tr.classList.add('marked');
+
+                const tdWord = document.createElement('td');
+                tdWord.className = 'col-word';
+                tdWord.textContent = word;
+
+                const tdRetire = document.createElement('td');
+                tdRetire.className = 'col-retire';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.checked = state[word].retire;
+                cb.addEventListener('change', () => {
+                    state[word].retire = cb.checked;
+                    tr.classList.toggle('marked', cb.checked);
+                    updateCount();
+                });
+                tdRetire.appendChild(cb);
+
+                const tdReason = document.createElement('td');
+                tdReason.className = 'col-reason';
+                const inp = document.createElement('input');
+                inp.type = 'text';
+                inp.placeholder = 'Optional reason…';
+                inp.value = state[word].reason;
+                inp.addEventListener('input', () => { state[word].reason = inp.value; });
+                tdReason.appendChild(inp);
+
+                tr.appendChild(tdWord);
+                tr.appendChild(tdRetire);
+                tr.appendChild(tdReason);
+                tbody.appendChild(tr);
+            });
+
+            updateCount();
+        }
+
+        function updateCount() {
+            const total = allWords.filter(w => state[w].retire).length;
+            document.getElementById('count').textContent =
+                total === 0 ? '' : `${total} marked for retirement`;
+        }
+
+        function exportJSON() {
+            const name = currentName();
+            const result = allWords
+                .filter(w => state[w].retire)
+                .map(w => ({ word: w, reason: state[w].reason, selected_by: name }));
+            const now = new Date();
+            const date = now.toISOString().slice(0, 10).replace(/-/g, '_');
+            const time = now.toTimeString().slice(0, 8).replace(/:/g, '');
+            const filename = `${name}_words_to_retire_${date}_${time}.json`;
+            const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+        }
+
+        function clearAll() {
+            if (!confirm('Clear all retirement marks?')) return;
+            allWords.forEach(w => { state[w] = { retire: false, reason: '' }; });
+            render();
+        }
+
+        document.getElementById('filter').addEventListener('change', render);
+
+        init();
+    </script>
+</body>
+</html>
