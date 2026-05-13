@@ -1770,6 +1770,9 @@
                 header += "*";
             }
             // header += " (1995p)";
+            var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+            var puzzleDate = new Date(2021, 5, 19 + dayOffset);
+            header += " for " + puzzleDate.getDate() + " " + MONTHS[puzzleDate.getMonth()] + ", " + puzzleDate.getFullYear();
             if (shareAdditions.header) {
                 header += " " + shareAdditions.header.replace(/\\n/g, "\n");
             }
