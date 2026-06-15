@@ -183,7 +183,7 @@ test.describe('Wordle E2E Tests', () => {
         const app = document.querySelector('game-app');
         return app.querySelector('.title').textContent.trim();
       });
-      expect(title).toBe('Wordle');
+      expect(title).toBe('Left Wordle');
 
       const buttonIds = await page.evaluate(() => {
         const app = document.querySelector('game-app');
@@ -581,7 +581,7 @@ test.describe('Wordle E2E Tests', () => {
       }, { timeout: 3000 });
     });
 
-    test('settings page shows 4 toggle switches with visible sliders', async ({ page }) => {
+    test('settings page shows 3 toggle switches with visible sliders', async ({ page }) => {
       await freshGame(page);
       await dismissHelpModal(page);
 
@@ -616,7 +616,7 @@ test.describe('Wordle E2E Tests', () => {
         });
       });
 
-      expect(switchInfo).toHaveLength(4);
+      expect(switchInfo).toHaveLength(3);
       for (const sw of switchInfo) {
         expect(sw.hasSwitchDiv).toBe(true);
         expect(sw.hasKnob).toBe(true);
