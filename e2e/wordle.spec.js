@@ -336,6 +336,99 @@ test.describe('Wordle E2E Tests', () => {
 
   // ─── 6. Valid Guess Evaluation ────────────────────────────────────────────
   test.describe('Valid Guess Evaluation', () => {
+    test('uses API evaluations as authoritative when enabled', async ({ page }) => {
+      await page.addInitScript(() => {
+        window.LEFT_WORDLE_CONFIG = {
+          apiGameplayEnabled: true,
+          apiGameplayShadowMode: false,
+          localGameplayFallbackEnabled: true
+        };
+      });
+      await page.route('http://localhost:9292/api/game/guess', async route => {
+        const payload = route.request().postDataJSON();
+        const epoch = Date.parse('2021-06-19T00:00:00Z');
+        const puzzleNum = Math.floor((Date.parse(payload.date + 'T00:00:00Z') - epoch) / 86400000);
+        await route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({
+            date: payload.date,
+            evaluation: ['correct', 'correct', 'correct', 'correct', 'correct'],
+            game_status: 'WIN',
+            puzzle_num: puzzleNum,
+            row_index: payload.row_index + 1,
+            solution: payload.guess
+          })
+        });
+      });
+      await freshGame(page);
+      await dismissHelpModal(page);
+
+      const localSolution = await getSolution(page);
+      const guess = VALID_WORDS.find(word => word !== localSolution);
+      await submitWord(page, guess);
+      await waitForRowEvaluation(page);
+      await waitForTileReveal(page, 0);
+
+      expect(await getRowTileStates(page, 0)).toEqual([
+        'correct', 'correct', 'correct', 'correct', 'correct'
+      ]);
+      expect(await page.evaluate(() => document.querySelector('game-app').gameStatus)).toBe('WIN');
+      expect(await page.evaluate(() => document.querySelector('game-app').solution)).toBe(guess);
+    });
+
+    test('keeps API validation errors authoritative', async ({ page }) => {
+      let requestCount = 0;
+      await page.addInitScript(() => {
+        window.LEFT_WORDLE_CONFIG = {
+          apiGameplayEnabled: true,
+          apiGameplayShadowMode: false,
+          localGameplayFallbackEnabled: true
+        };
+      });
+      await page.route('http://localhost:9292/api/game/guess', async route => {
+        requestCount += 1;
+        await route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Not in word list' })
+        });
+      });
+      await freshGame(page);
+      await dismissHelpModal(page);
+
+      await submitWord(page, 'zzzzz');
+      await expect.poll(() => requestCount).toBe(1);
+      await expect.poll(() => page.evaluate(() => {
+        const toast = document.querySelector('game-app #game-toaster game-toast');
+        return toast ? toast.getAttribute('text') : null;
+      })).toBe('Not in word list');
+
+      expect(await page.evaluate(() => document.querySelector('game-app').rowIndex)).toBe(0);
+      expect(await getRowTileLetters(page, 0)).toEqual(['z', 'z', 'z', 'z', 'z']);
+    });
+
+    test('falls back to local evaluation for network failures', async ({ page }) => {
+      await page.addInitScript(() => {
+        window.LEFT_WORDLE_CONFIG = {
+          apiGameplayEnabled: true,
+          apiGameplayShadowMode: false,
+          localGameplayFallbackEnabled: true
+        };
+      });
+      await page.route('http://localhost:9292/api/game/guess', route => route.abort());
+      await freshGame(page);
+      await dismissHelpModal(page);
+
+      const solution = await getSolution(page);
+      const guess = VALID_WORDS.find(word => word !== solution);
+      await submitWord(page, guess);
+      await waitForRowEvaluation(page);
+
+      expect(await page.evaluate(() => document.querySelector('game-app').rowIndex)).toBe(1);
+      const states = await getRowTileStates(page, 0);
+      states.forEach(state => expect(['correct', 'present', 'absent']).toContain(state));
+    });
+
     test('submits valid guesses to the API in shadow mode', async ({ page }) => {
       const shadowRequests = [];
       await page.route('http://localhost:9292/api/game/guess', async route => {

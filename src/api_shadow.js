@@ -80,7 +80,7 @@
     var config = window.LEFT_WORDLE_CONFIG || {};
     window.LeftWordleApi.shadow = new ApiShadowEvaluator({
         client: window.LeftWordleApi.client,
-        enabled: config.apiGameplayShadowMode
+        enabled: config.apiGameplayShadowMode && !config.apiGameplayEnabled
     });
     window.LeftWordleApi.ApiShadowEvaluator = ApiShadowEvaluator;
 })();

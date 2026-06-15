@@ -7,7 +7,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:e2e": "npx playwright test",
-    "lint": "eslint app_config.js src/api_client.js src/api_shadow.js src/savemenu.js src/storage-controller.js src/wordle.js"
+    "lint": "eslint app_config.js src/api_client.js src/api_gameplay.js src/api_shadow.js src/savemenu.js src/storage-controller.js src/wordle.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

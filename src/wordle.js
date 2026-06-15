@@ -1175,98 +1175,137 @@
             }
         }
 
-        evaluateRow() {
-            if (5 === this.tileIndex && !(this.rowIndex >= 6)) {
-                var row = this.$board.querySelectorAll("game-row")[this.rowIndex];
-                var guess = this.boardState[this.rowIndex];
-                if (!valid_guesses.includes(guess) && !answer_list.includes(guess)) {
-                    row.setAttribute("invalid", "");
-                    this.addToast("Not in word list");
-                    return;
-                }
-                if (this.hardMode) {
-                    var hardModeResult = GameEvaluator.validateHardMode(
-                        guess,
-                        this.boardState[this.rowIndex - 1],
-                        this.evaluations[this.rowIndex - 1]
-                    );
-                    var validGuess = hardModeResult.validGuess;
-                    var errorMessage = hardModeResult.errorMessage;
-                    if (!validGuess) {
-                        row.setAttribute("invalid", "");
-                        this.addToast(errorMessage || "Not valid in hard mode");
-                        return;
-                    }
-                }
-                var evaluation = GameEvaluator.evaluateGuess(guess, this.solution);
-                var evaluatedRowIndex = this.rowIndex;
-                this.evaluations[this.rowIndex] = evaluation;
-                this.letterEvaluations = GameEvaluator.aggregateLetterEvaluations(this.boardState, this.evaluations);
-                row.evaluation = this.evaluations[this.rowIndex];
-                this.rowIndex += 1;
-                var outOfGuesses = this.rowIndex >= 6;
-                var isCorrect = evaluation.every(function(val) {
-                    return val === "correct";
-                });
-                if (outOfGuesses || isCorrect) {
-                    var isStreak = !!this.lastCompletedTs &&
-                        DateUtils.calculateDaysBetween(new Date(this.lastCompletedTs), new Date) === 1;
-                    StatisticsEngine.updateStatistics({
-                        isWin: isCorrect,
-                        isStreak: isStreak,
-                        numGuesses: this.rowIndex,
-                        puzzleNum: this.dayOffset,
-                        date: DateUtils.formatLocalDate(this.today),
-                        answer: this.solution,
-                        mode: this.hardMode ? "hard" : "regular",
-                        hardMode: this.hardMode,
-                        starter: this.boardState && this.boardState[0] ? this.boardState[0] : null
-                    });
-                    GameStateManager.saveGameState({
-                        lastCompletedTs: Date.now(),
-                        puzzleNum: this.dayOffset,
-                        date: DateUtils.formatLocalDate(this.today)
-                    });
-                    if (isCorrect) {
-                        this.gameStatus = GAME_STATUS_WIN;
-                    } else {
-                        this.gameStatus = GAME_STATUS_FAIL;
-                    }
-                    gtag("event", "level_end", {
-                        level_name: StringUtils.encodeWord(this.solution),
-                        num_guesses: this.rowIndex,
-                        success: isCorrect
-                    });
-                }
-                this.tileIndex = 0;
-                this.canInput = false;
-                var saveData = {
-                    rowIndex: this.rowIndex,
-                    boardState: this.boardState,
-                    evaluations: this.evaluations,
-                    solution: this.solution,
-                    gameStatus: this.gameStatus,
-                    lastPlayedTs: Date.now(),
+        applyEvaluation(row, guess, evaluatedRowIndex, result) {
+            var evaluation = result.evaluation;
+            this.evaluations[evaluatedRowIndex] = evaluation;
+            this.letterEvaluations = GameEvaluator.aggregateLetterEvaluations(this.boardState, this.evaluations);
+            row.evaluation = evaluation;
+            this.rowIndex = result.rowIndex;
+            this.gameStatus = result.gameStatus;
+
+            var gameOver = this.gameStatus === GAME_STATUS_WIN || this.gameStatus === GAME_STATUS_FAIL;
+            if (gameOver) {
+                this.solution = result.solution;
+                var isCorrect = this.gameStatus === GAME_STATUS_WIN;
+                var isStreak = !!this.lastCompletedTs &&
+                    DateUtils.calculateDaysBetween(new Date(this.lastCompletedTs), new Date) === 1;
+                StatisticsEngine.updateStatistics({
+                    isWin: isCorrect,
+                    isStreak: isStreak,
+                    numGuesses: this.rowIndex,
+                    puzzleNum: this.dayOffset,
+                    date: DateUtils.formatLocalDate(this.today),
+                    answer: this.solution,
+                    mode: this.hardMode ? "hard" : "regular",
                     hardMode: this.hardMode,
+                    starter: this.boardState && this.boardState[0] ? this.boardState[0] : null
+                });
+                GameStateManager.saveGameState({
+                    lastCompletedTs: Date.now(),
                     puzzleNum: this.dayOffset,
                     date: DateUtils.formatLocalDate(this.today)
-                };
-                if (this.gameStatus !== GAME_STATUS_IN_PROGRESS) {
-                    saveData.completedInHardMode = this.hardMode;
+                });
+                gtag("event", "level_end", {
+                    level_name: StringUtils.encodeWord(this.solution),
+                    num_guesses: this.rowIndex,
+                    success: isCorrect
+                });
+            }
+
+            this.tileIndex = 0;
+            var saveData = {
+                rowIndex: this.rowIndex,
+                boardState: this.boardState,
+                evaluations: this.evaluations,
+                solution: this.solution,
+                gameStatus: this.gameStatus,
+                lastPlayedTs: Date.now(),
+                hardMode: this.hardMode,
+                puzzleNum: this.dayOffset,
+                date: DateUtils.formatLocalDate(this.today)
+            };
+            if (gameOver) saveData.completedInHardMode = this.hardMode;
+            GameStateManager.saveGameState(saveData);
+
+            if (result.source === "local" && window.LeftWordleApi && window.LeftWordleApi.shadow) {
+                window.LeftWordleApi.shadow.submit({
+                    date: DateUtils.formatLocalDate(this.today),
+                    evaluation: evaluation.slice(),
+                    gameStatus: this.gameStatus,
+                    guess: guess,
+                    puzzleNum: this.dayOffset,
+                    rowIndex: evaluatedRowIndex,
+                    solution: this.solution
+                });
+            }
+        }
+
+        async evaluateRow() {
+            if (this.tileIndex !== 5 || this.rowIndex >= 6) return;
+
+            var evaluatedRowIndex = this.rowIndex;
+            var row = this.$board.querySelectorAll("game-row")[evaluatedRowIndex];
+            var guess = this.boardState[evaluatedRowIndex];
+            if (this.hardMode) {
+                var hardModeResult = GameEvaluator.validateHardMode(
+                    guess,
+                    this.boardState[evaluatedRowIndex - 1],
+                    this.evaluations[evaluatedRowIndex - 1]
+                );
+                if (!hardModeResult.validGuess) {
+                    row.setAttribute("invalid", "");
+                    this.addToast(hardModeResult.errorMessage || "Not valid in hard mode");
+                    return;
                 }
-                GameStateManager.saveGameState(saveData);
-                if (window.LeftWordleApi && window.LeftWordleApi.shadow) {
-                    window.LeftWordleApi.shadow.submit({
-                        date: DateUtils.formatLocalDate(this.today),
-                        evaluation: evaluation.slice(),
-                        gameStatus: this.gameStatus,
-                        guess: guess,
+            }
+
+            this.canInput = false;
+            try {
+                var result = await window.LeftWordleApi.gameplay.evaluate({
+                    date: DateUtils.formatLocalDate(this.today),
+                    guess: guess,
+                    puzzleNum: this.dayOffset,
+                    rowIndex: evaluatedRowIndex
+                }, () => this.localEvaluation(guess, evaluatedRowIndex));
+                this.applyEvaluation(row, guess, evaluatedRowIndex, result);
+            } catch (error) {
+                this.canInput = true;
+                if (error && error.status === 400) {
+                    row.setAttribute("invalid", "");
+                    this.addToast(error.detail || "Not in word list");
+                } else {
+                    this.addToast("Unable to check guess", 2000, true);
+                    console.warn("Left Wordle API gameplay request failed", {
+                        code: error && error.code ? error.code : "request_failed",
                         puzzleNum: this.dayOffset,
+                        retryable: !!(error && error.retryable),
                         rowIndex: evaluatedRowIndex,
-                        solution: this.solution
+                        status: error && error.status ? error.status : null
                     });
                 }
             }
+        }
+
+        localEvaluation(guess, evaluatedRowIndex) {
+            if (!valid_guesses.includes(guess) && !answer_list.includes(guess)) {
+                return { error: "Not in word list" };
+            }
+
+            var evaluation = GameEvaluator.evaluateGuess(guess, this.solution);
+            var gameStatus = GAME_STATUS_IN_PROGRESS;
+            if (evaluation.every(function(value) { return value === "correct"; })) {
+                gameStatus = GAME_STATUS_WIN;
+            } else if (evaluatedRowIndex >= 5) {
+                gameStatus = GAME_STATUS_FAIL;
+            }
+            return {
+                date: DateUtils.formatLocalDate(this.today),
+                evaluation: evaluation,
+                gameStatus: gameStatus,
+                puzzleNum: this.dayOffset,
+                rowIndex: evaluatedRowIndex + 1,
+                solution: gameStatus === GAME_STATUS_IN_PROGRESS ? null : this.solution
+            };
         }
 
         addLetter(letter) {

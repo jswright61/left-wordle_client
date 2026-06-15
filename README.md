@@ -22,6 +22,11 @@ API gameplay remains locally authoritative. Shadow mode defaults on for local
 development and off for deployed hosts; it compares API evaluations in the
 background without changing the result shown to the player.
 
+Set `apiGameplayEnabled` to `true` in a deployment override to make validated
+API responses authoritative. `localGameplayFallbackEnabled` permits local
+evaluation only for retryable API failures or invalid API response contracts;
+API validation errors remain authoritative.
+
 [wordle](https://www.powerlanguage.co.uk/wordle/), with a save and load button added, made into a single file (from `/src`) using [monolith](https://github.com/Y2Z/monolith)
 
 mostly just unminifying the existing code, using some patterns from the original html/css, and exporting and loading the localStorage 'statistics' object.

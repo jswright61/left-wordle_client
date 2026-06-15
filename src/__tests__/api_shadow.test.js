@@ -8,7 +8,10 @@ function loadShadow(options) {
         runScripts: 'outside-only',
         url: 'http://localhost:3000/'
     });
-    dom.window.LEFT_WORDLE_CONFIG = { apiGameplayShadowMode: options.enabled !== false };
+    dom.window.LEFT_WORDLE_CONFIG = {
+        apiGameplayEnabled: options.gameplayEnabled === true,
+        apiGameplayShadowMode: options.enabled !== false
+    };
     dom.window.LeftWordleApi = { client: options.client || { evaluateGuess: jest.fn() } };
     const code = fs.readFileSync(path.join(__dirname, '../api_shadow.js'), 'utf8');
     dom.window.eval(code);
@@ -87,6 +90,15 @@ describe('ApiShadowEvaluator', () => {
     test('does not submit when shadow mode is disabled', () => {
         const client = { evaluateGuess: jest.fn() };
         const dom = loadShadow({ client: client, enabled: false });
+
+        dom.window.LeftWordleApi.shadow.submit(expected());
+
+        expect(client.evaluateGuess).not.toHaveBeenCalled();
+    });
+
+    test('does not submit when API gameplay is authoritative', () => {
+        const client = { evaluateGuess: jest.fn() };
+        const dom = loadShadow({ client: client, gameplayEnabled: true });
 
         dom.window.LeftWordleApi.shadow.submit(expected());
 
