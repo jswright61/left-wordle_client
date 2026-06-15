@@ -352,10 +352,6 @@ class PuzzleResolver {
 class HistoryManager {
     constructor(resolver) {
         this.resolver = resolver;
-        this.HISTORY_KEY = "history";
-        this.LEGACY_STATS_KEY = "legacy_stats";
-        this.LEGACY_STATS_BACKUP_KEY = "legacy_stats_pre_history_authoritative";
-        this.STATISTICS_KEY = "statistics";
         this.HISTORY_AUTHORITATIVE_MODEL = "history_authoritative_v1";
         this.DEVICE_ID_KEY = "device_id";
     }
@@ -464,7 +460,6 @@ class HistoryManager {
         var currentLegacy = this.getLegacyStatsObject();
         this.backupLegacyStatsIfNeeded(currentLegacy);
         this.setLegacyStatsObject(this.createZeroLegacyForHistoryAuthoritative());
-        this.applyLegacySyncChangeNotification();
     }
 
     computeHistoryMinimums(history) {
@@ -710,32 +705,10 @@ class HistoryManager {
         return this.normalizeStatsTotals(raw);
     }
 
-    applyLegacySyncChangeNotification() {
-        if (!window.wordleSync || !window.wordleSync.enabled || typeof window.wordleSync.onDataChanged !== "function") {
-            return;
-        }
-        window.wordleSync.onDataChanged("legacy", {});
-    }
-
-    notifyHistoryChanged(puzzleNums) {
-        if (!window.wordleSync || !window.wordleSync.enabled || typeof window.wordleSync.onDataChanged !== "function") {
-            return;
-        }
-
-        var seen = Object.create(null);
-        puzzleNums.forEach(function(puzzleNum) {
-            if (seen[puzzleNum]) return;
-            seen[puzzleNum] = true;
-            window.wordleSync.onDataChanged("history", { puzzleNum: puzzleNum });
-        });
-    }
-
     recomputeStatisticsAfterHistoryImport() {
         if (window.wordleStats && typeof window.wordleStats.recompute === "function") {
             window.wordleStats.recompute();
-            return;
         }
-        window.wordleSyncNeedsStatsRefresh = true;
     }
 
     importRecords(rawRecords) {
@@ -776,7 +749,6 @@ class HistoryManager {
 
         if (changedPuzzleNums.length) {
             this.setHistoryObject(localHistory);
-            this.notifyHistoryChanged(changedPuzzleNums);
         }
 
         this.setHistoryAuthoritativeLegacyZeroed();
@@ -824,13 +796,6 @@ class SaveMenu {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
         }, 0);
-    }
-
-    static setButtonsDisabled(buttons, disabled) {
-        buttons.forEach(function(button) {
-            if (!button) return;
-            button.disabled = !!disabled;
-        });
     }
 
     openStatsModalFromSaveMenu() {
@@ -1149,7 +1114,6 @@ class SaveMenu {
                 self.historyManager.backupLegacyStatsIfNeeded(self.historyManager.getLegacyStatsObject());
 
                 self.historyManager.setLegacyStatsObject(nextLegacy);
-                self.historyManager.applyLegacySyncChangeNotification();
                 self.historyManager.recomputeStatisticsAfterHistoryImport();
                 self.closeAdjustStatsModal();
                 SaveMenu.showStatus(statusElement, "Stats adjustment applied", false);
@@ -1235,172 +1199,10 @@ class SaveMenu {
         }
     }
 
-    async refreshSyncStatus(statusElement, signoutButton, signinButton) {
-        var sync = window.wordleSync;
-        if (!sync || !sync.enabled) {
-            if (signoutButton) signoutButton.disabled = true;
-            SaveMenu.showStatus(statusElement, "Cloud sync is not configured in this build", false);
-            return;
-        }
-
-        try {
-            var signedIn = await sync.isSignedIn();
-            if (signoutButton) signoutButton.disabled = !signedIn;
-            if (signinButton) signinButton.disabled = signedIn;
-            if (!signedIn) {
-                SaveMenu.showStatus(statusElement, "Not signed in", false);
-                return;
-            }
-            var email = await sync.getUserEmail();
-            SaveMenu.showStatus(statusElement, "Signed in" + (email ? " as " + email : ""), false);
-        } catch (err) {
-            SaveMenu.showStatus(statusElement, "Unable to check sync status", true);
-        }
-    }
-
-    async sendMagicLink(statusElement, emailInput, operationButtons) {
-        var sync = window.wordleSync;
-        if (!sync || !sync.enabled) {
-            SaveMenu.showStatus(statusElement, "Cloud sync is not configured in this build", true);
-            return false;
-        }
-
-        var email = emailInput && emailInput.value ? emailInput.value.trim() : "";
-        if (!email) {
-            SaveMenu.showStatus(statusElement, "Enter an email address", true);
-            return false;
-        }
-
-        SaveMenu.setButtonsDisabled(operationButtons, true);
-        SaveMenu.showStatus(statusElement, "Sending...", false);
-
-        var success = false;
-        try {
-            var result = await sync.signInWithMagicLink(email);
-            if (result && result.error) {
-                SaveMenu.showStatus(statusElement, "Magic link failed: " + result.error.message, true);
-            } else {
-                success = true;
-            }
-        } catch (err) {
-            SaveMenu.showStatus(statusElement, "Magic link failed", true);
-        } finally {
-            SaveMenu.setButtonsDisabled(operationButtons, false);
-        }
-        return success;
-    }
-
-    async runManualSync(statusElement, operationButtons) {
-        var sync = window.wordleSync;
-        if (!sync || !sync.enabled) {
-            SaveMenu.showStatus(statusElement, "Cloud sync is not configured in this build", true);
-            return;
-        }
-
-        SaveMenu.setButtonsDisabled(operationButtons, true);
-        SaveMenu.showStatus(statusElement, "Syncing...", false);
-
-        try {
-            await sync.performSync({ mode: "full" });
-            SaveMenu.showStatus(statusElement, "Sync complete", false);
-        } catch (err) {
-            SaveMenu.showStatus(statusElement, "Sync failed", true);
-        } finally {
-            SaveMenu.setButtonsDisabled(operationButtons, false);
-        }
-    }
-
-    async runSignOut(statusElement, signoutButton, operationButtons) {
-        var sync = window.wordleSync;
-        if (!sync || !sync.enabled) {
-            SaveMenu.showStatus(statusElement, "Cloud sync is not configured in this build", true);
-            return;
-        }
-
-        SaveMenu.setButtonsDisabled(operationButtons, true);
-        if (signoutButton) signoutButton.disabled = true;
-
-        try {
-            await sync.signOut();
-            var modalEmailInput = document.getElementById("sync-email-input");
-            if (modalEmailInput) modalEmailInput.value = "";
-            var signinButton = document.getElementById("sync-signin-button");
-            if (signinButton) signinButton.disabled = false;
-            SaveMenu.showStatus(statusElement, "Signed out", false);
-        } catch (err) {
-            SaveMenu.showStatus(statusElement, "Sign out failed", true);
-        } finally {
-            SaveMenu.setButtonsDisabled(operationButtons, false);
-            // signoutButton stays disabled — now signed out
-        }
-    }
-
-    wireSyncUi(statusElement) {
-        var self = this;
-        var signinButton = document.getElementById("sync-signin-button");
-        var syncNowButton = document.getElementById("sync-now-button");
-        var signoutButton = document.getElementById("sync-signout-button");
-        var sendLinkModal = document.getElementById("send-link-modal");
-        var modalEmailInput = document.getElementById("sync-email-input");
-        var sendLinkSubmit = document.getElementById("send-link-submit");
-        var sendLinkCancel = document.getElementById("send-link-cancel");
-        var sendLinkStatus = document.getElementById("send-link-status");
-
-        // Buttons disabled during async operations (sign-out state managed separately)
-        var operationButtons = [signinButton, syncNowButton];
-
-        // Open the Send Link interstitial modal
-        if (signinButton) {
-            signinButton.addEventListener("click", async function() {
-                if (sendLinkStatus) sendLinkStatus.textContent = "";
-                // Pre-fill email if already signed in
-                if (modalEmailInput && !modalEmailInput.value && window.wordleSync && window.wordleSync.enabled) {
-                    try {
-                        var email = await window.wordleSync.getUserEmail();
-                        if (email) modalEmailInput.value = email;
-                    } catch(e) {}
-                }
-                if (sendLinkModal) sendLinkModal.classList.remove("hidden");
-            });
-        }
-
-        // Submit from the interstitial modal
-        if (sendLinkSubmit) {
-            sendLinkSubmit.addEventListener("click", async function() {
-                var sent = await self.sendMagicLink(sendLinkStatus, modalEmailInput, operationButtons);
-                if (sent) {
-                    if (sendLinkModal) sendLinkModal.classList.add("hidden");
-                    SaveMenu.showStatus(statusElement, "Magic link sent. Check your email.", false);
-                }
-            });
-        }
-
-        // Cancel the interstitial modal
-        if (sendLinkCancel) {
-            sendLinkCancel.addEventListener("click", function() {
-                if (sendLinkModal) sendLinkModal.classList.add("hidden");
-            });
-        }
-
-        if (syncNowButton) {
-            syncNowButton.addEventListener("click", function() {
-                self.runManualSync(statusElement, operationButtons);
-            });
-        }
-
-        if (signoutButton) {
-            signoutButton.addEventListener("click", function() {
-                self.runSignOut(statusElement, signoutButton, operationButtons);
-            });
-        }
-
-        this.refreshSyncStatus(statusElement, signoutButton, signinButton);
-    }
-
     init() {
         var closeButton = document.getElementById("save-close");
         var saveModal = document.querySelector("#save");
-        var statusElement = document.getElementById("sync-status");
+        var statusElement = document.getElementById("save-status");
 
         if (closeButton && saveModal) {
             closeButton.addEventListener("click", function() {
@@ -1412,7 +1214,6 @@ class SaveMenu {
         this.wireHistoryImportExport(statusElement);
         this.wireHistoryImportSummaryModal();
         this.wireAdjustStatsModal(statusElement);
-        this.wireSyncUi(statusElement);
     }
 }
 

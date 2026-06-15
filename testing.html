@@ -111,24 +111,13 @@
 <p><a href="/" class="back-link">&larr; Back to Left Wordle</a></p>
 
 <div class="warning-box">
-    <p><strong>Work in Progress.</strong> Left Wordle's save/sync features are under active development. Functionality,
+    <p><strong>Work in Progress.</strong> Left Wordle's save features are under active development. Functionality,
         UI, and data formats are subject to change without notice.</p>
 </div>
 
 <div class="warning-box">
-    <p><strong>Cloud data is temporary.</strong> All cloud-synced data will be deleted when sync is promoted to
-        production. Do not rely on cloud sync as your only backup.</p>
-</div>
-
-<div class="warning-box">
-    <p><strong>Staging environment.</strong> Cloud sync testing takes place on <code>staging.left-wordle.com</code>.
-        The staging site connects to a shared Supabase project. If something breaks, clearing your browser's
-        localStorage for the staging site is a safe reset.</p>
-</div>
-
-<div class="warning-box">
-    <p><strong>Staging environment.</strong>The Words "Left Wordle" in the header will appear in yellow on the staging site, indicating
-    that you're on Staging. Stats and streaks <strong>Do Not Sync</strong> between staging and production. please
+    <p><strong>Staging environment.</strong> The words "Left Wordle" in the header will appear in yellow on the staging site, indicating
+    that you're on staging. Stats and streaks <strong>do not transfer</strong> between staging and production. Please
     continue to play in production daily to build your stats and keep your streak alive.
     </p>
 </div>
@@ -139,7 +128,7 @@
 <p>Open the save menu by clicking the <span class="icon-ref">
     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">
         <path fill="#878a8c" stroke="#86888a" stroke-width="1.5" d="M3,20.05V3.72H17.48L21,7.58V20.05ZM6.85,9.64m0-5.92V9.64h8.23V3.72m-2.76,0v4M6.85,13.11h8.23M6.85,16.46H17.13"/>
-    </svg> <strong>Save / Sync</strong></span> button to the immediate right of "Left Wordle" in the header.</p>
+    </svg> <strong>Save</strong></span> button to the immediate right of "Left Wordle" in the header.</p>
 
 <h3>1a. Export History</h3>
 <ol>
@@ -228,69 +217,7 @@
 </ol>
 
 <!-- ───────────────────────────────────────────────── -->
-<h2><span class="section-num">2</span> Cloud Sync</h2>
-
-<div class="info-box">
-    <p>Cloud sync is available on <strong>staging.left-wordle.com</strong>. It is not yet enabled on the production site.</p>
-</div>
-
-<h3>2a. Sign In</h3>
-<ol>
-    <li>Open the save menu on <code>staging.left-wordle.com</code>.</li>
-    <li>Scroll to the <strong>Cloud Sync (Beta)</strong> section.</li>
-    <li>Enter your email address and click <strong>Send Magic Link</strong>.</li>
-    <li>Check your inbox for the magic link email and click the link.</li>
-    <li>You should be redirected to a brief "Completing Sync Sign-In..." page, then back to the game.</li>
-    <li>Reopen the save menu — it should now show "Signed in as [your email]".</li>
-</ol>
-
-<h3>2b. Basic Sync — Single Device</h3>
-<ol>
-    <li>Sign in on staging (see 2a).</li>
-    <li>Play a game to completion.</li>
-    <li>Open the save menu and click <strong>Sync Now</strong>.</li>
-    <li>Clear localStorage for the staging site, then reload the page.</li>
-    <li>Sign in again with the same email.</li>
-    <li>Your game history and statistics should be restored from the cloud.</li>
-</ol>
-
-<h3>2c. Cross-Device Sync</h3>
-<ol>
-    <li>Sign in on Device A (or Browser A) and play a game.</li>
-    <li>Click <strong>Sync Now</strong> on Device A.</li>
-    <li>Sign in with the same email on Device B (or a different browser / incognito window).</li>
-    <li>After sign-in, your history and stats from Device A should appear on Device B.</li>
-    <li>Play a game on Device B and sync.</li>
-    <li>Return to Device A, click <strong>Sync Now</strong>, and confirm the new game appears.</li>
-</ol>
-
-<h3>2d. In-Progress Game Sync</h3>
-<ol>
-    <li>Start today's puzzle on Device A (make 2-3 guesses but don't finish).</li>
-    <li>Sync on Device A.</li>
-    <li>Open Device B, sign in with the same email.</li>
-    <li>Today's puzzle should load with the same guesses already on the board.</li>
-    <li>Finish the game on Device B and sync.</li>
-    <li>Return to Device A and sync — the completed game should appear.</li>
-</ol>
-
-<h3>2e. Background Sync</h3>
-<ol>
-    <li>Sign in and start a game.</li>
-    <li>After each guess, changes should sync automatically in the background (within ~1 second).</li>
-    <li>You can verify this by watching the browser's Network tab in DevTools for Supabase API calls after each guess.</li>
-</ol>
-
-<h3>2f. Sign Out</h3>
-<ol>
-    <li>Open the save menu while signed in.</li>
-    <li>Click <strong>Sign Out</strong>.</li>
-    <li>The sync section should return to the email input form.</li>
-    <li>Local data should remain intact after sign-out.</li>
-</ol>
-
-<!-- ───────────────────────────────────────────────── -->
-<h2><span class="section-num">3</span> General Testing Notes</h2>
+<h2><span class="section-num">2</span> General Testing Notes</h2>
 
 <h3>Reporting Issues</h3>
 <p>The best way to report a bug is to email me: scott at left-wordle dot com</p>

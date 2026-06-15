@@ -66,7 +66,7 @@
                         Left Wordle
                     </div>
                     <div class="menu">
-                        <button id="save-button" class="icon" aria-label="save" title="Save / Sync">
+                        <button id="save-button" class="icon" aria-label="save" title="Save">
                             <game-icon icon="save"></game-icon>
                         </button>
                         <button id="statistics-button" class="icon" aria-label="statistics" title="Statistics">
@@ -130,33 +130,8 @@
       <hr class="save-divider">
     </section>
     <section>
-      <h2 class="save-section-heading">Cloud Sync <span class="save-beta-badge">Beta</span></h2>
-      <div class="save-row">
-        <button class="save-item-left save-action-button" id="sync-signin-button" type="button"
-                title="Sign in to enable cloud sync across devices using a magic link.">Send Link</button>
-        <button class="save-item-center save-action-button" id="sync-now-button" type="button"
-                title="Manually trigger a sync with the cloud.">Sync Now</button>
-        <button class="save-item-right save-action-button" id="sync-signout-button" type="button"
-                title="Sign out of cloud sync." disabled>Sign Out</button>
-      </div>
-      <hr class="save-divider">
+      <div id="save-status" class="save-status-message"></div>
     </section>
-    <section>
-      <div id="sync-status" class="save-status-message"></div>
-    </section>
-  </div>
-  <div id="send-link-modal" class="save-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="send-link-modal-title">
-    <div class="save-inline-modal-card">
-      <h3 id="send-link-modal-title">Get a Magic Link to Sync a New Device or Browser</h3>
-      <p>Each device / browser needs its own magic link to sync. Use the same email address for all devices you wish to sync.</p>
-      <label for="sync-email-input">Email address</label>
-      <input id="sync-email-input" type="email" autocomplete="email" placeholder="you@example.com" />
-      <div id="send-link-status" class="description"></div>
-      <div class="save-inline-modal-actions">
-        <button id="send-link-submit" type="button">Send Link</button>
-        <button id="send-link-cancel" type="button">Cancel</button>
-      </div>
-    </div>
   </div>
   <div id="history-import-summary-modal" class="save-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="history-import-summary-title">
     <div class="save-inline-modal-card">
@@ -166,7 +141,7 @@
       <p id="history-import-summary-line3"></p>
       <p id="history-import-summary-line4"></p>
       <p>When you close this window, your updated stats will be shown.</p>
-      <p>If totals need correction, go to Save / Sync and choose Adjust Stats.</p>
+      <p>If totals need correction, go to Save and choose Adjust Stats.</p>
       <div id="history-import-summary-flagged" class="hidden">
         <h4>Flagged Rows (not imported)</h4>
         <div class="flagged-table-scroll">
@@ -400,9 +375,6 @@
     <script src="src/answer_list.js"></script>
     <script src="src/valid_guesses.js"></script>
     <script src="src/storage-controller.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="src/supabase-config.js"></script>
-    <script src="src/supabase-sync.js"></script>
     <script src="src/wordle.js"></script>
     <script src="src/savemenu.js"></script>
     <script>

@@ -1289,18 +1289,6 @@ game-icon {
     text-align: center;
 }
 
-#save .save-beta-badge {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    background: var(--color-tone-4);
-    color: var(--color-tone-2);
-    border-radius: 3px;
-    padding: 2px 5px;
-    vertical-align: middle;
-}
-
 #save .save-divider {
     border: none;
     border-top: 1px solid var(--color-tone-4);
@@ -1366,12 +1354,6 @@ game-icon {
     color: var(--color-tone-2);
     padding: 12px 0 4px;
     min-height: 20px;
-}
-
-#sync-email-input {
-    padding: 0.5em 0;
-    width: 100%;
-    margin-top: 8px;
 }
 
 #save .save-inline-modal {

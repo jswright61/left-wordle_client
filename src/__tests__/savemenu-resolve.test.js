@@ -237,9 +237,8 @@ describe('importRecords', () => {
     beforeEach(() => {
         dom.window.localStorage.clear();
         historyManager = new HistoryManager(resolver);
-        // Stub out recompute and sync notification so they don't error
+        // Stub out recompute so imports do not depend on the game script.
         dom.window.wordleStats = { recompute: function() {} };
-        dom.window.wordleSync = null;
     });
 
     test('flags rows that duplicate an existing history entry', () => {

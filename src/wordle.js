@@ -169,15 +169,10 @@
     }
     customElements.define("game-row", GameRow);
 
-    var DARK_THEME_KEY = "darkTheme",
-        COLOR_BLIND_THEME_KEY = "colorBlindTheme",
-        SHARE_TEXT_ADDITIONS_KEY = "shareTextAdditions",
-        DEFAULT_SHARE_TEXT_ADDITIONS = { header: "(Left Wordle)", afterGrid: "" },
-        SHARE_FORMAT_KEY = "shareFormat",
+    var DEFAULT_SHARE_TEXT_ADDITIONS = { header: "(Left Wordle)", afterGrid: "" },
         DEFAULT_SHARE_FORMAT = "grid";
 
     class GameStateManager {
-        static GAME_STATE_KEY = "gameState";
         static DEFAULT_GAME_STATE = {
             boardState: null,
             evaluations: null,
@@ -192,12 +187,6 @@
             restoringFromLocalStorage: null,
             hardMode: false
         };
-
-        static notifySyncChange(changeType, payload) {
-            if (window.wordleSync && window.wordleSync.enabled && typeof window.wordleSync.onDataChanged === "function") {
-                window.wordleSync.onDataChanged(changeType, payload || {});
-            }
-        }
 
         static deepMerge(target, source) {
             var result = Object.assign({}, target);
@@ -217,10 +206,6 @@
             if (Object.keys(StorageController.gameState.getAll()).length) return false;
             if (Object.keys(StorageController.history.getAll()).length) return false;
             if (Object.keys(StorageController.statistics.getAll()).length) return false;
-            var sbPattern = /^sb-[a-zA-Z0-9]+-auth-token$/;
-            for (var i = 0; i < window.localStorage.length; i++) {
-                if (sbPattern.test(window.localStorage.key(i))) return false;
-            }
             return true;
         }
 
@@ -277,11 +262,7 @@
                 body.classList.remove("nightmode");
             }
             this.isDarkTheme = enabled;
-            var previous = StorageController.preferences.get("darkTheme");
             StorageController.preferences.set("darkTheme", enabled);
-            if (previous !== enabled) {
-                GameStateManager.notifySyncChange("preference", { key: DARK_THEME_KEY });
-            }
         }
 
         setColorBlindTheme(enabled) {
@@ -292,11 +273,7 @@
                 body.classList.remove("colorblind");
             }
             this.isColorBlindTheme = enabled;
-            var previous = StorageController.preferences.get("colorBlindTheme");
             StorageController.preferences.set("colorBlindTheme", enabled);
-            if (previous !== enabled) {
-                GameStateManager.notifySyncChange("preference", { key: COLOR_BLIND_THEME_KEY });
-            }
         }
 
         connectedCallback() {
@@ -355,11 +332,7 @@
         }
 
         saveShareFormat(value) {
-            var previous = StorageController.preferences.get("shareFormat");
             StorageController.preferences.set("shareFormat", value);
-            if (previous !== value) {
-                GameStateManager.notifySyncChange("preference", { key: SHARE_FORMAT_KEY });
-            }
         }
 
         saveShareTextAdditions() {
@@ -369,11 +342,7 @@
                 header: headerVal,
                 afterGrid: afterGridVal
             };
-            var previous = StorageController.preferences.get("shareTextAdditions");
             StorageController.preferences.set("shareTextAdditions", additions);
-            if (JSON.stringify(previous) !== JSON.stringify(additions)) {
-                GameStateManager.notifySyncChange("preference", { key: SHARE_TEXT_ADDITIONS_KEY });
-            }
         }
 
         render() {
@@ -936,8 +905,6 @@
     }
 
     class HistoryManager {
-        static HISTORY_KEY = "history";
-        static LEGACY_STATS_KEY = "legacy_stats";
         static HISTORY_AUTHORITATIVE_MODEL = "history_authoritative_v1";
 
         static getHistory() {
@@ -953,12 +920,7 @@
         }
 
         static setLegacyStats(legacy) {
-            var next = legacy || {};
-            var previous = StorageController.legacyStats.get();
-            StorageController.legacyStats.set(next);
-            if (JSON.stringify(previous) !== JSON.stringify(next)) {
-                GameStateManager.notifySyncChange("legacy", {});
-            }
+            StorageController.legacyStats.set(legacy || {});
         }
 
         static buildLegacySnapshot(stats, cutoffDateStr) {
@@ -1064,7 +1026,6 @@
             if (shouldWrite) {
                 history[key] = entry;
                 HistoryManager.saveHistory(history);
-                GameStateManager.notifySyncChange("history", { puzzleNum: puzzleNum });
             } else if (existing) {
                 var updated = false;
                 if (!existing.answer && entry.answer) {
@@ -1083,7 +1044,6 @@
                     existing.updated_at = Date.now();
                     history[key] = existing;
                     HistoryManager.saveHistory(history);
-                    GameStateManager.notifySyncChange("history", { puzzleNum: puzzleNum });
                 }
             }
         }
@@ -1136,7 +1096,6 @@
     class GameApp extends HTMLElement {
         tileIndex = 0;
         rowIndex = 0;
-        openingSyncRequested = false;
         solution;
         boardState;
         evaluations;
@@ -1181,9 +1140,6 @@
                 this.boardState = state.boardState;
                 this.evaluations = state.evaluations;
                 this.rowIndex = state.rowIndex;
-                if (this.rowIndex > 0 || (this.boardState[0] && this.boardState[0].length > 0)) {
-                    this.openingSyncRequested = true;
-                }
                 this.solution = state.solution;
                 this.dayOffset = PuzzleUtils.getDayOffset(this.today);
                 this.letterEvaluations = GameEvaluator.aggregateLetterEvaluations(this.boardState, this.evaluations);
@@ -1298,7 +1254,6 @@
                     saveData.completedInHardMode = this.hardMode;
                 }
                 GameStateManager.saveGameState(saveData);
-                GameStateManager.notifySyncChange("game_state", { puzzleNum: this.dayOffset });
             }
         }
 
@@ -1306,14 +1261,6 @@
             if (this.gameStatus !== GAME_STATUS_IN_PROGRESS) return;
             if (!this.canInput) return;
             if (this.tileIndex >= 5) return;
-            if (!this.openingSyncRequested && this.rowIndex === 0 && this.tileIndex === 0 &&
-                window.wordleSync && window.wordleSync.enabled && typeof window.wordleSync.performSync === "function") {
-                this.openingSyncRequested = true;
-                window.wordleSync.performSync({ mode: "full" }).catch(function(err) {
-                    console.debug("Opening sync failed", err);
-                });
-            }
-
             this.boardState[this.rowIndex] += letter;
             var row = this.$board.querySelectorAll("game-row")[this.rowIndex];
             row.setAttribute("letters", this.boardState[this.rowIndex]);
@@ -1462,7 +1409,6 @@
                         puzzleNum: this.dayOffset,
                         date: DateUtils.formatLocalDate(this.today)
                     });
-                    GameStateManager.notifySyncChange("game_state", { puzzleNum: this.dayOffset });
                     return;
                 }
             });
@@ -2063,16 +2009,11 @@
     }
     customElements.define("countdown-timer", CountdownTimer);
 
-    // Sync layer can trigger a recompute after remote merge/update.
     window.wordleStats = {
         recompute: StatisticsEngine.recomputeAndPersistStatistics,
         compute: StatisticsEngine.computeStatisticsFromHistoryAndLegacy,
         computeHistoryOnly: StatisticsEngine.computeHistoryOnlyStatistics
     };
-    if (window.wordleSyncNeedsStatsRefresh) {
-        StatisticsEngine.recomputeAndPersistStatistics();
-        window.wordleSyncNeedsStatsRefresh = false;
-    }
 
     // Export pure functions for testing
     window.wordleTestExports = {
