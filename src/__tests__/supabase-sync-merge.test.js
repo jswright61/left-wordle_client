@@ -3,6 +3,7 @@ const path = require('path');
 const { JSDOM, VirtualConsole } = require('jsdom');
 
 const syncScriptPath = path.join(__dirname, '../supabase-sync.js');
+const storageControllerPath = path.join(__dirname, '../storage-controller.js');
 
 function deepClone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -202,6 +203,9 @@ function setupSyncTest(options) {
     Object.entries(options.local || {}).forEach(([key, value]) => {
         dom.window.localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
     });
+
+    const storageControllerCode = fs.readFileSync(storageControllerPath, 'utf8');
+    dom.window.eval(storageControllerCode);
 
     const code = fs.readFileSync(syncScriptPath, 'utf8');
     dom.window.eval(code);

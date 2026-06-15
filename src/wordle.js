@@ -192,7 +192,6 @@
             restoringFromLocalStorage: null,
             hardMode: false
         };
-        static DEVICE_ID_KEY = "device_id";
 
         static notifySyncChange(changeType, payload) {
             if (window.wordleSync && window.wordleSync.enabled && typeof window.wordleSync.onDataChanged === "function") {
@@ -214,36 +213,37 @@
         }
 
         static isNewUser() {
-            var knownKeys = ["device_id", "gameState", "history", "statistics"];
-            for (var i = 0; i < knownKeys.length; i++) {
-                if (window.localStorage.getItem(knownKeys[i]) !== null) return false;
-            }
+            if (StorageController.deviceId.get() !== null) return false;
+            if (Object.keys(StorageController.gameState.getAll()).length) return false;
+            if (Object.keys(StorageController.history.getAll()).length) return false;
+            if (Object.keys(StorageController.statistics.getAll()).length) return false;
             var sbPattern = /^sb-[a-zA-Z0-9]+-auth-token$/;
-            for (var j = 0; j < window.localStorage.length; j++) {
-                if (sbPattern.test(window.localStorage.key(j))) return false;
+            for (var i = 0; i < window.localStorage.length; i++) {
+                if (sbPattern.test(window.localStorage.key(i))) return false;
             }
             return true;
         }
 
         static getGameState() {
-            var stored = window.localStorage.getItem(GameStateManager.GAME_STATE_KEY) || JSON.stringify(GameStateManager.DEFAULT_GAME_STATE);
-            return JSON.parse(stored);
+            var stored = StorageController.gameState.getAll();
+            if (!stored || !Object.keys(stored).length) return Object.assign({}, GameStateManager.DEFAULT_GAME_STATE);
+            return stored;
         }
 
         static saveGameState(updates) {
             var current = GameStateManager.getGameState();
             var merged = GameStateManager.deepMerge(current, updates);
             merged.updatedAt = Date.now();
-            window.localStorage.setItem(GameStateManager.GAME_STATE_KEY, JSON.stringify(merged));
+            StorageController.gameState.replace(merged);
         }
 
         static getDeviceId() {
-            var existing = window.localStorage.getItem(GameStateManager.DEVICE_ID_KEY);
+            var existing = StorageController.deviceId.get();
             if (existing) return existing;
             var generated = (typeof crypto !== "undefined" && crypto.randomUUID) ?
                 crypto.randomUUID() :
                 Math.random().toString(36).slice(2) + Date.now().toString(36);
-            window.localStorage.setItem(GameStateManager.DEVICE_ID_KEY, generated);
+            StorageController.deviceId.set(generated);
             return generated;
         }
     }
@@ -254,9 +254,9 @@
 
         constructor() {
             super();
-            var darkStored = JSON.parse(window.localStorage.getItem(DARK_THEME_KEY));
+            var darkStored = StorageController.preferences.get("darkTheme");
             var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-            var cbStored = JSON.parse(window.localStorage.getItem(COLOR_BLIND_THEME_KEY));
+            var cbStored = StorageController.preferences.get("colorBlindTheme");
 
             if (darkStored === true || darkStored === false) {
                 this.setDarkTheme(darkStored);
@@ -277,10 +277,9 @@
                 body.classList.remove("nightmode");
             }
             this.isDarkTheme = enabled;
-            var next = JSON.stringify(enabled);
-            var prev = window.localStorage.getItem(DARK_THEME_KEY);
-            window.localStorage.setItem(DARK_THEME_KEY, next);
-            if (prev !== next) {
+            var previous = StorageController.preferences.get("darkTheme");
+            StorageController.preferences.set("darkTheme", enabled);
+            if (previous !== enabled) {
                 GameStateManager.notifySyncChange("preference", { key: DARK_THEME_KEY });
             }
         }
@@ -293,10 +292,9 @@
                 body.classList.remove("colorblind");
             }
             this.isColorBlindTheme = enabled;
-            var next = JSON.stringify(enabled);
-            var prev = window.localStorage.getItem(COLOR_BLIND_THEME_KEY);
-            window.localStorage.setItem(COLOR_BLIND_THEME_KEY, next);
-            if (prev !== next) {
+            var previous = StorageController.preferences.get("colorBlindTheme");
+            StorageController.preferences.set("colorBlindTheme", enabled);
+            if (previous !== enabled) {
                 GameStateManager.notifySyncChange("preference", { key: COLOR_BLIND_THEME_KEY });
             }
         }
@@ -357,9 +355,9 @@
         }
 
         saveShareFormat(value) {
-            var prev = window.localStorage.getItem(SHARE_FORMAT_KEY);
-            window.localStorage.setItem(SHARE_FORMAT_KEY, value);
-            if (prev !== value) {
+            var previous = StorageController.preferences.get("shareFormat");
+            StorageController.preferences.set("shareFormat", value);
+            if (previous !== value) {
                 GameStateManager.notifySyncChange("preference", { key: SHARE_FORMAT_KEY });
             }
         }
@@ -367,13 +365,13 @@
         saveShareTextAdditions() {
             var headerVal = this.querySelector("#share-header-append").value;
             var afterGridVal = this.querySelector("#share-after-grid").value;
-            var next = JSON.stringify({
+            var additions = {
                 header: headerVal,
                 afterGrid: afterGridVal
-            });
-            var prev = window.localStorage.getItem(SHARE_TEXT_ADDITIONS_KEY);
-            window.localStorage.setItem(SHARE_TEXT_ADDITIONS_KEY, next);
-            if (prev !== next) {
+            };
+            var previous = StorageController.preferences.get("shareTextAdditions");
+            StorageController.preferences.set("shareTextAdditions", additions);
+            if (JSON.stringify(previous) !== JSON.stringify(additions)) {
                 GameStateManager.notifySyncChange("preference", { key: SHARE_TEXT_ADDITIONS_KEY });
             }
         }
@@ -396,12 +394,11 @@
                 this.querySelector("#hard-mode").setAttribute("disabled", "");
             }
             // Share format preference
-            var shareFormat = window.localStorage.getItem(SHARE_FORMAT_KEY) || DEFAULT_SHARE_FORMAT;
+            var shareFormat = StorageController.preferences.get("shareFormat") || DEFAULT_SHARE_FORMAT;
             var formatRadio = this.querySelector('input[name="share-format"][value="' + shareFormat + '"]');
             if (formatRadio) formatRadio.checked = true;
             // Share text additions - use stored values or defaults
-            var stored = window.localStorage.getItem(SHARE_TEXT_ADDITIONS_KEY);
-            var shareAdditions = stored ? JSON.parse(stored) : DEFAULT_SHARE_TEXT_ADDITIONS;
+            var shareAdditions = StorageController.preferences.get("shareTextAdditions") || DEFAULT_SHARE_TEXT_ADDITIONS;
             this.querySelector("#share-header-append").value = shareAdditions.header || "";
             this.querySelector("#share-after-grid").value = shareAdditions.afterGrid || "";
         }
@@ -665,9 +662,10 @@
         };
 
         static getStatistics() {
-            var storedStats = window.localStorage.getItem("statistics") || JSON.stringify(StatisticsEngine.DEFAULT_STATISTICS);
-            console.debug('loaded stats', storedStats);
-            return JSON.parse(storedStats);
+            var stored = StorageController.statistics.getAll();
+            if (!stored || !Object.keys(stored).length) return JSON.parse(JSON.stringify(StatisticsEngine.DEFAULT_STATISTICS));
+            console.debug('loaded stats', stored);
+            return stored;
         }
 
         static isCurrentStreakAdjustmentActive(entries, streakAdjustment) {
@@ -863,7 +861,7 @@
 
         static recomputeAndPersistStatistics() {
             var stats = StatisticsEngine.computeStatisticsFromHistoryAndLegacy();
-            window.localStorage.setItem("statistics", JSON.stringify(stats));
+            StorageController.statistics.replace(stats);
             return stats;
         }
 
@@ -921,7 +919,7 @@
                 }, 0) / stats.gamesWon
             );
 
-            window.localStorage.setItem("statistics", JSON.stringify(stats));
+            StorageController.statistics.replace(stats);
 
             var result = gameResults.isWin ? gameResults.numGuesses : 7;
             HistoryManager.recordHistoryEntry({
@@ -943,35 +941,22 @@
         static HISTORY_AUTHORITATIVE_MODEL = "history_authoritative_v1";
 
         static getHistory() {
-            var stored = window.localStorage.getItem(HistoryManager.HISTORY_KEY);
-            if (!stored) return {};
-            try {
-                var parsed = JSON.parse(stored);
-                return parsed && typeof parsed === "object" ? parsed : {};
-            } catch (e) {
-                return {};
-            }
+            return StorageController.history.getAll();
         }
 
         static saveHistory(history) {
-            window.localStorage.setItem(HistoryManager.HISTORY_KEY, JSON.stringify(history));
+            StorageController.history.replace(history);
         }
 
         static getLegacyStats() {
-            var stored = window.localStorage.getItem(HistoryManager.LEGACY_STATS_KEY);
-            if (!stored) return null;
-            try {
-                return JSON.parse(stored);
-            } catch (e) {
-                return null;
-            }
+            return StorageController.legacyStats.get();
         }
 
         static setLegacyStats(legacy) {
-            var next = JSON.stringify(legacy || {});
-            var prev = window.localStorage.getItem(HistoryManager.LEGACY_STATS_KEY);
-            window.localStorage.setItem(HistoryManager.LEGACY_STATS_KEY, next);
-            if (prev !== next) {
+            var next = legacy || {};
+            var previous = StorageController.legacyStats.get();
+            StorageController.legacyStats.set(next);
+            if (JSON.stringify(previous) !== JSON.stringify(next)) {
                 GameStateManager.notifySyncChange("legacy", {});
             }
         }
@@ -1757,11 +1742,10 @@
             var rowIndex = gameResults.rowIndex;
             var isHardMode = gameResults.isHardMode;
             var isWin = gameResults.isWin;
-            var isDarkTheme = JSON.parse(window.localStorage.getItem(DARK_THEME_KEY));
-            var isColorBlind = JSON.parse(window.localStorage.getItem(COLOR_BLIND_THEME_KEY));
-            var stored = window.localStorage.getItem(SHARE_TEXT_ADDITIONS_KEY);
-            var shareAdditions = stored ? JSON.parse(stored) : DEFAULT_SHARE_TEXT_ADDITIONS;
-            var shareFormat = window.localStorage.getItem(SHARE_FORMAT_KEY) || DEFAULT_SHARE_FORMAT;
+            var isDarkTheme = StorageController.preferences.get("darkTheme");
+            var isColorBlind = StorageController.preferences.get("colorBlindTheme");
+            var shareAdditions = StorageController.preferences.get("shareTextAdditions") || DEFAULT_SHARE_TEXT_ADDITIONS;
+            var shareFormat = StorageController.preferences.get("shareFormat") || DEFAULT_SHARE_FORMAT;
 
             // Build header line: "Wordle 123 4/6 (1995p)" or "Wordle 123 X/6* (1995p)"
             var header = "Wordle " + dayOffset.toLocaleString();

@@ -16,6 +16,9 @@ dom.window.eval(answerListCode);
 // Set global constant that savemenu bootstrap expects (normally set by wordle.js)
 dom.window.PUZZLE_START_DATE = new Date(2021, 5, 19);
 
+const storageControllerCode = fs.readFileSync(path.join(__dirname, '../storage-controller.js'), 'utf8');
+dom.window.eval(storageControllerCode);
+
 // Load savemenu.js
 const savemenuCode = fs.readFileSync(path.join(__dirname, '../savemenu.js'), 'utf8');
 dom.window.eval(savemenuCode);

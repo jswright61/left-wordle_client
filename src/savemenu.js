@@ -396,36 +396,19 @@ class HistoryManager {
     }
 
     getHistoryObject() {
-        var raw = window.localStorage.getItem(this.HISTORY_KEY);
-        if (!raw) return {};
-        var parsed = this.resolver.safeParseJSON(raw, {});
-        if (!parsed || typeof parsed !== "object") return {};
-
-        if (Array.isArray(parsed)) {
-            var mapped = {};
-            parsed.forEach(function(entry) {
-                if (entry && entry.puzzle_num !== undefined && entry.puzzle_num !== null) {
-                    mapped[String(entry.puzzle_num)] = entry;
-                }
-            });
-            return mapped;
-        }
-        return parsed;
+        return StorageController.history.getAll();
     }
 
     setHistoryObject(history) {
-        window.localStorage.setItem(this.HISTORY_KEY, JSON.stringify(history || {}));
+        StorageController.history.replace(history || {});
     }
 
     getLegacyStatsObject() {
-        var raw = window.localStorage.getItem(this.LEGACY_STATS_KEY);
-        if (!raw) return {};
-        var parsed = this.resolver.safeParseJSON(raw, {});
-        return parsed && typeof parsed === "object" ? parsed : {};
+        return StorageController.legacyStats.get() || {};
     }
 
     setLegacyStatsObject(legacy) {
-        window.localStorage.setItem(this.LEGACY_STATS_KEY, JSON.stringify(legacy || {}));
+        StorageController.legacyStats.set(legacy || {});
     }
 
     createZeroTotals() {
@@ -473,8 +456,8 @@ class HistoryManager {
         if (!currentLegacy || typeof currentLegacy !== "object") return;
         if (!Object.keys(currentLegacy).length) return;
         if (currentLegacy.model === this.HISTORY_AUTHORITATIVE_MODEL) return;
-        if (window.localStorage.getItem(this.LEGACY_STATS_BACKUP_KEY) !== null) return;
-        window.localStorage.setItem(this.LEGACY_STATS_BACKUP_KEY, JSON.stringify(currentLegacy));
+        if (StorageController.legacyStatsBackup.get() !== null) return;
+        StorageController.legacyStatsBackup.set(currentLegacy);
     }
 
     setHistoryAuthoritativeLegacyZeroed() {
@@ -722,7 +705,8 @@ class HistoryManager {
         if (window.wordleStats && typeof window.wordleStats.compute === "function") {
             return this.normalizeStatsTotals(window.wordleStats.compute());
         }
-        var raw = this.resolver.safeParseJSON(window.localStorage.getItem(this.STATISTICS_KEY), HistoryManager.toDefaultStats());
+        var raw = StorageController.statistics.getAll();
+        if (!raw || !Object.keys(raw).length) raw = HistoryManager.toDefaultStats();
         return this.normalizeStatsTotals(raw);
     }
 
@@ -1182,7 +1166,9 @@ class SaveMenu {
         if (saveButton) {
             saveButton.addEventListener("click", function() {
                 SaveMenu.flashElement(saveButton);
-                var stats = window.localStorage.getItem("statistics") || JSON.stringify(HistoryManager.toDefaultStats());
+                var statsObject = StorageController.statistics.getAll();
+                if (!statsObject || !Object.keys(statsObject).length) statsObject = HistoryManager.toDefaultStats();
+                var stats = JSON.stringify(statsObject);
                 SaveMenu.createDownload(
                     "wordle_stats_" + self.resolver.formatLocalDate(new Date()) + ".json",
                     stats,
@@ -1200,7 +1186,7 @@ class SaveMenu {
                 file.text().then(function(text) {
                     var json = self.resolver.safeParseJSON(text, null);
                     if (!json) throw new Error("Invalid JSON");
-                    window.localStorage.setItem("statistics", JSON.stringify(json));
+                    StorageController.statistics.replace(json);
                     SaveMenu.showStatus(statusElement, "Statistics loaded. Reloading...", false);
                     window.location.reload();
                 }).catch(function(err) {

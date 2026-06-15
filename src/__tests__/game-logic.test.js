@@ -62,6 +62,9 @@ dom.window.eval(answerListCode);
 const validGuessesCode = fs.readFileSync(validGuessesPath, 'utf8');
 dom.window.eval(validGuessesCode);
 
+const storageControllerCode = fs.readFileSync(path.join(__dirname, '../storage-controller.js'), 'utf8');
+dom.window.eval(storageControllerCode);
+
 // Now load wordle.js
 const wordleCode = fs.readFileSync(wordleJsPath, 'utf8');
 dom.window.eval(wordleCode);
@@ -508,8 +511,7 @@ describe('validateHardMode (extracted IIFE)', () => {
 
 describe('buildShareText (extracted IIFE)', () => {
     beforeEach(() => {
-        dom.window.localStorage.removeItem('darkTheme');
-        dom.window.localStorage.removeItem('colorBlindTheme');
+        dom.window.StorageController.preferences.clear();
     });
 
     test('builds header with puzzle number and guess count', () => {
@@ -575,7 +577,7 @@ describe('buildShareText (extracted IIFE)', () => {
     });
 
     test('uses dark squares when dark theme is set', () => {
-        dom.window.localStorage.setItem('darkTheme', 'true');
+        dom.window.StorageController.preferences.set('darkTheme', true);
         var result = buildShareText({
             evaluations: [
                 [ABSENT, ABSENT, ABSENT, ABSENT, ABSENT],
@@ -591,7 +593,7 @@ describe('buildShareText (extracted IIFE)', () => {
     });
 
     test('uses colorblind squares when colorblind mode is set', () => {
-        dom.window.localStorage.setItem('colorBlindTheme', 'true');
+        dom.window.StorageController.preferences.set('colorBlindTheme', true);
         var result = buildShareText({
             evaluations: [
                 [CORRECT, PRESENT, ABSENT, ABSENT, ABSENT],

@@ -383,24 +383,22 @@ class SyncStore {
     // ── History ──
 
     getLocalHistory() {
-        var stored = window.localStorage.getItem(this.HISTORY_KEY);
-        var parsed = stored ? this.logic.safeParseJSON(stored, {}) : {};
-        return this.logic.normalizeHistory(parsed);
+        return this.logic.normalizeHistory(StorageController.history.getAll());
     }
 
     setLocalHistory(history) {
-        window.localStorage.setItem(this.HISTORY_KEY, JSON.stringify(history || {}));
+        StorageController.history.replace(history || {});
     }
 
     // ── Game state ──
 
     getLocalGameState() {
-        return this.logic.safeParseJSON(window.localStorage.getItem(this.GAME_STATE_KEY), {}) || {};
+        return StorageController.gameState.getAll();
     }
 
     setLocalGameState(state) {
         if (!state || typeof state !== "object") return;
-        window.localStorage.setItem(this.GAME_STATE_KEY, JSON.stringify(state));
+        StorageController.gameState.replace(state);
     }
 
     getLocalGameStateForProfile() {
@@ -439,29 +437,29 @@ class SyncStore {
 
     getLocalPreferences() {
         return {
-            darkTheme: this.logic.parseStoredBool(window.localStorage.getItem(this.DARK_THEME_KEY), null),
-            colorBlindTheme: this.logic.parseStoredBool(window.localStorage.getItem(this.COLOR_BLIND_THEME_KEY), null),
-            shareTextAdditions: this.logic.safeParseJSON(window.localStorage.getItem(this.SHARE_TEXT_ADDITIONS_KEY), {
+            darkTheme: StorageController.preferences.get("darkTheme"),
+            colorBlindTheme: StorageController.preferences.get("colorBlindTheme"),
+            shareTextAdditions: StorageController.preferences.get("shareTextAdditions") || {
                 header: "(Left Wordle)",
                 afterGrid: ""
-            }),
-            shareFormat: window.localStorage.getItem(this.SHARE_FORMAT_KEY) || "grid"
+            },
+            shareFormat: StorageController.preferences.get("shareFormat") || "grid"
         };
     }
 
     setLocalPreferences(prefs) {
         prefs = prefs || {};
         if (prefs.darkTheme !== undefined) {
-            window.localStorage.setItem(this.DARK_THEME_KEY, JSON.stringify(prefs.darkTheme));
+            StorageController.preferences.set("darkTheme", prefs.darkTheme);
         }
         if (prefs.colorBlindTheme !== undefined) {
-            window.localStorage.setItem(this.COLOR_BLIND_THEME_KEY, JSON.stringify(prefs.colorBlindTheme));
+            StorageController.preferences.set("colorBlindTheme", prefs.colorBlindTheme);
         }
         if (prefs.shareTextAdditions !== undefined) {
-            window.localStorage.setItem(this.SHARE_TEXT_ADDITIONS_KEY, JSON.stringify(prefs.shareTextAdditions || { header: "", afterGrid: "" }));
+            StorageController.preferences.set("shareTextAdditions", prefs.shareTextAdditions || { header: "", afterGrid: "" });
         }
         if (prefs.shareFormat !== undefined) {
-            window.localStorage.setItem(this.SHARE_FORMAT_KEY, prefs.shareFormat || "grid");
+            StorageController.preferences.set("shareFormat", prefs.shareFormat || "grid");
         }
     }
 
@@ -481,22 +479,22 @@ class SyncStore {
     // ── Legacy stats ──
 
     getLocalLegacyStats() {
-        return this.logic.safeParseJSON(window.localStorage.getItem(this.LEGACY_STATS_KEY), {}) || {};
+        return StorageController.legacyStats.get() || {};
     }
 
     setLocalLegacyStats(stats) {
-        window.localStorage.setItem(this.LEGACY_STATS_KEY, JSON.stringify(stats || {}));
+        StorageController.legacyStats.set(stats || {});
     }
 
     // ── Device ──
 
     getDeviceId() {
-        var existing = window.localStorage.getItem(this.DEVICE_ID_KEY);
+        var existing = StorageController.deviceId.get();
         if (existing) return existing;
         var generated = (typeof crypto !== "undefined" && crypto.randomUUID) ?
             crypto.randomUUID() :
             Math.random().toString(36).slice(2) + Date.now().toString(36);
-        window.localStorage.setItem(this.DEVICE_ID_KEY, generated);
+        StorageController.deviceId.set(generated);
         return generated;
     }
 
