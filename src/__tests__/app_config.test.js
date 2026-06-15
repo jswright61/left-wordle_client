@@ -19,7 +19,7 @@ describe('LEFT_WORDLE_CONFIG', () => {
 
         expect(config.apiBaseUrl).toBe('http://localhost:9292');
         expect(config.apiGameplayEnabled).toBe(false);
-        expect(config.apiGameplayShadowMode).toBe(false);
+        expect(config.apiGameplayShadowMode).toBe(true);
         expect(config.localGameplayFallbackEnabled).toBe(true);
     });
 
@@ -27,6 +27,7 @@ describe('LEFT_WORDLE_CONFIG', () => {
         const config = loadConfig('https://left-wordle.com/');
 
         expect(config.apiBaseUrl).toBe('https://api.left-wordle.com');
+        expect(config.apiGameplayShadowMode).toBe(false);
     });
 
     test('preserves deployment overrides', () => {

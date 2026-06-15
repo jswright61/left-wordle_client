@@ -336,6 +336,40 @@ test.describe('Wordle E2E Tests', () => {
 
   // ─── 6. Valid Guess Evaluation ────────────────────────────────────────────
   test.describe('Valid Guess Evaluation', () => {
+    test('submits valid guesses to the API in shadow mode', async ({ page }) => {
+      const shadowRequests = [];
+      await page.route('http://localhost:9292/api/game/guess', async route => {
+        const payload = route.request().postDataJSON();
+        shadowRequests.push(payload);
+        await route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({
+            date: payload.date,
+            evaluation: ['absent', 'absent', 'absent', 'absent', 'absent'],
+            game_status: 'IN_PROGRESS',
+            puzzle_num: 0,
+            row_index: payload.row_index + 1,
+            solution: null
+          })
+        });
+      });
+      await freshGame(page);
+      await dismissHelpModal(page);
+
+      const solution = await getSolution(page);
+      const guess = VALID_WORDS.find(word => word !== solution);
+      await submitWord(page, guess);
+      await waitForRowEvaluation(page);
+      await expect.poll(() => shadowRequests.length).toBe(1);
+
+      expect(shadowRequests[0]).toEqual({
+        date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        guess: guess,
+        row_index: 0
+      });
+      expect(await page.evaluate(() => document.querySelector('game-app').rowIndex)).toBe(1);
+    });
+
     test('tiles get evaluation states after a valid non-solution guess', async ({ page }) => {
       await freshGame(page);
       await dismissHelpModal(page);

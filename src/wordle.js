@@ -1199,6 +1199,7 @@
                     }
                 }
                 var evaluation = GameEvaluator.evaluateGuess(guess, this.solution);
+                var evaluatedRowIndex = this.rowIndex;
                 this.evaluations[this.rowIndex] = evaluation;
                 this.letterEvaluations = GameEvaluator.aggregateLetterEvaluations(this.boardState, this.evaluations);
                 row.evaluation = this.evaluations[this.rowIndex];
@@ -1254,6 +1255,17 @@
                     saveData.completedInHardMode = this.hardMode;
                 }
                 GameStateManager.saveGameState(saveData);
+                if (window.LeftWordleApi && window.LeftWordleApi.shadow) {
+                    window.LeftWordleApi.shadow.submit({
+                        date: DateUtils.formatLocalDate(this.today),
+                        evaluation: evaluation.slice(),
+                        gameStatus: this.gameStatus,
+                        guess: guess,
+                        puzzleNum: this.dayOffset,
+                        rowIndex: evaluatedRowIndex,
+                        solution: this.solution
+                    });
+                }
             }
         }
 

@@ -58,6 +58,24 @@ describe('LeftWordleApi', () => {
         );
     });
 
+    test('posts guesses for evaluation', async () => {
+        const fetchImpl = jest.fn().mockResolvedValue(response({
+            body: '{"evaluation":["correct"],"game_status":"IN_PROGRESS"}'
+        }));
+        const dom = loadClient(fetchImpl);
+
+        await dom.window.LeftWordleApi.client.evaluateGuess('2021-06-19', 'crane', 2);
+
+        expect(fetchImpl).toHaveBeenCalledWith(
+            'http://localhost:9292/api/game/guess',
+            expect.objectContaining({
+                body: JSON.stringify({ date: '2021-06-19', guess: 'crane', row_index: 2 }),
+                headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+                method: 'POST'
+            })
+        );
+    });
+
     test('normalizes API error responses', async () => {
         const fetchImpl = jest.fn().mockResolvedValue(response({
             body: '{"detail":"Origin not allowed"}',

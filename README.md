@@ -18,7 +18,9 @@ CORS_ORIGINS=http://localhost:3000 rv run bundle exec rackup
 ```
 
 Deployment-specific API settings and feature flags live in `app_config.js`.
-API gameplay remains disabled until a later transition stage.
+API gameplay remains locally authoritative. Shadow mode defaults on for local
+development and off for deployed hosts; it compares API evaluations in the
+background without changing the result shown to the player.
 
 [wordle](https://www.powerlanguage.co.uk/wordle/), with a save and load button added, made into a single file (from `/src`) using [monolith](https://github.com/Y2Z/monolith)
 

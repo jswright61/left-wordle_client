@@ -37,6 +37,18 @@
             return this.request("/api/health", options);
         }
 
+        async evaluateGuess(date, guess, rowIndex, options) {
+            options = Object.assign({}, options, {
+                body: {
+                    date: date,
+                    guess: guess,
+                    row_index: rowIndex
+                },
+                method: "POST"
+            });
+            return this.request("/api/game/guess", options);
+        }
+
         async puzzleMetadata(date, options) {
             var query = new URLSearchParams({ date: date });
             return this.request("/api/game/today?" + query.toString(), options);
@@ -59,10 +71,17 @@
             }
 
             try {
+                var headers = { Accept: "application/json" };
+                var body;
+                if (options.body !== undefined) {
+                    headers["Content-Type"] = "application/json";
+                    body = JSON.stringify(options.body);
+                }
                 var response = await this.fetch(this.baseUrl + path, {
+                    body: body,
                     credentials: this.credentials,
-                    headers: { Accept: "application/json" },
-                    method: "GET",
+                    headers: headers,
+                    method: options.method || "GET",
                     signal: controller.signal
                 });
                 var payload = await this.parseResponse(response);
