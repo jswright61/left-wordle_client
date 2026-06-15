@@ -34,7 +34,7 @@
         }
 
         async health(options) {
-            return this.request("/api/health", options);
+            return this.request("/api/v1/health", options);
         }
 
         async evaluateGuess(date, guess, rowIndex, options) {
@@ -46,12 +46,12 @@
                 },
                 method: "POST"
             });
-            return this.request("/api/game/guess", options);
+            return this.request("/api/v1/game/guess", options);
         }
 
         async puzzleMetadata(date, options) {
             var query = new URLSearchParams({ date: date });
-            return this.request("/api/game/today?" + query.toString(), options);
+            return this.request("/api/v1/game/puzzle?" + query.toString(), options);
         }
 
         async request(path, options) {

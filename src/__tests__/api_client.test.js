@@ -36,7 +36,7 @@ describe('LeftWordleApi', () => {
 
         await expect(dom.window.LeftWordleApi.client.health()).resolves.toEqual({ status: 'ok' });
         expect(fetchImpl).toHaveBeenCalledWith(
-            'http://localhost:9292/api/health',
+            'http://localhost:9292/api/v1/health',
             expect.objectContaining({
                 credentials: 'omit',
                 headers: { Accept: 'application/json' },
@@ -54,7 +54,7 @@ describe('LeftWordleApi', () => {
         await dom.window.LeftWordleApi.client.puzzleMetadata('2021-06-19');
 
         expect(fetchImpl.mock.calls[0][0]).toBe(
-            'http://localhost:9292/api/game/today?date=2021-06-19'
+            'http://localhost:9292/api/v1/game/puzzle?date=2021-06-19'
         );
     });
 
@@ -67,7 +67,7 @@ describe('LeftWordleApi', () => {
         await dom.window.LeftWordleApi.client.evaluateGuess('2021-06-19', 'crane', 2);
 
         expect(fetchImpl).toHaveBeenCalledWith(
-            'http://localhost:9292/api/game/guess',
+            'http://localhost:9292/api/v1/game/guess',
             expect.objectContaining({
                 body: JSON.stringify({ date: '2021-06-19', guess: 'crane', row_index: 2 }),
                 headers: { Accept: 'application/json', 'Content-Type': 'application/json' },

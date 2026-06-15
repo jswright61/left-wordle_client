@@ -344,7 +344,7 @@ test.describe('Wordle E2E Tests', () => {
           localGameplayFallbackEnabled: true
         };
       });
-      await page.route('http://localhost:9292/api/game/guess', async route => {
+      await page.route('http://localhost:9292/api/v1/game/guess', async route => {
         const payload = route.request().postDataJSON();
         const epoch = Date.parse('2021-06-19T00:00:00Z');
         const puzzleNum = Math.floor((Date.parse(payload.date + 'T00:00:00Z') - epoch) / 86400000);
@@ -385,7 +385,7 @@ test.describe('Wordle E2E Tests', () => {
           localGameplayFallbackEnabled: true
         };
       });
-      await page.route('http://localhost:9292/api/game/guess', async route => {
+      await page.route('http://localhost:9292/api/v1/game/guess', async route => {
         requestCount += 1;
         await route.fulfill({
           status: 400,
@@ -415,7 +415,7 @@ test.describe('Wordle E2E Tests', () => {
           localGameplayFallbackEnabled: true
         };
       });
-      await page.route('http://localhost:9292/api/game/guess', route => route.abort());
+      await page.route('http://localhost:9292/api/v1/game/guess', route => route.abort());
       await freshGame(page);
       await dismissHelpModal(page);
 
@@ -431,7 +431,7 @@ test.describe('Wordle E2E Tests', () => {
 
     test('submits valid guesses to the API in shadow mode', async ({ page }) => {
       const shadowRequests = [];
-      await page.route('http://localhost:9292/api/game/guess', async route => {
+      await page.route('http://localhost:9292/api/v1/game/guess', async route => {
         const payload = route.request().postDataJSON();
         shadowRequests.push(payload);
         await route.fulfill({
