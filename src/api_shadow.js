@@ -12,7 +12,7 @@
             var mismatches = [];
             if (actual.date !== expected.date) mismatches.push("date");
             if (actual.puzzle_num !== expected.puzzleNum) mismatches.push("puzzle_num");
-            if (actual.row_index !== expected.rowIndex + 1) mismatches.push("row_index");
+            if (actual.guess_number !== expected.rowIndex + 1) mismatches.push("guess_number");
             if (!ApiShadowEvaluator.arraysEqual(actual.evaluation, expected.evaluation)) mismatches.push("evaluation");
             if (actual.game_status !== expected.gameStatus) mismatches.push("game_status");
 

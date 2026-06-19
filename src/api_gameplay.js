@@ -58,13 +58,13 @@
             });
             var statusMatchesEvaluation = response && (
                 (response.game_status === "WIN" && allCorrect) ||
-                (response.game_status === "FAIL" && !allCorrect && response.row_index === 6) ||
-                (response.game_status === "IN_PROGRESS" && !allCorrect && response.row_index < 6)
+                (response.game_status === "FAIL" && !allCorrect && response.guess_number === 6) ||
+                (response.game_status === "IN_PROGRESS" && !allCorrect && response.guess_number < 6)
             );
             var valid = response &&
                 response.date === request.date &&
                 response.puzzle_num === request.puzzleNum &&
-                response.row_index === request.rowIndex + 1 &&
+                response.guess_number === request.rowIndex + 1 &&
                 Array.isArray(response.evaluation) &&
                 response.evaluation.length === 5 &&
                 response.evaluation.every(function(value) { return validEvaluations.includes(value); }) &&
@@ -86,7 +86,7 @@
                 evaluation: response.evaluation.slice(),
                 gameStatus: response.game_status,
                 puzzleNum: response.puzzle_num,
-                rowIndex: response.row_index,
+                rowIndex: response.guess_number,
                 solution: response.solution || null,
                 source: "api"
             };
