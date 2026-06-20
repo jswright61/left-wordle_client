@@ -1195,10 +1195,6 @@
             this.gameStatus = result.gameStatus;
             if (typeof result.answersRemaining === "number") {
                 this.answersRemaining[evaluatedRowIndex] = result.answersRemaining;
-                var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
-                if (remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") {
-                    this.updateRowCount(evaluatedRowIndex, result.answersRemaining);
-                }
             }
 
             var gameOver = this.gameStatus === GAME_STATUS_WIN || this.gameStatus === GAME_STATUS_FAIL;
@@ -1479,6 +1475,13 @@
                 var lastRow = this.$board.querySelectorAll("game-row")[this.rowIndex - 1];
                 var eventPath = event.path || (event.composedPath && event.composedPath());
                 if (!eventPath || !eventPath.includes(lastRow)) return;
+
+                var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
+                if (remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") {
+                    var countRowIdx = this.rowIndex - 1;
+                    var count = this.answersRemaining[countRowIdx];
+                    setTimeout(() => { this.updateRowCount(countRowIdx, count); }, 300);
+                }
 
                 var gameOver = this.gameStatus === GAME_STATUS_WIN ||
                     this.gameStatus === GAME_STATUS_FAIL;
