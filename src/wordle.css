@@ -222,6 +222,21 @@ header .title {
     padding: 10px;
     box-sizing: border-box;
     flex-shrink: 0;
+    position: relative;
+}
+
+.gameplay-row-count {
+    position: absolute;
+    left: calc(100% + 8px);
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    font-family: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    color: var(--color-tone-1);
+    font-size: 20px;
+    -webkit-text-stroke: 0.5px currentColor;
+    letter-spacing: 0.025em;
 }
 
 game-keyboard {
@@ -895,14 +910,16 @@ game-settings .section-heading {
     text-align: center;
 }
 
-game-settings .share-format-setting {
+game-settings .share-format-setting,
+game-settings .remaining-answers-setting {
     display: flex;
     gap: 20px;
     padding: 12px 0 16px;
     border-bottom: 1px solid var(--color-tone-4);
 }
 
-game-settings .share-format-option {
+game-settings .share-format-option,
+game-settings .remaining-answers-option {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -910,10 +927,12 @@ game-settings .share-format-option {
     cursor: pointer;
 }
 
-game-settings .share-format-option input[type="radio"] {
+game-settings .share-format-option input[type="radio"],
+game-settings .remaining-answers-option input[type="radio"] {
     cursor: pointer;
     accent-color: var(--color-correct);
 }
+
 
 game-settings .share-text-row {
     display: flex;

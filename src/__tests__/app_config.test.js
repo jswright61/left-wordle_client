@@ -18,7 +18,7 @@ describe('LEFT_WORDLE_CONFIG', () => {
         const config = loadConfig('http://localhost:3000/');
 
         expect(config.apiBaseUrl).toBe('http://localhost:9292');
-        expect(config.apiGameplayEnabled).toBe(false);
+        expect(config.apiGameplayEnabled).toBe(true);
         expect(config.apiGameplayShadowMode).toBe(true);
         expect(config.localGameplayFallbackEnabled).toBe(true);
     });

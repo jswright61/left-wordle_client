@@ -6,7 +6,7 @@
     var defaults = {
         apiBaseUrl: isLocal ? "http://localhost:9292" : "https://api.left-wordle.com",
         apiCredentials: "omit",
-        apiGameplayEnabled: false,
+        apiGameplayEnabled: true,
         apiGameplayShadowMode: isLocal,
         apiRequestTimeoutMs: 3000,
         localGameplayFallbackEnabled: true,

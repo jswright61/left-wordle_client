@@ -328,6 +328,12 @@
                     this.saveShareFormat(event.target.value);
                 });
             });
+            // Handle remaining answers mode radio changes
+            this.querySelectorAll('input[name="remaining-answers-mode"]').forEach((radio) => {
+                radio.addEventListener("change", (event) => {
+                    StorageController.preferences.set("remainingAnswersMode", event.target.value);
+                });
+            });
             this.render();
         }
 
@@ -370,10 +376,10 @@
             var shareAdditions = StorageController.preferences.get("shareTextAdditions") || DEFAULT_SHARE_TEXT_ADDITIONS;
             this.querySelector("#share-header-append").value = shareAdditions.header || "";
             this.querySelector("#share-after-grid").value = shareAdditions.afterGrid || "";
-            // Show remaining answers preference
-            if (StorageController.preferences.get("showRemainingAnswers")) {
-                this.querySelector("#show-remaining-answers").setAttribute("checked", "");
-            }
+            // Remaining answers mode preference
+            var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
+            var modeRadio = this.querySelector('input[name="remaining-answers-mode"][value="' + remainingAnswersMode + '"]');
+            if (modeRadio) modeRadio.checked = true;
         }
     }
     customElements.define("game-settings", GameSettings);
@@ -1187,8 +1193,12 @@
             row.evaluation = evaluation;
             this.rowIndex = result.rowIndex;
             this.gameStatus = result.gameStatus;
-            if (typeof result.answersRemaining === "number" && evaluatedRowIndex > 0) {
-                this.answersRemaining[evaluatedRowIndex - 1] = result.answersRemaining;
+            if (typeof result.answersRemaining === "number") {
+                this.answersRemaining[evaluatedRowIndex] = result.answersRemaining;
+                var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
+                if (remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") {
+                    this.updateRowCount(evaluatedRowIndex, result.answersRemaining);
+                }
             }
 
             var gameOver = this.gameStatus === GAME_STATUS_WIN || this.gameStatus === GAME_STATUS_FAIL;
@@ -1269,13 +1279,13 @@
 
             this.canInput = false;
             try {
-                var showRemainingAnswers = StorageController.preferences.get("showRemainingAnswers") === true;
+                var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
                 var result = await window.LeftWordleApi.gameplay.evaluate({
                     date: DateUtils.formatLocalDate(this.today),
                     guess: guess,
                     puzzleNum: this.dayOffset,
                     rowIndex: evaluatedRowIndex,
-                    prevGuesses: showRemainingAnswers ? this.buildPrevGuesses(evaluatedRowIndex) : undefined
+                    prevGuesses: remainingAnswersMode !== "neither" ? this.buildPrevGuesses(evaluatedRowIndex) : undefined
                 }, () => this.localEvaluation(guess, evaluatedRowIndex));
                 this.applyEvaluation(row, guess, evaluatedRowIndex, result);
             } catch (error) {
@@ -1330,6 +1340,25 @@
                 }
             }
             return prevGuesses;
+        }
+
+        positionRowCounts() {
+            var boardRect = this.$board.getBoundingClientRect();
+            var rows = this.$board.querySelectorAll("game-row");
+            var counts = this.$board.querySelectorAll(".gameplay-row-count");
+            rows.forEach(function(row, i) {
+                if (!counts[i]) return;
+                var rowRect = row.getBoundingClientRect();
+                counts[i].style.top = (rowRect.top - boardRect.top) + "px";
+                counts[i].style.height = rowRect.height + "px";
+            });
+        }
+
+        updateRowCount(rowIdx, count) {
+            var counts = this.$board.querySelectorAll(".gameplay-row-count");
+            var el = counts[rowIdx];
+            if (!el) return;
+            el.textContent = typeof count === "number" ? count : "";
         }
 
         addLetter(letter) {
@@ -1427,7 +1456,11 @@
                 row.setAttribute("length", 5);
                 this.evaluations[i] && (row.evaluation = this.evaluations[i]);
                 this.$board.appendChild(row);
+                var countEl = document.createElement("div");
+                countEl.classList.add("gameplay-row-count");
+                this.$board.appendChild(countEl);
             }
+            this.positionRowCounts();
             this.$game.addEventListener("game-key-press", (event) => {
                 var key = event.detail.key;
                 if (key === "←" || key === "Backspace") {
@@ -1485,9 +1518,6 @@
                         date: DateUtils.formatLocalDate(this.today)
                     });
                     return;
-                case "show-remaining-answers":
-                    StorageController.preferences.set("showRemainingAnswers", checked);
-                    return;
                 }
             });
             this.querySelector("#settings-button").addEventListener("click", () => {
@@ -1517,7 +1547,7 @@
                 var saveDialog = document.querySelector('#save');
                 saveDialog.classList.toggle('hidden');
             });
-            window.addEventListener("resize", this.sizeBoard.bind(this));
+            window.addEventListener("resize", () => { this.sizeBoard(); this.positionRowCounts(); });
         }
 
         disconnectedCallback() {}
@@ -1816,7 +1846,11 @@
             // Build accessible text
             var accessibleRows = ShareUtils.buildAccessibleRows(evaluations);
             var accessibleText = accessibleRows.map(function (row, i) {
-                return (i + 1) + ". " + row;
+                var line = (i + 1) + ". " + row;
+                if (typeof answersRemaining[i] === "number") {
+                    line += " (" + answersRemaining[i] + ")";
+                }
+                return line;
             }).join("\n");
 
             var body;
@@ -1920,13 +1954,15 @@
                     event.preventDefault();
                     event.stopPropagation();
                     var completedState = GameStateManager.getGameState();
+                    var shareMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
+                    var shareAnswersRemaining = (shareMode === "sharetext" || shareMode === "both") ? this.gameApp.answersRemaining : null;
                     ShareUtils.shareOrCopy(ShareUtils.buildShareText({
                         evaluations: this.gameApp.evaluations,
                         dayOffset: this.gameApp.dayOffset,
                         rowIndex: this.gameApp.rowIndex,
                         isHardMode: completedState.completedInHardMode != null ? completedState.completedInHardMode : this.gameApp.hardMode,
                         isWin: this.gameApp.gameStatus === GAME_STATUS_WIN,
-                        answersRemaining: this.gameApp.answersRemaining
+                        answersRemaining: shareAnswersRemaining
                     }), () => {
                         this.gameApp.addToast("Copied results to clipboard", 2000, true);
                     }, () => {
