@@ -1480,7 +1480,8 @@
                 if (remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") {
                     var countRowIdx = this.rowIndex - 1;
                     var count = this.answersRemaining[countRowIdx];
-                    setTimeout(() => { this.updateRowCount(countRowIdx, count); }, 300);
+                    var countDelay = this.gameStatus === GAME_STATUS_WIN ? 1300 : 300;
+                    setTimeout(() => { this.updateRowCount(countRowIdx, count); }, countDelay);
                 }
 
                 var gameOver = this.gameStatus === GAME_STATUS_WIN ||
