@@ -1103,6 +1103,7 @@
         solution;
         boardState;
         evaluations;
+        answersRemaining = new Array(6).fill(null);
         canInput = true;
         gameStatus = GAME_STATUS_IN_PROGRESS;
         letterEvaluations = {};
@@ -1186,6 +1187,9 @@
             row.evaluation = evaluation;
             this.rowIndex = result.rowIndex;
             this.gameStatus = result.gameStatus;
+            if (typeof result.answersRemaining === "number" && evaluatedRowIndex > 0) {
+                this.answersRemaining[evaluatedRowIndex - 1] = result.answersRemaining;
+            }
 
             var gameOver = this.gameStatus === GAME_STATUS_WIN || this.gameStatus === GAME_STATUS_FAIL;
             if (gameOver) {
@@ -1265,11 +1269,13 @@
 
             this.canInput = false;
             try {
+                var showRemainingAnswers = StorageController.preferences.get("showRemainingAnswers") === true;
                 var result = await window.LeftWordleApi.gameplay.evaluate({
                     date: DateUtils.formatLocalDate(this.today),
                     guess: guess,
                     puzzleNum: this.dayOffset,
-                    rowIndex: evaluatedRowIndex
+                    rowIndex: evaluatedRowIndex,
+                    prevGuesses: showRemainingAnswers ? this.buildPrevGuesses(evaluatedRowIndex) : undefined
                 }, () => this.localEvaluation(guess, evaluatedRowIndex));
                 this.applyEvaluation(row, guess, evaluatedRowIndex, result);
             } catch (error) {
@@ -1310,6 +1316,20 @@
                 rowIndex: evaluatedRowIndex + 1,
                 solution: gameStatus === GAME_STATUS_IN_PROGRESS ? null : this.solution
             };
+        }
+
+        buildPrevGuesses(upToRow) {
+            var prevGuesses = [];
+            var map = { absent: "0", present: "1", correct: "2" };
+            for (var i = 0; i < upToRow; i++) {
+                var word = this.boardState[i];
+                var eval_ = this.evaluations[i];
+                if (word && eval_) {
+                    var pattern = eval_.map(function(v) { return map[v]; }).join("");
+                    prevGuesses.push([word, pattern]);
+                }
+            }
+            return prevGuesses;
         }
 
         addLetter(letter) {
@@ -1746,6 +1766,7 @@
             var rowIndex = gameResults.rowIndex;
             var isHardMode = gameResults.isHardMode;
             var isWin = gameResults.isWin;
+            var answersRemaining = gameResults.answersRemaining || [];
             var isDarkTheme = StorageController.preferences.get("darkTheme");
             var isColorBlind = StorageController.preferences.get("colorBlindTheme");
             var shareAdditions = StorageController.preferences.get("shareTextAdditions") || DEFAULT_SHARE_TEXT_ADDITIONS;
@@ -1767,7 +1788,7 @@
 
             // Build emoji grid
             var grid = "";
-            evaluations.forEach(function (row) {
+            evaluations.forEach(function (row, rowIdx) {
                 if (row) {
                     row.forEach(function (tile) {
                         if (tile) {
@@ -1784,6 +1805,9 @@
                             }
                         }
                     });
+                    if (typeof answersRemaining[rowIdx] === "number") {
+                        grid += " " + answersRemaining[rowIdx];
+                    }
                     grid += "\n";
                 }
             });
@@ -1901,7 +1925,8 @@
                         dayOffset: this.gameApp.dayOffset,
                         rowIndex: this.gameApp.rowIndex,
                         isHardMode: completedState.completedInHardMode != null ? completedState.completedInHardMode : this.gameApp.hardMode,
-                        isWin: this.gameApp.gameStatus === GAME_STATUS_WIN
+                        isWin: this.gameApp.gameStatus === GAME_STATUS_WIN,
+                        answersRemaining: this.gameApp.answersRemaining
                     }), () => {
                         this.gameApp.addToast("Copied results to clipboard", 2000, true);
                     }, () => {

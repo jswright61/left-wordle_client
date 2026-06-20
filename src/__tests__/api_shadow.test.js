@@ -33,10 +33,10 @@ function expected(overrides) {
 function actual(overrides) {
     return Object.assign({
         date: '2021-06-19',
-        evaluation: ['correct', 'absent', 'present', 'absent', 'correct'],
+        evaluation: '20102',
         game_status: 'IN_PROGRESS',
         puzzle_num: 0,
-        row_index: 2,
+        guess_number: 2,
         solution: null
     }, overrides || {});
 }
@@ -52,7 +52,7 @@ describe('ApiShadowEvaluator', () => {
         const dom = loadShadow();
 
         expect(dom.window.LeftWordleApi.shadow.compare(expected(), actual({
-            evaluation: ['absent', 'absent', 'absent', 'absent', 'absent'],
+            evaluation: '00000',
             game_status: 'WIN',
             puzzle_num: 1
         }))).toEqual(['puzzle_num', 'evaluation', 'game_status']);

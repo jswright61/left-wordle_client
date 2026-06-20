@@ -13,12 +13,19 @@
             if (actual.date !== expected.date) mismatches.push("date");
             if (actual.puzzle_num !== expected.puzzleNum) mismatches.push("puzzle_num");
             if (actual.guess_number !== expected.rowIndex + 1) mismatches.push("guess_number");
-            if (!ApiShadowEvaluator.arraysEqual(actual.evaluation, expected.evaluation)) mismatches.push("evaluation");
+            var actualEval = ApiShadowEvaluator.parseEvaluation(actual.evaluation);
+            if (!ApiShadowEvaluator.arraysEqual(actualEval, expected.evaluation)) mismatches.push("evaluation");
             if (actual.game_status !== expected.gameStatus) mismatches.push("game_status");
 
             var expectedSolution = expected.gameStatus === "IN_PROGRESS" ? null : expected.solution;
             if ((actual.solution || null) !== expectedSolution) mismatches.push("solution");
             return mismatches;
+        }
+
+        static parseEvaluation(value) {
+            var map = { "0": "absent", "1": "present", "2": "correct" };
+            if (typeof value !== "string" || !/^[012]{5}$/.test(value)) return null;
+            return value.split("").map(function(c) { return map[c]; });
         }
 
         static arraysEqual(left, right) {

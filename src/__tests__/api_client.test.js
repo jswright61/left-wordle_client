@@ -76,6 +76,45 @@ describe('LeftWordleApi', () => {
         );
     });
 
+    test('includes prev_guesses in body when provided', async () => {
+        const fetchImpl = jest.fn().mockResolvedValue(response({
+            body: '{"evaluation":"00000","game_status":"IN_PROGRESS"}'
+        }));
+        const dom = loadClient(fetchImpl);
+
+        await dom.window.LeftWordleApi.client.evaluateGuess('2021-06-19', 'crane', 2, {
+            prevGuesses: [['slate', '01200'], ['crate', '02200']]
+        });
+
+        expect(fetchImpl).toHaveBeenCalledWith(
+            'http://localhost:9292/api/v1/game/guess',
+            expect.objectContaining({
+                body: JSON.stringify({
+                    date: '2021-06-19',
+                    guess: 'crane',
+                    row_index: 2,
+                    prev_guesses: [['slate', '01200'], ['crate', '02200']]
+                })
+            })
+        );
+    });
+
+    test('omits prev_guesses from body when not provided', async () => {
+        const fetchImpl = jest.fn().mockResolvedValue(response({
+            body: '{"evaluation":"00000","game_status":"IN_PROGRESS"}'
+        }));
+        const dom = loadClient(fetchImpl);
+
+        await dom.window.LeftWordleApi.client.evaluateGuess('2021-06-19', 'crane', 0);
+
+        expect(fetchImpl).toHaveBeenCalledWith(
+            'http://localhost:9292/api/v1/game/guess',
+            expect.objectContaining({
+                body: JSON.stringify({ date: '2021-06-19', guess: 'crane', row_index: 0 })
+            })
+        );
+    });
+
     test('normalizes API error responses', async () => {
         const fetchImpl = jest.fn().mockResolvedValue(response({
             body: '{"detail":"Origin not allowed"}',

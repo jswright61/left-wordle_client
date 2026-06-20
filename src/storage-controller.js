@@ -83,7 +83,8 @@ class PreferencesStorage extends NamespacedStorage {
             "colorBlindTheme",
             "shareFormat",
             "shareTextAdditions",
-            "suppressLoginPrompt"
+            "suppressLoginPrompt",
+            "showRemainingAnswers"
         ]));
         this._legacyKeys = ["darkTheme", "colorBlindTheme", "shareFormat", "shareTextAdditions"];
     }

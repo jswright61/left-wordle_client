@@ -38,14 +38,12 @@
         }
 
         async evaluateGuess(date, guess, rowIndex, options) {
-            options = Object.assign({}, options, {
-                body: {
-                    date: date,
-                    guess: guess,
-                    row_index: rowIndex
-                },
-                method: "POST"
-            });
+            var prevGuesses = options && options.prevGuesses;
+            var body = { date: date, guess: guess, row_index: rowIndex };
+            if (prevGuesses !== undefined) {
+                body.prev_guesses = prevGuesses;
+            }
+            options = Object.assign({}, options, { body: body, method: "POST" });
             return this.request("/api/v1/game/guess", options);
         }
 

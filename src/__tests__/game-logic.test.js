@@ -638,6 +638,43 @@ describe('buildShareText (extracted IIFE)', () => {
         expect(result).toHaveProperty('text');
         expect(typeof result.text).toBe('string');
     });
+
+    test('appends answers_remaining count after each row when provided', () => {
+        var result = buildShareText({
+            evaluations: [
+                [ABSENT, PRESENT, ABSENT, ABSENT, ABSENT],
+                [CORRECT, CORRECT, CORRECT, CORRECT, CORRECT],
+                null, null, null, null
+            ],
+            dayOffset: 10,
+            rowIndex: 2,
+            isHardMode: false,
+            isWin: true,
+            answersRemaining: [87, null, null, null, null, null]
+        });
+        var lines = result.text.split("\n");
+        var gridLines = lines.filter(function(l) { return /[⬜⬛🟩🟨🟧🟦]/.test(l); });
+        expect(gridLines[0]).toMatch(/ 87$/);
+        expect(gridLines[1]).not.toMatch(/ \d/);
+    });
+
+    test('omits counts when answersRemaining not provided', () => {
+        var result = buildShareText({
+            evaluations: [
+                [ABSENT, ABSENT, ABSENT, ABSENT, ABSENT],
+                null, null, null, null, null
+            ],
+            dayOffset: 1,
+            rowIndex: 1,
+            isHardMode: false,
+            isWin: false
+        });
+        var lines = result.text.split("\n");
+        var gridLines = lines.filter(function(l) { return /[⬜⬛🟩🟨🟧🟦]/.test(l); });
+        gridLines.forEach(function(line) {
+            expect(line).not.toMatch(/ \d/);
+        });
+    });
 });
 
 describe('buildAccessibleRows', () => {
