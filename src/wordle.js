@@ -370,6 +370,10 @@
             var shareAdditions = StorageController.preferences.get("shareTextAdditions") || DEFAULT_SHARE_TEXT_ADDITIONS;
             this.querySelector("#share-header-append").value = shareAdditions.header || "";
             this.querySelector("#share-after-grid").value = shareAdditions.afterGrid || "";
+            // Show remaining answers preference
+            if (StorageController.preferences.get("showRemainingAnswers")) {
+                this.querySelector("#show-remaining-answers").setAttribute("checked", "");
+            }
         }
     }
     customElements.define("game-settings", GameSettings);
@@ -1460,6 +1464,9 @@
                         puzzleNum: this.dayOffset,
                         date: DateUtils.formatLocalDate(this.today)
                     });
+                    return;
+                case "show-remaining-answers":
+                    StorageController.preferences.set("showRemainingAnswers", checked);
                     return;
                 }
             });
