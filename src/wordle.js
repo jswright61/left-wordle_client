@@ -185,7 +185,8 @@
             date: null,
             updatedAt: null,
             restoringFromLocalStorage: null,
-            hardMode: false
+            hardMode: false,
+            answersRemaining: null
         };
 
         static deepMerge(target, source) {
@@ -1157,6 +1158,7 @@
                 this.gameStatus = state.gameStatus;
                 this.lastCompletedTs = state.lastCompletedTs;
                 this.hardMode = state.hardMode;
+                this.answersRemaining = state.answersRemaining || new Array(6).fill(null);
                 this.gameStatus !== GAME_STATUS_IN_PROGRESS && (this.canInput = false);
                 this.restoringFromLocalStorage = true;
             }
@@ -1236,7 +1238,8 @@
                 lastPlayedTs: Date.now(),
                 hardMode: this.hardMode,
                 puzzleNum: this.dayOffset,
-                date: DateUtils.formatLocalDate(this.today)
+                date: DateUtils.formatLocalDate(this.today),
+                answersRemaining: this.answersRemaining
             };
             if (gameOver) saveData.completedInHardMode = this.hardMode;
             GameStateManager.saveGameState(saveData);
@@ -1457,6 +1460,16 @@
                 this.$board.appendChild(countEl);
             }
             this.positionRowCounts();
+            if (this.restoringFromLocalStorage) {
+                var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
+                if (remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") {
+                    for (var j = 0; j < this.rowIndex; j++) {
+                        if (typeof this.answersRemaining[j] === "number") {
+                            this.updateRowCount(j, this.answersRemaining[j]);
+                        }
+                    }
+                }
+            }
             this.$game.addEventListener("game-key-press", (event) => {
                 var key = event.detail.key;
                 if (key === "←" || key === "Backspace") {

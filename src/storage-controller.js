@@ -229,7 +229,8 @@ window.StorageController = {
     gameState: new NamespacedStorage("gameState", new Set([
         "puzzleNum", "date", "rowIndex", "boardState", "evaluations",
         "gameStatus", "hardMode", "completedInHardMode", "solution",
-        "lastPlayedTs", "lastCompletedTs", "updatedAt", "restoringFromLocalStorage"
+        "lastPlayedTs", "lastCompletedTs", "updatedAt", "restoringFromLocalStorage",
+        "answersRemaining"
     ])),
     history: new HistoryStorage("history"),
     legacyStats: new BlobStorage("legacy_stats"),
