@@ -675,6 +675,54 @@ describe('buildShareText (extracted IIFE)', () => {
             expect(line).not.toMatch(/ \d/);
         });
     });
+
+    test('afterGrid is separated by one newline in emoji-only format', () => {
+        dom.window.StorageController.preferences.set('shareTextAdditions', { header: '', afterGrid: 'extra' });
+        var result = buildShareText({
+            evaluations: [
+                [CORRECT, CORRECT, CORRECT, CORRECT, CORRECT],
+                null, null, null, null, null
+            ],
+            dayOffset: 1,
+            rowIndex: 1,
+            isHardMode: false,
+            isWin: true
+        });
+        // body ends with emoji grid row; afterGrid follows with a single newline (no blank line)
+        expect(result.text).toMatch(/[🟩⬜⬛🟨🟧🟦]\nextra$/);
+    });
+
+    test('afterGrid is separated by a blank line in accessible format', () => {
+        dom.window.StorageController.preferences.set('shareFormat', 'accessible');
+        dom.window.StorageController.preferences.set('shareTextAdditions', { header: '', afterGrid: 'extra' });
+        var result = buildShareText({
+            evaluations: [
+                [CORRECT, CORRECT, CORRECT, CORRECT, CORRECT],
+                null, null, null, null, null
+            ],
+            dayOffset: 1,
+            rowIndex: 1,
+            isHardMode: false,
+            isWin: true
+        });
+        expect(result.text).toMatch(/Won!\n\nextra$/);
+    });
+
+    test('afterGrid is separated by a blank line in both format', () => {
+        dom.window.StorageController.preferences.set('shareFormat', 'both');
+        dom.window.StorageController.preferences.set('shareTextAdditions', { header: '', afterGrid: 'extra' });
+        var result = buildShareText({
+            evaluations: [
+                [CORRECT, CORRECT, CORRECT, CORRECT, CORRECT],
+                null, null, null, null, null
+            ],
+            dayOffset: 1,
+            rowIndex: 1,
+            isHardMode: false,
+            isWin: true
+        });
+        expect(result.text).toMatch(/Won!\n\nextra$/);
+    });
 });
 
 describe('buildAccessibleRows', () => {

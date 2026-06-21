@@ -1868,7 +1868,8 @@
 
             var result = header + "\n\n" + body;
             if (shareAdditions.afterGrid) {
-                result += "\n" + shareAdditions.afterGrid.replace(/\\n/g, "\n");
+                var afterGridSep = (shareFormat === "accessible" || shareFormat === "both") ? "\n\n" : "\n";
+                result += afterGridSep + shareAdditions.afterGrid.replace(/\\n/g, "\n");
             }
             return { text: result };
         }
