@@ -14,10 +14,7 @@ namespace :deploy do
           var defaults = {
               apiBaseUrl: isLocal ? "http://localhost:9292" : "#{api_base_url}",
               apiCredentials: "omit",
-              apiGameplayEnabled: false,
-              apiGameplayShadowMode: isLocal,
               apiRequestTimeoutMs: 3000,
-              localGameplayFallbackEnabled: true,
               passkeyAuthEnabled: false,
               serverSyncEnabled: false
           };

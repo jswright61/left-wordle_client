@@ -18,25 +18,21 @@ describe('LEFT_WORDLE_CONFIG', () => {
         const config = loadConfig('http://localhost:3000/');
 
         expect(config.apiBaseUrl).toBe('http://localhost:9292');
-        expect(config.apiGameplayEnabled).toBe(true);
-        expect(config.apiGameplayShadowMode).toBe(true);
-        expect(config.localGameplayFallbackEnabled).toBe(true);
     });
 
     test('uses the public API host outside local development', () => {
         const config = loadConfig('https://left-wordle.com/');
 
         expect(config.apiBaseUrl).toBe('https://api.left-wordle.com');
-        expect(config.apiGameplayShadowMode).toBe(false);
     });
 
     test('preserves deployment overrides', () => {
         const config = loadConfig('https://staging.left-wordle.com/', {
-            apiBaseUrl: 'https://staging-api.left-wordle.com',
+            apiBaseUrl: 'https://api-staging.left-wordle.com',
             apiRequestTimeoutMs: 5000
         });
 
-        expect(config.apiBaseUrl).toBe('https://staging-api.left-wordle.com');
+        expect(config.apiBaseUrl).toBe('https://api-staging.left-wordle.com');
         expect(config.apiRequestTimeoutMs).toBe(5000);
         expect(config.serverSyncEnabled).toBe(false);
     });

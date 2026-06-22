@@ -5,53 +5,20 @@
         constructor(options) {
             options = options || {};
             this.client = options.client;
-            this.enabled = options.enabled === true;
-            this.fallbackEnabled = options.fallbackEnabled === true;
         }
 
-        async evaluate(request, localEvaluate) {
-            if (!this.enabled) return this.localResult(localEvaluate, "local");
-
-            try {
-                var response = await this.client.evaluateGuess(
-                    request.date,
-                    request.guess,
-                    request.rowIndex,
-                    {
-                        mode: request.mode,
-                        prevGuesses: request.prevGuesses,
-                        returnRemainingCount: request.returnRemainingCount
-                    }
-                );
-                return this.normalizeResponse(request, response);
-            } catch (error) {
-                if (!this.fallbackEnabled || !this.isFallbackEligible(error)) throw error;
-
-                console.warn("Left Wordle API gameplay fallback", {
-                    code: error && error.code ? error.code : "request_failed",
-                    puzzleNum: request.puzzleNum,
-                    retryable: !!(error && error.retryable),
-                    rowIndex: request.rowIndex,
-                    status: error && error.status ? error.status : null
-                });
-                return this.localResult(localEvaluate, "fallback");
-            }
-        }
-
-        isFallbackEligible(error) {
-            return !!(error && (error.retryable || error.code === "invalid_gameplay_response"));
-        }
-
-        localResult(localEvaluate, source) {
-            var result = localEvaluate();
-            if (result.error) {
-                throw new window.LeftWordleApi.ApiClientError(result.error, {
-                    code: "invalid_guess",
-                    detail: result.error,
-                    status: 400
-                });
-            }
-            return Object.assign({ source: source }, result);
+        async evaluate(request) {
+            var response = await this.client.evaluateGuess(
+                request.date,
+                request.guess,
+                request.rowIndex,
+                {
+                    mode: request.mode,
+                    prevGuesses: request.prevGuesses,
+                    returnRemainingCount: request.returnRemainingCount
+                }
+            );
+            return this.normalizeResponse(request, response);
         }
 
         normalizeResponse(request, response) {
@@ -99,11 +66,8 @@
         }
     }
 
-    var config = window.LEFT_WORDLE_CONFIG || {};
     window.LeftWordleApi.gameplay = new ApiGameplayEvaluator({
-        client: window.LeftWordleApi.client,
-        enabled: config.apiGameplayEnabled,
-        fallbackEnabled: config.localGameplayFallbackEnabled
+        client: window.LeftWordleApi.client
     });
     window.LeftWordleApi.ApiGameplayEvaluator = ApiGameplayEvaluator;
 })();
