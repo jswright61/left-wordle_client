@@ -603,7 +603,6 @@
         static getStatistics() {
             var stored = StorageController.statistics.getAll();
             if (!stored || !Object.keys(stored).length) return JSON.parse(JSON.stringify(StatisticsEngine.DEFAULT_STATISTICS));
-            console.debug('loaded stats', stored);
             return stored;
         }
 
