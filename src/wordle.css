@@ -1507,3 +1507,63 @@ game-icon {
     margin-top: 10px;
     color: #d64242;
 }
+
+/* game-downloads styles */
+game-downloads .downloads-container {
+    padding: 16px;
+    color: var(--color-tone-1);
+}
+
+game-downloads .downloads-section {
+    margin-bottom: 28px;
+}
+
+game-downloads .downloads-heading {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.25px;
+    text-transform: uppercase;
+    margin: 0 0 10px 0;
+    color: var(--color-tone-1);
+}
+
+game-downloads .downloads-pre {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    background: var(--color-tone-6);
+    border: 1px solid var(--color-tone-4);
+    border-radius: 4px;
+    padding: 10px 12px;
+    max-height: 180px;
+    overflow-y: auto;
+    white-space: pre;
+    margin: 0 0 10px 0;
+    color: var(--color-tone-1);
+}
+
+game-downloads .downloads-btn-row {
+    display: flex;
+    gap: 8px;
+}
+
+game-downloads .downloads-action-button {
+    background: var(--green);
+    color: var(--white);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 600;
+}
+
+game-downloads .downloads-action-button:hover:not(:disabled) {
+    opacity: 0.85;
+}
+
+game-downloads .downloads-action-button:disabled {
+    background: var(--color-tone-4);
+    color: var(--color-tone-3);
+    cursor: not-allowed;
+}
