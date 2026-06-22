@@ -1516,6 +1516,9 @@
                     }
                 }
                 this.restoringFromLocalStorage = false;
+                if (this._pendingQueryGuesses && this.gameStatus === GAME_STATUS_IN_PROGRESS) {
+                    this._submitNextQueryStringGuess();
+                }
             });
             this.addEventListener("game-setting-change", (event) => {
                 var detail = event.detail;
@@ -1574,9 +1577,49 @@
                 saveDialog.classList.toggle('hidden');
             });
             window.addEventListener("resize", () => { this.sizeBoard(); this.positionRowCounts(); });
+            this._pendingQueryGuesses = this._parseQueryGuesses();
+            if (!this.restoringFromLocalStorage && this.gameStatus === GAME_STATUS_IN_PROGRESS &&
+                    this._pendingQueryGuesses.some(Boolean)) {
+                setTimeout(() => this._submitNextQueryStringGuess(), 0);
+            }
         }
 
         disconnectedCallback() {}
+
+        _parseQueryGuesses() {
+            var params = new URLSearchParams(window.location.search);
+            var guesses = new Array(6).fill(null);
+            for (var i = 1; i <= 6; i++) {
+                var word = params.get("guess" + i) || params.get("g" + i);
+                if (word && /^[a-zA-Z]{5}$/.test(word)) {
+                    guesses[i - 1] = word.toLowerCase();
+                }
+            }
+            return guesses;
+        }
+
+        async _submitNextQueryStringGuess() {
+            if (!this._pendingQueryGuesses) return;
+            if (this.gameStatus !== GAME_STATUS_IN_PROGRESS) return;
+            if (this.rowIndex >= 6) return;
+            var word = this._pendingQueryGuesses[this.rowIndex];
+            if (!word) return;
+            var rowIdxBefore = this.rowIndex;
+            this.boardState[this.rowIndex] = word;
+            this.$board.querySelectorAll("game-row")[this.rowIndex].setAttribute("letters", word);
+            this.tileIndex = 5;
+            await this.evaluateRow();
+            if (this.rowIndex === rowIdxBefore) {
+                this._pendingQueryGuesses = null;
+                setTimeout(() => {
+                    this.boardState[rowIdxBefore] = "";
+                    var row = this.$board.querySelectorAll("game-row")[rowIdxBefore];
+                    row.setAttribute("letters", "");
+                    row.removeAttribute("invalid");
+                    this.tileIndex = 0;
+                }, 800);
+            }
+        }
 
         debugTools() {
             this.querySelector("#debug-tools").appendChild(qaButtons.content.cloneNode(true));
