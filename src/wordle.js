@@ -479,131 +479,6 @@
             return result;
         }
 
-        static validateHardMode(guess, previousGuess, previousEvaluation) {
-            if (!guess || !previousGuess || !previousEvaluation) {
-                return { validGuess: true };
-            }
-
-            // Check that all previously correct letters are in the same positions
-            for (var idx = 0; idx < previousEvaluation.length; idx++) {
-                if (previousEvaluation[idx] === GameEvaluator.CORRECT && guess[idx] !== previousGuess[idx]) {
-                    return {
-                        validGuess: false,
-                        errorMessage: "".concat(GameEvaluator.getOrdinal(idx + 1), " letter must be ").concat(previousGuess[idx].toUpperCase())
-                    };
-                }
-            }
-
-            // Count required letters (those marked correct or present in previous evaluation)
-            var requiredLetters = {};
-            for (var idx = 0; idx < previousEvaluation.length; idx++) {
-                if ([GameEvaluator.CORRECT, GameEvaluator.PRESENT].includes(previousEvaluation[idx])) {
-                    var letter = previousGuess[idx];
-                    requiredLetters[letter] = (requiredLetters[letter] || 0) + 1;
-                }
-            }
-
-            // Count letters in current guess
-            var guessLetterCounts = guess.split("").reduce(function(counts, letter) {
-                counts[letter] = (counts[letter] || 0) + 1;
-                return counts;
-            }, {});
-
-            // Check that all required letters appear enough times
-            for (var requiredLetter in requiredLetters) {
-                if ((guessLetterCounts[requiredLetter] || 0) < requiredLetters[requiredLetter]) {
-                    return {
-                        validGuess: false,
-                        errorMessage: "Guess must contain ".concat(requiredLetter.toUpperCase())
-                    };
-                }
-            }
-
-            return { validGuess: true };
-        }
-
-        static validateInsaneMode(guess, boardState, evaluations, currentRowIndex) {
-            if (currentRowIndex > 0) {
-                var hmResult = GameEvaluator.validateHardMode(
-                    guess,
-                    boardState[currentRowIndex - 1],
-                    evaluations[currentRowIndex - 1]
-                );
-                if (!hmResult.validGuess) return hmResult;
-            }
-
-            var forbiddenPositions = {};
-            var knownAbsent = new Set();
-            var maxCounts = {};
-
-            for (var rowIdx = 0; rowIdx < currentRowIndex; rowIdx++) {
-                var prevGuess = boardState[rowIdx];
-                var prevEval = evaluations[rowIdx];
-                if (!prevGuess || !prevEval) continue;
-
-                var absCount = {};
-                var presCorCount = {};
-
-                for (var pos = 0; pos < prevEval.length; pos++) {
-                    var ltr = prevGuess[pos];
-                    if (prevEval[pos] === GameEvaluator.PRESENT) {
-                        if (!forbiddenPositions[ltr]) forbiddenPositions[ltr] = new Set();
-                        forbiddenPositions[ltr].add(pos);
-                        presCorCount[ltr] = (presCorCount[ltr] || 0) + 1;
-                    } else if (prevEval[pos] === GameEvaluator.CORRECT) {
-                        presCorCount[ltr] = (presCorCount[ltr] || 0) + 1;
-                    } else {
-                        absCount[ltr] = (absCount[ltr] || 0) + 1;
-                    }
-                }
-
-                for (var ltr in absCount) {
-                    if (!presCorCount[ltr]) {
-                        knownAbsent.add(ltr);
-                    } else {
-                        var maxAllowed = presCorCount[ltr];
-                        if (maxCounts[ltr] === undefined || maxAllowed < maxCounts[ltr]) {
-                            maxCounts[ltr] = maxAllowed;
-                        }
-                    }
-                }
-            }
-
-            for (var pos = 0; pos < guess.length; pos++) {
-                var ltr = guess[pos];
-                if (forbiddenPositions[ltr] && forbiddenPositions[ltr].has(pos)) {
-                    return {
-                        validGuess: false,
-                        errorMessage: "".concat(ltr.toUpperCase(), " can't be in ", GameEvaluator.getOrdinal(pos + 1), " position")
-                    };
-                }
-            }
-
-            var guessCount = {};
-            for (var pos = 0; pos < guess.length; pos++) {
-                guessCount[guess[pos]] = (guessCount[guess[pos]] || 0) + 1;
-            }
-
-            for (var ltr of knownAbsent) {
-                if (guessCount[ltr]) {
-                    return {
-                        validGuess: false,
-                        errorMessage: "Guess cannot contain ".concat(ltr.toUpperCase())
-                    };
-                }
-            }
-
-            for (var ltr in maxCounts) {
-                if ((guessCount[ltr] || 0) > maxCounts[ltr]) {
-                    return {
-                        validGuess: false,
-                        errorMessage: "Too many ".concat(ltr.toUpperCase(), "s")
-                    };
-                }
-            }
-
-            return { validGuess: true };
-        }
     }
 
     class DateUtils {
@@ -1368,40 +1243,19 @@
                 this.addToast("You already guessed that!");
                 return;
             }
-            if (this.insaneMode) {
-                var insaneModeResult = GameEvaluator.validateInsaneMode(
-                    guess,
-                    this.boardState,
-                    this.evaluations,
-                    evaluatedRowIndex
-                );
-                if (!insaneModeResult.validGuess) {
-                    row.setAttribute("invalid", "");
-                    this.addToast(insaneModeResult.errorMessage || "Not valid in insane mode");
-                    return;
-                }
-            } else if (this.hardMode) {
-                var hardModeResult = GameEvaluator.validateHardMode(
-                    guess,
-                    this.boardState[evaluatedRowIndex - 1],
-                    this.evaluations[evaluatedRowIndex - 1]
-                );
-                if (!hardModeResult.validGuess) {
-                    row.setAttribute("invalid", "");
-                    this.addToast(hardModeResult.errorMessage || "Not valid in hard mode");
-                    return;
-                }
-            }
 
             this.canInput = false;
             try {
                 var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
+                var mode = this.insaneMode ? "insane" : this.hardMode ? "hard" : "regular";
                 var result = await window.LeftWordleApi.gameplay.evaluate({
                     date: DateUtils.formatLocalDate(this.today),
                     guess: guess,
                     puzzleNum: this.dayOffset,
                     rowIndex: evaluatedRowIndex,
-                    prevGuesses: remainingAnswersMode !== "neither" ? this.buildPrevGuesses(evaluatedRowIndex) : undefined
+                    mode: mode,
+                    prevGuesses: this.buildPrevGuesses(evaluatedRowIndex),
+                    returnRemainingCount: remainingAnswersMode !== "neither"
                 }, () => this.localEvaluation(guess, evaluatedRowIndex));
                 this.applyEvaluation(row, guess, evaluatedRowIndex, result);
             } catch (error) {
@@ -2384,7 +2238,6 @@
         computeStatisticsFromHistoryAndLegacy: StatisticsEngine.computeStatisticsFromHistoryAndLegacy,
         recomputeAndPersistStatistics: StatisticsEngine.recomputeAndPersistStatistics,
         evaluateGuess: GameEvaluator.evaluateGuess,
-        validateHardMode: GameEvaluator.validateHardMode,
         buildShareText: ShareUtils.buildShareText,
         buildAccessibleRows: ShareUtils.buildAccessibleRows,
     };

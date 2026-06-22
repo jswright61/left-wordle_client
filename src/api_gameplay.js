@@ -17,7 +17,11 @@
                     request.date,
                     request.guess,
                     request.rowIndex,
-                    { prevGuesses: request.prevGuesses }
+                    {
+                        mode: request.mode,
+                        prevGuesses: request.prevGuesses,
+                        returnRemainingCount: request.returnRemainingCount
+                    }
                 );
                 return this.normalizeResponse(request, response);
             } catch (error) {
