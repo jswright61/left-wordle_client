@@ -546,7 +546,6 @@
         );
 
         static encodeWord(word) {
-            console.debug('parsing stats', word);
             for (var result = "", i = 0; i < word.length; i++) {
                 var idx = StringUtils.ALPHABET.indexOf(word[i]);
                 result += idx >= 0 ? StringUtils.ROT13_MAP[idx] : "_";
@@ -1093,7 +1092,7 @@
             if (!this.lastPlayedTs || DateUtils.calculateDaysBetween(new Date(this.lastPlayedTs), this.today) >= 1) {
                 this.boardState = new Array(6).fill("");
                 this.evaluations = new Array(6).fill(null);
-                this.solution = PuzzleUtils.getSolution(this.today);
+                this.solution = null;
                 this.dayOffset = PuzzleUtils.getDayOffset(this.today);
                 this.lastCompletedTs = state.lastCompletedTs;
                 var prefHard = StorageController.preferences.get("hardMode");
@@ -1107,7 +1106,6 @@
                     rowIndex: this.rowIndex,
                     boardState: this.boardState,
                     evaluations: this.evaluations,
-                    solution: this.solution,
                     gameStatus: this.gameStatus,
                     hardMode: this.hardMode,
                     insaneMode: this.insaneMode,
@@ -1116,7 +1114,7 @@
                     date: DateUtils.formatLocalDate(this.today)
                 });
                 gtag("event", "level_start", {
-                    level_name: StringUtils.encodeWord(this.solution)
+                    level_name: String(this.dayOffset)
                 });
             } else {
                 this.boardState = state.boardState;
