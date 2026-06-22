@@ -369,6 +369,10 @@
                 this.querySelector("#hard-mode").removeAttribute("checked");
                 this.querySelector("#hard-mode").setAttribute("disabled", "");
             }
+            var goofProtection = StorageController.preferences.get("goofProtectionMode");
+            if (goofProtection !== false) {
+                this.querySelector("#goof-protection-mode").setAttribute("checked", "");
+            }
             // Share format preference
             var shareFormat = StorageController.preferences.get("shareFormat") || DEFAULT_SHARE_FORMAT;
             var formatRadio = this.querySelector('input[name="share-format"][value="' + shareFormat + '"]');
@@ -1263,6 +1267,12 @@
             var evaluatedRowIndex = this.rowIndex;
             var row = this.$board.querySelectorAll("game-row")[evaluatedRowIndex];
             var guess = this.boardState[evaluatedRowIndex];
+            var goofProtection = StorageController.preferences.get("goofProtectionMode");
+            if (goofProtection !== false && this.boardState.slice(0, evaluatedRowIndex).includes(guess)) {
+                row.setAttribute("invalid", "");
+                this.addToast("You already guessed that!");
+                return;
+            }
             if (this.hardMode) {
                 var hardModeResult = GameEvaluator.validateHardMode(
                     guess,
@@ -1537,6 +1547,9 @@
                         puzzleNum: this.dayOffset,
                         date: DateUtils.formatLocalDate(this.today)
                     });
+                    return;
+                case "goof-protection-mode":
+                    StorageController.preferences.set("goofProtectionMode", checked);
                     return;
                 }
             });

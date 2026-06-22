@@ -84,7 +84,8 @@ class PreferencesStorage extends NamespacedStorage {
             "shareFormat",
             "shareTextAdditions",
             "suppressLoginPrompt",
-            "remainingAnswersMode"
+            "remainingAnswersMode",
+            "goofProtectionMode"
         ]));
         this._legacyKeys = ["darkTheme", "colorBlindTheme", "shareFormat", "shareTextAdditions"];
     }
