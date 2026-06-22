@@ -85,7 +85,9 @@ class PreferencesStorage extends NamespacedStorage {
             "shareTextAdditions",
             "suppressLoginPrompt",
             "remainingAnswersMode",
-            "goofProtectionMode"
+            "goofProtectionMode",
+            "hardMode",
+            "insaneMode"
         ]));
         this._legacyKeys = ["darkTheme", "colorBlindTheme", "shareFormat", "shareTextAdditions"];
     }
@@ -229,7 +231,7 @@ window.StorageController = {
     preferences: new PreferencesStorage(),
     gameState: new NamespacedStorage("gameState", new Set([
         "puzzleNum", "date", "rowIndex", "boardState", "evaluations",
-        "gameStatus", "hardMode", "completedInHardMode", "solution",
+        "gameStatus", "hardMode", "insaneMode", "goofProtectionMode", "completedInHardMode", "completedInInsaneMode", "solution",
         "lastPlayedTs", "lastCompletedTs", "updatedAt", "restoringFromLocalStorage",
         "answersRemaining"
     ])),

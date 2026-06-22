@@ -186,6 +186,8 @@
             updatedAt: null,
             restoringFromLocalStorage: null,
             hardMode: false,
+            insaneMode: false,
+            goofProtectionMode: true,
             answersRemaining: null
         };
 
@@ -360,19 +362,15 @@
             if (body.classList.contains("colorblind")) {
                 this.querySelector("#color-blind-theme").setAttribute("checked", "");
             }
-            var state = GameStateManager.getGameState();
-            if (state.hardMode) {
-                this.querySelector("#hard-mode").setAttribute("checked", "");
-            }
-            // Disable hard mode toggle if game is in progress and at least one guess has been made
-            if (!state.hardMode && state.gameStatus === "IN_PROGRESS" && state.rowIndex !== 0) {
-                this.querySelector("#hard-mode").removeAttribute("checked");
-                this.querySelector("#hard-mode").setAttribute("disabled", "");
-            }
-            var goofProtection = StorageController.preferences.get("goofProtectionMode");
-            if (goofProtection !== false) {
-                this.querySelector("#goof-protection-mode").setAttribute("checked", "");
-            }
+            StorageController.preferences.get("hardMode")
+                ? this.querySelector("#hard-mode").setAttribute("checked", "")
+                : this.querySelector("#hard-mode").removeAttribute("checked");
+            StorageController.preferences.get("insaneMode")
+                ? this.querySelector("#insane-mode").setAttribute("checked", "")
+                : this.querySelector("#insane-mode").removeAttribute("checked");
+            StorageController.preferences.get("goofProtectionMode") !== false
+                ? this.querySelector("#goof-protection-mode").setAttribute("checked", "")
+                : this.querySelector("#goof-protection-mode").removeAttribute("checked");
             // Share format preference
             var shareFormat = StorageController.preferences.get("shareFormat") || DEFAULT_SHARE_FORMAT;
             var formatRadio = this.querySelector('input[name="share-format"][value="' + shareFormat + '"]');
@@ -517,6 +515,89 @@
                     return {
                         validGuess: false,
                         errorMessage: "Guess must contain ".concat(requiredLetter.toUpperCase())
+                    };
+                }
+            }
+
+            return { validGuess: true };
+        }
+
+        static validateInsaneMode(guess, boardState, evaluations, currentRowIndex) {
+            if (currentRowIndex > 0) {
+                var hmResult = GameEvaluator.validateHardMode(
+                    guess,
+                    boardState[currentRowIndex - 1],
+                    evaluations[currentRowIndex - 1]
+                );
+                if (!hmResult.validGuess) return hmResult;
+            }
+
+            var forbiddenPositions = {};
+            var knownAbsent = new Set();
+            var maxCounts = {};
+
+            for (var rowIdx = 0; rowIdx < currentRowIndex; rowIdx++) {
+                var prevGuess = boardState[rowIdx];
+                var prevEval = evaluations[rowIdx];
+                if (!prevGuess || !prevEval) continue;
+
+                var absCount = {};
+                var presCorCount = {};
+
+                for (var pos = 0; pos < prevEval.length; pos++) {
+                    var ltr = prevGuess[pos];
+                    if (prevEval[pos] === GameEvaluator.PRESENT) {
+                        if (!forbiddenPositions[ltr]) forbiddenPositions[ltr] = new Set();
+                        forbiddenPositions[ltr].add(pos);
+                        presCorCount[ltr] = (presCorCount[ltr] || 0) + 1;
+                    } else if (prevEval[pos] === GameEvaluator.CORRECT) {
+                        presCorCount[ltr] = (presCorCount[ltr] || 0) + 1;
+                    } else {
+                        absCount[ltr] = (absCount[ltr] || 0) + 1;
+                    }
+                }
+
+                for (var ltr in absCount) {
+                    if (!presCorCount[ltr]) {
+                        knownAbsent.add(ltr);
+                    } else {
+                        var maxAllowed = presCorCount[ltr];
+                        if (maxCounts[ltr] === undefined || maxAllowed < maxCounts[ltr]) {
+                            maxCounts[ltr] = maxAllowed;
+                        }
+                    }
+                }
+            }
+
+            for (var pos = 0; pos < guess.length; pos++) {
+                var ltr = guess[pos];
+                if (forbiddenPositions[ltr] && forbiddenPositions[ltr].has(pos)) {
+                    return {
+                        validGuess: false,
+                        errorMessage: "".concat(ltr.toUpperCase(), " can't be in ", GameEvaluator.getOrdinal(pos + 1), " position")
+                    };
+                }
+            }
+
+            var guessCount = {};
+            for (var pos = 0; pos < guess.length; pos++) {
+                guessCount[guess[pos]] = (guessCount[guess[pos]] || 0) + 1;
+            }
+
+            for (var ltr of knownAbsent) {
+                if (guessCount[ltr]) {
+                    return {
+                        validGuess: false,
+                        errorMessage: "Guess cannot contain ".concat(ltr.toUpperCase())
+                    };
+                }
+            }
+
+            for (var ltr in maxCounts) {
+                if ((guessCount[ltr] || 0) > maxCounts[ltr]) {
+                    return {
+                        validGuess: false,
+                        errorMessage: "Too many ".concat(ltr.toUpperCase(), "s")
                     };
                 }
             }
@@ -1125,6 +1206,8 @@
         lastPlayedTs;
         lastCompletedTs;
         hardMode;
+        insaneMode;
+        goofProtection;
         dayOffset;
 
         constructor() {
@@ -1138,7 +1221,12 @@
                 this.solution = PuzzleUtils.getSolution(this.today);
                 this.dayOffset = PuzzleUtils.getDayOffset(this.today);
                 this.lastCompletedTs = state.lastCompletedTs;
-                this.hardMode = state.hardMode;
+                var prefHard = StorageController.preferences.get("hardMode");
+                var prefInsane = StorageController.preferences.get("insaneMode");
+                var prefGoof = StorageController.preferences.get("goofProtectionMode");
+                this.hardMode = prefHard !== null ? prefHard : (state.hardMode || false);
+                this.insaneMode = prefInsane !== null ? prefInsane : (state.insaneMode || false);
+                this.goofProtection = prefGoof !== null ? prefGoof : true;
                 this.restoringFromLocalStorage = false;
                 GameStateManager.saveGameState({
                     rowIndex: this.rowIndex,
@@ -1146,6 +1234,9 @@
                     evaluations: this.evaluations,
                     solution: this.solution,
                     gameStatus: this.gameStatus,
+                    hardMode: this.hardMode,
+                    insaneMode: this.insaneMode,
+                    goofProtectionMode: this.goofProtection,
                     puzzleNum: this.dayOffset,
                     date: DateUtils.formatLocalDate(this.today)
                 });
@@ -1162,6 +1253,8 @@
                 this.gameStatus = state.gameStatus;
                 this.lastCompletedTs = state.lastCompletedTs;
                 this.hardMode = state.hardMode;
+                this.insaneMode = state.insaneMode;
+                this.goofProtection = state.goofProtectionMode != null ? state.goofProtectionMode : true;
                 this.answersRemaining = state.answersRemaining || new Array(6).fill(null);
                 this.gameStatus !== GAME_STATUS_IN_PROGRESS && (this.canInput = false);
                 this.restoringFromLocalStorage = true;
@@ -1245,7 +1338,10 @@
                 date: DateUtils.formatLocalDate(this.today),
                 answersRemaining: this.answersRemaining
             };
-            if (gameOver) saveData.completedInHardMode = this.hardMode;
+            if (gameOver) {
+                saveData.completedInHardMode = this.hardMode;
+                saveData.completedInInsaneMode = this.insaneMode;
+            }
             GameStateManager.saveGameState(saveData);
 
             if (result.source === "local" && window.LeftWordleApi && window.LeftWordleApi.shadow) {
@@ -1267,13 +1363,24 @@
             var evaluatedRowIndex = this.rowIndex;
             var row = this.$board.querySelectorAll("game-row")[evaluatedRowIndex];
             var guess = this.boardState[evaluatedRowIndex];
-            var goofProtection = StorageController.preferences.get("goofProtectionMode");
-            if (goofProtection !== false && this.boardState.slice(0, evaluatedRowIndex).includes(guess)) {
+            if (this.goofProtection && this.boardState.slice(0, evaluatedRowIndex).includes(guess)) {
                 row.setAttribute("invalid", "");
                 this.addToast("You already guessed that!");
                 return;
             }
-            if (this.hardMode) {
+            if (this.insaneMode) {
+                var insaneModeResult = GameEvaluator.validateInsaneMode(
+                    guess,
+                    this.boardState,
+                    this.evaluations,
+                    evaluatedRowIndex
+                );
+                if (!insaneModeResult.validGuess) {
+                    row.setAttribute("invalid", "");
+                    this.addToast(insaneModeResult.errorMessage || "Not valid in insane mode");
+                    return;
+                }
+            } else if (this.hardMode) {
                 var hardModeResult = GameEvaluator.validateHardMode(
                     guess,
                     this.boardState[evaluatedRowIndex - 1],
@@ -1534,22 +1641,52 @@
                 var detail = event.detail;
                 var name = detail.name;
                 var checked = detail.checked;
-                var disabled = detail.disabled;
+                var gameLocked = this.rowIndex > 0;
                 switch (name) {
                 case "hard-mode":
-                    if (disabled) {
-                        this.addToast("Hard mode can only be enabled at the start of a round", 1500, true);
+                    StorageController.preferences.set("hardMode", checked);
+                    if (checked) StorageController.preferences.set("insaneMode", false);
+                    if (gameLocked) {
+                        this.addToast("Mode change will take effect with the next game", 2000, true);
                         return;
                     }
                     this.hardMode = checked;
+                    if (checked) this.insaneMode = false;
                     GameStateManager.saveGameState({
                         hardMode: checked,
+                        insaneMode: checked ? false : this.insaneMode,
+                        puzzleNum: this.dayOffset,
+                        date: DateUtils.formatLocalDate(this.today)
+                    });
+                    return;
+                case "insane-mode":
+                    StorageController.preferences.set("insaneMode", checked);
+                    if (checked) StorageController.preferences.set("hardMode", false);
+                    if (gameLocked) {
+                        this.addToast("Mode change will take effect with the next game", 2000, true);
+                        return;
+                    }
+                    this.insaneMode = checked;
+                    if (checked) this.hardMode = false;
+                    GameStateManager.saveGameState({
+                        insaneMode: checked,
+                        hardMode: checked ? false : this.hardMode,
                         puzzleNum: this.dayOffset,
                         date: DateUtils.formatLocalDate(this.today)
                     });
                     return;
                 case "goof-protection-mode":
                     StorageController.preferences.set("goofProtectionMode", checked);
+                    if (gameLocked) {
+                        this.addToast("Mode change will take effect with the next game", 2000, true);
+                        return;
+                    }
+                    this.goofProtection = checked;
+                    GameStateManager.saveGameState({
+                        goofProtectionMode: checked,
+                        puzzleNum: this.dayOffset,
+                        date: DateUtils.formatLocalDate(this.today)
+                    });
                     return;
                 }
             });
@@ -1877,6 +2014,7 @@
             var dayOffset = gameResults.dayOffset;
             var rowIndex = gameResults.rowIndex;
             var isHardMode = gameResults.isHardMode;
+            var isInsaneMode = gameResults.isInsaneMode;
             var isWin = gameResults.isWin;
             var answersRemaining = gameResults.answersRemaining || [];
             var isDarkTheme = StorageController.preferences.get("darkTheme");
@@ -1887,7 +2025,9 @@
             // Build header line: "Wordle 123 4/6 (1995p)" or "Wordle 123 X/6* (1995p)"
             var header = "Wordle " + dayOffset.toLocaleString();
             header += " " + (isWin ? rowIndex : "X") + "/6";
-            if (isHardMode) {
+            if (isInsaneMode) {
+                header += "*+";
+            } else if (isHardMode) {
                 header += "*";
             }
             // header += " (1995p)";
@@ -2044,6 +2184,7 @@
                         dayOffset: this.gameApp.dayOffset,
                         rowIndex: this.gameApp.rowIndex,
                         isHardMode: completedState.completedInHardMode != null ? completedState.completedInHardMode : this.gameApp.hardMode,
+                        isInsaneMode: completedState.completedInInsaneMode != null ? completedState.completedInInsaneMode : this.gameApp.insaneMode,
                         isWin: this.gameApp.gameStatus === GAME_STATUS_WIN,
                         answersRemaining: shareAnswersRemaining
                     }), () => {
