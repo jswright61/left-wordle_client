@@ -1219,17 +1219,6 @@
             }
             GameStateManager.saveGameState(saveData);
 
-            if (result.source === "local" && window.LeftWordleApi && window.LeftWordleApi.shadow) {
-                window.LeftWordleApi.shadow.submit({
-                    date: DateUtils.formatLocalDate(this.today),
-                    evaluation: evaluation.slice(),
-                    gameStatus: this.gameStatus,
-                    guess: guess,
-                    puzzleNum: this.dayOffset,
-                    rowIndex: evaluatedRowIndex,
-                    solution: this.solution
-                });
-            }
         }
 
         async evaluateRow() {
@@ -1256,7 +1245,7 @@
                     mode: mode,
                     prevGuesses: this.buildPrevGuesses(evaluatedRowIndex),
                     returnRemainingCount: remainingAnswersMode !== "neither"
-                }, () => this.localEvaluation(guess, evaluatedRowIndex));
+                });
                 this.applyEvaluation(row, guess, evaluatedRowIndex, result);
             } catch (error) {
                 this.canInput = true;
@@ -1276,27 +1265,7 @@
             }
         }
 
-        localEvaluation(guess, evaluatedRowIndex) {
-            if (!valid_guesses.includes(guess) && !answer_list.includes(guess)) {
-                return { error: "Not in word list" };
-            }
 
-            var evaluation = GameEvaluator.evaluateGuess(guess, this.solution);
-            var gameStatus = GAME_STATUS_IN_PROGRESS;
-            if (evaluation.every(function(value) { return value === "correct"; })) {
-                gameStatus = GAME_STATUS_WIN;
-            } else if (evaluatedRowIndex >= 5) {
-                gameStatus = GAME_STATUS_FAIL;
-            }
-            return {
-                date: DateUtils.formatLocalDate(this.today),
-                evaluation: evaluation,
-                gameStatus: gameStatus,
-                puzzleNum: this.dayOffset,
-                rowIndex: evaluatedRowIndex + 1,
-                solution: gameStatus === GAME_STATUS_IN_PROGRESS ? null : this.solution
-            };
-        }
 
         buildPrevGuesses(upToRow) {
             var prevGuesses = [];

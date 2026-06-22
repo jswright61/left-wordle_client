@@ -2,8 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-function loadGameplay(options) {
-    options = options || {};
+function loadGameplay(client) {
     const dom = new JSDOM('<!doctype html><html><body></body></html>', {
         runScripts: 'outside-only',
         url: 'http://localhost:3000/'
@@ -14,13 +13,9 @@ function loadGameplay(options) {
             Object.assign(this, errorOptions || {});
         }
     }
-    dom.window.LEFT_WORDLE_CONFIG = {
-        apiGameplayEnabled: options.enabled === true,
-        localGameplayFallbackEnabled: options.fallbackEnabled === true
-    };
     dom.window.LeftWordleApi = {
         ApiClientError: ApiClientError,
-        client: options.client || { evaluateGuess: jest.fn() }
+        client: client || { evaluateGuess: jest.fn() }
     };
     const code = fs.readFileSync(path.join(__dirname, '../api_gameplay.js'), 'utf8');
     dom.window.eval(code);
@@ -42,32 +37,12 @@ function apiResponse(overrides) {
     }, overrides || {});
 }
 
-function localResponse() {
-    return {
-        date: '2021-06-19',
-        evaluation: ['correct', 'correct', 'correct', 'correct', 'correct'],
-        gameStatus: 'WIN',
-        puzzleNum: 0,
-        rowIndex: 1,
-        solution: 'crane'
-    };
-}
-
 describe('ApiGameplayEvaluator', () => {
-    test('uses local evaluation when API gameplay is disabled', async () => {
-        const client = { evaluateGuess: jest.fn() };
-        const dom = loadGameplay({ client: client });
-
-        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request(), localResponse))
-            .resolves.toMatchObject({ source: 'local', gameStatus: 'WIN' });
-        expect(client.evaluateGuess).not.toHaveBeenCalled();
-    });
-
-    test('uses validated API evaluation when enabled', async () => {
+    test('evaluates via the API and returns a normalized result', async () => {
         const client = { evaluateGuess: jest.fn().mockResolvedValue(apiResponse()) };
-        const dom = loadGameplay({ client: client, enabled: true, fallbackEnabled: true });
+        const dom = loadGameplay(client);
 
-        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request(), localResponse))
+        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request()))
             .resolves.toEqual({
                 date: '2021-06-19',
                 evaluation: ['absent', 'absent', 'absent', 'absent', 'absent'],
@@ -78,40 +53,41 @@ describe('ApiGameplayEvaluator', () => {
                 source: 'api',
                 answersRemaining: null
             });
+        expect(client.evaluateGuess).toHaveBeenCalledTimes(1);
     });
 
     test('includes answers_remaining in result when provided', async () => {
         const client = { evaluateGuess: jest.fn().mockResolvedValue(apiResponse({ answers_remaining: 87 })) };
-        const dom = loadGameplay({ client: client, enabled: true, fallbackEnabled: false });
+        const dom = loadGameplay(client);
 
-        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request(), localResponse))
+        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request()))
             .resolves.toMatchObject({ answersRemaining: 87 });
     });
 
-    test('falls back locally for retryable API failures', async () => {
+    test('throws on API errors without fallback', async () => {
         const error = { code: 'timeout', retryable: true };
         const client = { evaluateGuess: jest.fn().mockRejectedValue(error) };
-        const dom = loadGameplay({ client: client, enabled: true, fallbackEnabled: true });
+        const dom = loadGameplay(client);
 
-        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request(), localResponse))
-            .resolves.toMatchObject({ source: 'fallback', gameStatus: 'WIN' });
-    });
-
-    test('does not bypass authoritative validation errors', async () => {
-        const error = { code: 'http_error', detail: 'Not in word list', retryable: false, status: 400 };
-        const client = { evaluateGuess: jest.fn().mockRejectedValue(error) };
-        const dom = loadGameplay({ client: client, enabled: true, fallbackEnabled: true });
-
-        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request(), localResponse))
+        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request()))
             .rejects.toBe(error);
     });
 
-    test('falls back when the API gameplay contract is invalid', async () => {
-        const client = { evaluateGuess: jest.fn().mockResolvedValue(apiResponse({ guess_number: 4 })) };
-        const dom = loadGameplay({ client: client, enabled: true, fallbackEnabled: true });
+    test('throws on authoritative API validation errors', async () => {
+        const error = { code: 'http_error', detail: 'Not in word list', retryable: false, status: 400 };
+        const client = { evaluateGuess: jest.fn().mockRejectedValue(error) };
+        const dom = loadGameplay(client);
 
-        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request(), localResponse))
-            .resolves.toMatchObject({ source: 'fallback', gameStatus: 'WIN' });
+        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request()))
+            .rejects.toBe(error);
+    });
+
+    test('throws when the API returns an invalid gameplay response', async () => {
+        const client = { evaluateGuess: jest.fn().mockResolvedValue(apiResponse({ guess_number: 4 })) };
+        const dom = loadGameplay(client);
+
+        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request()))
+            .rejects.toMatchObject({ code: 'invalid_gameplay_response' });
     });
 
     test('requires a terminal solution', async () => {
@@ -119,9 +95,9 @@ describe('ApiGameplayEvaluator', () => {
             evaluation: '22222',
             game_status: 'WIN'
         })) };
-        const dom = loadGameplay({ client: client, enabled: true, fallbackEnabled: false });
+        const dom = loadGameplay(client);
 
-        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request(), localResponse))
+        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request()))
             .rejects.toMatchObject({ code: 'invalid_gameplay_response' });
     });
 
@@ -130,17 +106,17 @@ describe('ApiGameplayEvaluator', () => {
             game_status: 'WIN',
             solution: 'crane'
         })) };
-        const dom = loadGameplay({ client: client, enabled: true, fallbackEnabled: false });
+        const dom = loadGameplay(client);
 
-        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request(), localResponse))
+        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request()))
             .rejects.toMatchObject({ code: 'invalid_gameplay_response' });
     });
 
     test('does not reveal a solution for an in-progress response', async () => {
         const client = { evaluateGuess: jest.fn().mockResolvedValue(apiResponse({ solution: 'crane' })) };
-        const dom = loadGameplay({ client: client, enabled: true, fallbackEnabled: false });
+        const dom = loadGameplay(client);
 
-        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request(), localResponse))
+        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request()))
             .rejects.toMatchObject({ code: 'invalid_gameplay_response' });
     });
 
@@ -150,9 +126,9 @@ describe('ApiGameplayEvaluator', () => {
             game_status: 'WIN',
             solution: 'cigar'
         })) };
-        const dom = loadGameplay({ client: client, enabled: true, fallbackEnabled: false });
+        const dom = loadGameplay(client);
 
-        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request(), localResponse))
+        await expect(dom.window.LeftWordleApi.gameplay.evaluate(request()))
             .rejects.toMatchObject({ code: 'invalid_gameplay_response' });
     });
 });
