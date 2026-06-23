@@ -1057,6 +1057,15 @@
 <button id="modal">modal</button>
 `;
 
+    function getEnvironmentLabel(hostname) {
+        if (hostname === "left-wordle.com") return null;
+        if (hostname === "localhost" ||
+            /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) ||
+            hostname.includes(":") ||
+            hostname.endsWith(".local")) return "development";
+        return hostname.split(".")[0];
+    }
+
     const GAME_STATUS_IN_PROGRESS = "IN_PROGRESS";
     const GAME_STATUS_WIN = "WIN";
     const GAME_STATUS_FAIL = "FAIL";
@@ -1551,6 +1560,13 @@
             if (!this.restoringFromLocalStorage && this.gameStatus === GAME_STATUS_IN_PROGRESS &&
                     this._pendingQueryGuesses.some(Boolean)) {
                 setTimeout(() => this._submitNextQueryStringGuess(), 0);
+            }
+            var envLabel = getEnvironmentLabel(window.location.hostname);
+            if (envLabel) {
+                var envBanner = document.createElement("div");
+                envBanner.id = "env-banner";
+                envBanner.textContent = envLabel + " — stats & history are not shared with left-wordle.com";
+                this.$game.insertBefore(envBanner, this.$game.querySelector("#board-container"));
             }
         }
 

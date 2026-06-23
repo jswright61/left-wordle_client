@@ -166,8 +166,14 @@ header {
     border-bottom: 1px solid var(--color-tone-4);
 }
 
-body.staging header .title {
-    color: var(--yellow);
+#env-banner {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 8px;
+    background: var(--orange);
+    color: #fff;
+    letter-spacing: 0.03em;
 }
 
 header .title {
