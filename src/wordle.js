@@ -1858,7 +1858,7 @@
             var header = "Wordle " + dayOffset.toLocaleString();
             header += " " + (isWin ? rowIndex : "X") + "/6";
             if (isInsaneMode) {
-                header += "*+";
+                header += "**";
             } else if (isHardMode) {
                 header += "*";
             }
