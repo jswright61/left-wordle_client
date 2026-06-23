@@ -196,22 +196,23 @@
     <template id="settings-template">
       <div class="sections">
         <section>
-          <div class="setting">
+          <div class="setting mode-setting">
             <div class="text">
-              <div class="title">Hard Mode</div>
-              <div class="description">Any revealed hints must be used in subsequent guesses</div>
+              <div class="title">Mode</div>
             </div>
-            <div class="control">
-              <game-switch id="hard-mode" name="hard-mode"></game-switch>
-            </div>
-          </div>
-          <div class="setting">
-            <div class="text">
-              <div class="title">Insane Mode</div>
-              <div class="description">Hard Mode rules, plus yellow letters cannot be reused in the same position</div>
-            </div>
-            <div class="control">
-              <game-switch id="insane-mode" name="insane-mode"></game-switch>
+            <div class="mode-options">
+              <label class="mode-option" title="Standard play — any legal word may be guessed at any time.">
+                <input type="radio" name="gameplay-mode" value="regular">
+                <span>Regular</span>
+              </label>
+              <label class="mode-option" title="Previous clues must be honored. Green (Correct) letters must stay in their position. Yellow (Present) letters must appear somewhere in subsequent guesses, including in the same position they were revealed.">
+                <input type="radio" name="gameplay-mode" value="hard">
+                <span>Hard</span>
+              </label>
+              <label class="mode-option" title="Hard Mode rules apply, plus: yellow (Present) letters may not be placed in any position where they were previously revealed as yellow, and gray (Absent) letters may not appear anywhere in subsequent guesses. (A word may contain repeated letters; these constraints apply only to what has been revealed.)">
+                <input type="radio" name="gameplay-mode" value="insane">
+                <span>Insane</span>
+              </label>
             </div>
           </div>
           <div class="setting">

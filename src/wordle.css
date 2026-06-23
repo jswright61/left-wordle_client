@@ -940,6 +940,24 @@ game-settings .remaining-answers-option input[type="radio"] {
 }
 
 
+game-settings .mode-options {
+    display: flex;
+    gap: 16px;
+}
+
+game-settings .mode-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+game-settings .mode-option input[type="radio"] {
+    cursor: pointer;
+    accent-color: var(--color-correct);
+}
+
 game-settings .share-text-row {
     display: flex;
     gap: 12px;

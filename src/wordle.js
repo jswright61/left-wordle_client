@@ -337,6 +337,16 @@
                     StorageController.preferences.set("remainingAnswersMode", event.target.value);
                 });
             });
+            // Handle gameplay mode radio changes
+            this.querySelectorAll('input[name="gameplay-mode"]').forEach((radio) => {
+                radio.addEventListener("change", (event) => {
+                    this.dispatchEvent(new CustomEvent("game-setting-change", {
+                        bubbles: true,
+                        detail: { name: "gameplay-mode", value: event.target.value }
+                    }));
+                    this.render();
+                });
+            });
             this.render();
         }
 
@@ -362,12 +372,11 @@
             if (body.classList.contains("colorblind")) {
                 this.querySelector("#color-blind-theme").setAttribute("checked", "");
             }
-            StorageController.preferences.get("hardMode")
-                ? this.querySelector("#hard-mode").setAttribute("checked", "")
-                : this.querySelector("#hard-mode").removeAttribute("checked");
-            StorageController.preferences.get("insaneMode")
-                ? this.querySelector("#insane-mode").setAttribute("checked", "")
-                : this.querySelector("#insane-mode").removeAttribute("checked");
+            var modeValue = StorageController.preferences.get("insaneMode") ? "insane"
+                : StorageController.preferences.get("hardMode") ? "hard"
+                : "regular";
+            var modeRadio = this.querySelector('input[name="gameplay-mode"][value="' + modeValue + '"]');
+            if (modeRadio) modeRadio.checked = true;
             StorageController.preferences.get("goofProtectionMode") !== false
                 ? this.querySelector("#goof-protection-mode").setAttribute("checked", "")
                 : this.querySelector("#goof-protection-mode").removeAttribute("checked");
@@ -1470,36 +1479,23 @@
                 var detail = event.detail;
                 var name = detail.name;
                 var checked = detail.checked;
+                var value = detail.value;
                 var gameLocked = this.rowIndex > 0;
                 switch (name) {
-                case "hard-mode":
-                    StorageController.preferences.set("hardMode", checked);
-                    if (checked) StorageController.preferences.set("insaneMode", false);
+                case "gameplay-mode":
+                    var isHard = value === "hard";
+                    var isInsane = value === "insane";
+                    StorageController.preferences.set("hardMode", isHard);
+                    StorageController.preferences.set("insaneMode", isInsane);
                     if (gameLocked) {
                         this.addToast("Mode change will take effect with the next game", 2000, true);
                         return;
                     }
-                    this.hardMode = checked;
-                    if (checked) this.insaneMode = false;
+                    this.hardMode = isHard;
+                    this.insaneMode = isInsane;
                     GameStateManager.saveGameState({
-                        hardMode: checked,
-                        insaneMode: checked ? false : this.insaneMode,
-                        puzzleNum: this.dayOffset,
-                        date: DateUtils.formatLocalDate(this.today)
-                    });
-                    return;
-                case "insane-mode":
-                    StorageController.preferences.set("insaneMode", checked);
-                    if (checked) StorageController.preferences.set("hardMode", false);
-                    if (gameLocked) {
-                        this.addToast("Mode change will take effect with the next game", 2000, true);
-                        return;
-                    }
-                    this.insaneMode = checked;
-                    if (checked) this.hardMode = false;
-                    GameStateManager.saveGameState({
-                        insaneMode: checked,
-                        hardMode: checked ? false : this.hardMode,
+                        hardMode: isHard,
+                        insaneMode: isInsane,
                         puzzleNum: this.dayOffset,
                         date: DateUtils.formatLocalDate(this.today)
                     });
