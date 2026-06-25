@@ -1921,7 +1921,11 @@
             var accessibleText = accessibleRows.map(function (row, i) {
                 var line = (i + 1) + ". " + row;
                 if (typeof answersRemaining[i] === "number") {
-                    line += " (" + answersRemaining[i] + ")";
+                    if (answersRemaining[i] === 1) {
+                        line += " (" + answersRemaining[i] + " answer remains after guess.)";
+                    } else{
+                        line += " (" + answersRemaining[i] + " answers remain after guess.)";
+                    }
                 }
                 return line;
             }).join("\n");
