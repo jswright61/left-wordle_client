@@ -68,7 +68,6 @@ namespace :deploy do
       upload! StringIO.new(version_tag), release_path.join("VERSION")
     end
   end
-end
 
   # Capistrano's deploy:new_release_path calls set_release_path(now) where now
   # returns %Y%m%d%H%M%S. We correct it here as a prerequisite of git:create_release
