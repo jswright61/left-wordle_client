@@ -70,16 +70,16 @@ namespace :deploy do
   end
 end
 
-before "git:check", "deploy:check_release_tag"
-after "git:create_release", "deploy:write_version_tag"
-
-# Capistrano's deploy:new_release_path calls set_release_path(now) where now
-# returns %Y%m%d%H%M%S, overwriting any :release_timestamp we set in deploy.rb.
-# We replace the task body to use a readable, version-stamped format instead.
-Rake::Task["deploy:new_release_path"].clear_actions if Rake::Task.task_defined?("deploy:new_release_path")
-namespace :deploy do
-  task :new_release_path do
+  # Capistrano's deploy:new_release_path calls set_release_path(now) where now
+  # returns %Y%m%d%H%M%S. We correct it here as a prerequisite of git:create_release
+  # so it runs after new_release_path sets the path but before the mkdir + archive,
+  # without disturbing the after-hook that wires new_release_path → git:create_release.
+  task :set_readable_release_path do
     ts = Time.now.utc.strftime("%Y-%m-%d_%H.%M.%S__#{fetch(:release_version_tag)}")
     set_release_path(ts)
   end
 end
+
+before "git:check", "deploy:check_release_tag"
+before "git:create_release", "deploy:set_readable_release_path"
+after "git:create_release", "deploy:write_version_tag"
