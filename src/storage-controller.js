@@ -83,6 +83,7 @@ class PreferencesStorage extends NamespacedStorage {
             "colorBlindTheme",
             "shareFormat",
             "shareTextAdditions",
+            "hideDateInShareHeader",
             "suppressLoginPrompt",
             "remainingAnswersMode",
             "goofProtectionMode",

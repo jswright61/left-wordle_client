@@ -388,6 +388,15 @@
             var shareAdditions = StorageController.preferences.get("shareTextAdditions") || DEFAULT_SHARE_TEXT_ADDITIONS;
             this.querySelector("#share-header-append").value = shareAdditions.header || "";
             this.querySelector("#share-after-grid").value = shareAdditions.afterGrid || "";
+            // Hide date in share header preference (default off; normalize null to false)
+            var hideDateInShareHeader = StorageController.preferences.get("hideDateInShareHeader");
+            if (hideDateInShareHeader === null) {
+                hideDateInShareHeader = false;
+                StorageController.preferences.set("hideDateInShareHeader", false);
+            }
+            hideDateInShareHeader
+                ? this.querySelector("#hide-date-in-share-header").setAttribute("checked", "")
+                : this.querySelector("#hide-date-in-share-header").removeAttribute("checked");
             // Remaining answers mode preference
             var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
             var modeRadio = this.querySelector('input[name="remaining-answers-mode"][value="' + remainingAnswersMode + '"]');
@@ -1513,6 +1522,9 @@
                         date: DateUtils.formatLocalDate(this.today)
                     });
                     return;
+                case "hide-date-in-share-header":
+                    StorageController.preferences.set("hideDateInShareHeader", checked);
+                    return;
                 }
             });
             this.querySelector("#settings-button").addEventListener("click", () => {
@@ -1853,6 +1865,11 @@
             var isColorBlind = StorageController.preferences.get("colorBlindTheme");
             var shareAdditions = StorageController.preferences.get("shareTextAdditions") || DEFAULT_SHARE_TEXT_ADDITIONS;
             var shareFormat = StorageController.preferences.get("shareFormat") || DEFAULT_SHARE_FORMAT;
+            var hideDateInShareHeader = StorageController.preferences.get("hideDateInShareHeader");
+            if (hideDateInShareHeader === null) {
+                hideDateInShareHeader = false;
+                StorageController.preferences.set("hideDateInShareHeader", false);
+            }
 
             // Build header line: "Wordle 123 4/6 (1995p)" or "Wordle 123 X/6* (1995p)"
             var header = "Wordle " + dayOffset.toLocaleString();
@@ -1863,9 +1880,11 @@
                 header += "*";
             }
             // header += " (1995p)";
-            var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-            var puzzleDate = new Date(2021, 5, 19 + dayOffset);
-            header += " for " + puzzleDate.getDate() + " " + MONTHS[puzzleDate.getMonth()] + ", " + puzzleDate.getFullYear();
+            if (!hideDateInShareHeader) {
+                var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+                var puzzleDate = new Date(2021, 5, 19 + dayOffset);
+                header += " for " + puzzleDate.getDate() + " " + MONTHS[puzzleDate.getMonth()] + ", " + puzzleDate.getFullYear();
+            }
             if (shareAdditions.header) {
                 header += " " + shareAdditions.header.replace(/\\n/g, "\n");
             }
