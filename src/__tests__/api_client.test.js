@@ -69,7 +69,7 @@ describe('LeftWordleApi', () => {
         expect(fetchImpl).toHaveBeenCalledWith(
             'http://localhost:9292/api/v1/game/guess',
             expect.objectContaining({
-                body: JSON.stringify({ date: '2021-06-19', guess: 'crane', row_index: 2 }),
+                body: JSON.stringify({ date: '2021-06-19', guess: 'crane', row_index: 2, mode: 'regular', prev_guesses: [], return_remaining_count: false }),
                 headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
                 method: 'POST'
             })
@@ -93,13 +93,15 @@ describe('LeftWordleApi', () => {
                     date: '2021-06-19',
                     guess: 'crane',
                     row_index: 2,
-                    prev_guesses: [['slate', '01200'], ['crate', '02200']]
+                    mode: 'regular',
+                    prev_guesses: [['slate', '01200'], ['crate', '02200']],
+                    return_remaining_count: false
                 })
             })
         );
     });
 
-    test('omits prev_guesses from body when not provided', async () => {
+    test('sends default mode and empty prev_guesses when options not provided', async () => {
         const fetchImpl = jest.fn().mockResolvedValue(response({
             body: '{"evaluation":"00000","game_status":"IN_PROGRESS"}'
         }));
@@ -110,7 +112,7 @@ describe('LeftWordleApi', () => {
         expect(fetchImpl).toHaveBeenCalledWith(
             'http://localhost:9292/api/v1/game/guess',
             expect.objectContaining({
-                body: JSON.stringify({ date: '2021-06-19', guess: 'crane', row_index: 0 })
+                body: JSON.stringify({ date: '2021-06-19', guess: 'crane', row_index: 0, mode: 'regular', prev_guesses: [], return_remaining_count: false })
             })
         );
     });

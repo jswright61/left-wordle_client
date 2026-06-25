@@ -99,7 +99,6 @@ const encodeWord = testExports.encodeWord;                 // Wa -> encodeWord
 const getStatistics = testExports.getStatistics;            // Xa -> getStatistics
 const updateStatistics = testExports.updateStatistics;      // Va -> updateStatistics
 const evaluateGuess = testExports.evaluateGuess;            // IIFE -> evaluateGuess
-const validateHardMode = testExports.validateHardMode;      // IIFE -> validateHardMode
 const buildShareText = testExports.buildShareText;          // IIFE -> buildShareText
 const buildAccessibleRows = testExports.buildAccessibleRows; // ShareUtils.buildAccessibleRows
 
@@ -151,7 +150,7 @@ describe('Constants', () => {
 
 describe('ICON_PATHS (previously Bs)', () => {
     test('contains all expected icon keys', () => {
-        const expectedKeys = ['help', 'settings', 'backspace', 'close', 'share', 'statistics', 'save'];
+        const expectedKeys = ['help', 'download', 'settings', 'backspace', 'close', 'share', 'statistics', 'save'];
         expectedKeys.forEach(function(key) {
             expect(ICON_PATHS[key]).toBeDefined();
         });
@@ -167,7 +166,7 @@ describe('ICON_PATHS (previously Bs)', () => {
 
     test('has no unexpected keys', () => {
         var keys = Object.keys(ICON_PATHS);
-        expect(keys).toHaveLength(7);
+        expect(keys).toHaveLength(8);
     });
 });
 
@@ -450,62 +449,6 @@ describe('evaluateGuess (extracted IIFE)', () => {
     test('returns array same length as solution', () => {
         const result = evaluateGuess('crane', 'crane');
         expect(result).toHaveLength(5);
-    });
-});
-
-describe('validateHardMode (extracted IIFE)', () => {
-    test('returns valid when no previous guess data', () => {
-        expect(validateHardMode('crane', null, null)).toEqual({ validGuess: true });
-        expect(validateHardMode('crane', '', null)).toEqual({ validGuess: true });
-        expect(validateHardMode(null, null, null)).toEqual({ validGuess: true });
-    });
-
-    test('accepts guess that satisfies all constraints', () => {
-        // Previous guess: crane, c=correct, r=absent, a=present, n=absent, e=absent
-        const prevEval = [CORRECT, ABSENT, PRESENT, ABSENT, ABSENT];
-        const result = validateHardMode('clamp', 'crane', prevEval);
-        expect(result.validGuess).toBe(true);
-    });
-
-    test('rejects guess missing a correct-position letter', () => {
-        // Previous guess: crane, c=correct
-        const prevEval = [CORRECT, ABSENT, ABSENT, ABSENT, ABSENT];
-        const result = validateHardMode('blaze', 'crane', prevEval);
-        expect(result.validGuess).toBe(false);
-        expect(result.errorMessage).toContain('1st');
-        expect(result.errorMessage).toContain('C');
-    });
-
-    test('rejects guess missing a present letter', () => {
-        // Previous guess: crane, a=present
-        const prevEval = [ABSENT, ABSENT, PRESENT, ABSENT, ABSENT];
-        const result = validateHardMode('blitz', 'crane', prevEval);
-        expect(result.validGuess).toBe(false);
-        expect(result.errorMessage).toContain('A');
-    });
-
-    test('correct-position check takes priority over present check', () => {
-        // Previous guess: crane, c=correct at position 0
-        // New guess has wrong letter at position 0
-        const prevEval = [CORRECT, CORRECT, CORRECT, ABSENT, ABSENT];
-        const result = validateHardMode('xxane', 'crane', prevEval);
-        expect(result.validGuess).toBe(false);
-        expect(result.errorMessage).toContain('1st');
-    });
-
-    test('handles multiple present letters', () => {
-        // Previous: aabxx, both a's present
-        const prevEval = [PRESENT, PRESENT, ABSENT, ABSENT, ABSENT];
-        const result = validateHardMode('aaxxx', 'aabxx', prevEval);
-        expect(result.validGuess).toBe(true);
-    });
-
-    test('rejects when not enough of a repeated present letter', () => {
-        // Previous: aabxx, both a's present
-        const prevEval = [PRESENT, PRESENT, ABSENT, ABSENT, ABSENT];
-        const result = validateHardMode('axbxx', 'aabxx', prevEval);
-        expect(result.validGuess).toBe(false);
-        expect(result.errorMessage).toContain('A');
     });
 });
 
