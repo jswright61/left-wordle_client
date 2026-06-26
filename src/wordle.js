@@ -169,7 +169,7 @@
     }
     customElements.define("game-row", GameRow);
 
-    var DEFAULT_SHARE_TEXT_ADDITIONS = { header: "(Left Wordle)", afterGrid: "" },
+    var DEFAULT_SHARE_TEXT_ADDITIONS = { preHeader: "", header: "(Left Wordle)", afterGrid: "" },
         DEFAULT_SHARE_FORMAT = "grid";
 
     class GameStateManager {
@@ -319,6 +319,9 @@
                 this.render();
             });
             // Handle text input changes for share text additions
+            this.querySelector("#share-pre-header").addEventListener("input", (event) => {
+                this.saveShareTextAdditions();
+            });
             this.querySelector("#share-header-append").addEventListener("input", (event) => {
                 this.saveShareTextAdditions();
             });
@@ -355,9 +358,11 @@
         }
 
         saveShareTextAdditions() {
+            var preHeaderVal = this.querySelector("#share-pre-header").value;
             var headerVal = this.querySelector("#share-header-append").value;
             var afterGridVal = this.querySelector("#share-after-grid").value;
             var additions = {
+                preHeader: preHeaderVal,
                 header: headerVal,
                 afterGrid: afterGridVal
             };
@@ -386,6 +391,7 @@
             if (formatRadio) formatRadio.checked = true;
             // Share text additions - use stored values or defaults
             var shareAdditions = StorageController.preferences.get("shareTextAdditions") || DEFAULT_SHARE_TEXT_ADDITIONS;
+            this.querySelector("#share-pre-header").value = shareAdditions.preHeader || "";
             this.querySelector("#share-header-append").value = shareAdditions.header || "";
             this.querySelector("#share-after-grid").value = shareAdditions.afterGrid || "";
             // Hide date in share header preference (default off; normalize null to false)
@@ -1876,7 +1882,7 @@
             }
 
             // Build header line: "Wordle 123 4/6 (1995p)" or "Wordle 123 X/6* (1995p)"
-            var header = "Wordle " + dayOffset.toLocaleString();
+            var header = (shareAdditions.preHeader || "") + "Wordle " + dayOffset.toLocaleString();
             header += " " + (isWin ? rowIndex : "X") + "/6";
             if (isInsaneMode) {
                 header += "**";
