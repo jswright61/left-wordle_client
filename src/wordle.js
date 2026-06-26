@@ -1408,7 +1408,11 @@
             this.sizeBoard();
             var willShowStatsModal = this.restoringFromLocalStorage &&
                 (this.gameStatus === GAME_STATUS_WIN || this.gameStatus === GAME_STATUS_FAIL);
-            if (!willShowStatsModal && GameStateManager.isNewUser()) {
+            var isNewUser = GameStateManager.isNewUser();
+            if (isNewUser && StorageController.preferences.get("shareFormat") === null) {
+                StorageController.preferences.set("shareFormat", "both");
+            }
+            if (!willShowStatsModal && isNewUser) {
                 setTimeout(() => {
                     this.showHelpModal();
                 }, 100);
