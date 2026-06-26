@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <rect width="180" height="180" fill="#121213"/>
+  <rect x="11" y="41" width="75" height="75" rx="5" fill="#c9b458"/>
+  <text x="48.5" y="97" fill="white" font-size="51" font-family="Arial" font-weight="bold" text-anchor="middle">L</text>
+  <rect x="94" y="41" width="75" height="75" rx="5" fill="#6aaa64"/>
+  <text x="131.5" y="97" fill="white" font-size="51" font-family="Arial" font-weight="bold" text-anchor="middle">W</text>
+</svg>
