@@ -228,6 +228,44 @@ class ScalarStorage {
     }
 }
 
+class SettingsBackupStorage {
+    constructor() {
+        this._storageKey = "settingsBackup";
+    }
+
+    maybeBackup(version) {
+        if (!version) return;
+        try {
+            var vKey = "v" + version;
+            var raw = window.localStorage.getItem(this._storageKey);
+            var backup = null;
+            try { backup = raw ? JSON.parse(raw) : null; } catch (e) {}
+            if (!backup || typeof backup !== "object" || Array.isArray(backup)) backup = {};
+            if (backup[vKey]) return;
+            var snapshot = { ts: new Date().toISOString() };
+            for (var i = 0; i < window.localStorage.length; i++) {
+                var key = window.localStorage.key(i);
+                if (key !== this._storageKey) snapshot[key] = window.localStorage.getItem(key);
+            }
+            backup[vKey] = snapshot;
+            window.localStorage.setItem(this._storageKey, JSON.stringify(backup));
+        } catch (e) {}
+    }
+
+    get() {
+        try {
+            var raw = window.localStorage.getItem(this._storageKey);
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    clear() {
+        try { window.localStorage.removeItem(this._storageKey); } catch (e) {}
+    }
+}
+
 window.StorageController = {
     preferences: new PreferencesStorage(),
     gameState: new NamespacedStorage("gameState", new Set([
@@ -243,5 +281,6 @@ window.StorageController = {
         "currentStreak", "maxStreak", "guesses", "winPercentage",
         "gamesPlayed", "gamesWon", "averageGuesses"
     ])),
-    deviceId: new ScalarStorage("device_id")
+    deviceId: new ScalarStorage("device_id"),
+    settingsBackup: new SettingsBackupStorage()
 };

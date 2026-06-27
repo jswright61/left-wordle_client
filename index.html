@@ -443,6 +443,13 @@
     })();
     </script>
     <script>
+    window.addEventListener("load", function() {
+        if (window.APP_VERSION && window.StorageController) {
+            StorageController.settingsBackup.maybeBackup(window.APP_VERSION);
+        }
+    });
+    </script>
+    <script>
     (function() {
         var loadedVersion = null;
 

@@ -60,4 +60,77 @@ describe('StorageController', () => {
         expect(storage.legacyStats.get()).toEqual({ gamesPlayed: 10 });
         expect(storage.deviceId.get()).toBe('device-1');
     });
+
+    describe('settingsBackup', () => {
+        test('creates a versioned snapshot on first backup', () => {
+            const dom = loadController((storage) => {
+                storage.setItem('preferences', JSON.stringify({ darkTheme: true }));
+                storage.setItem('device_id', 'abc123');
+            });
+            const { StorageController, localStorage } = dom.window;
+
+            StorageController.settingsBackup.maybeBackup('1.0.0');
+
+            const backup = StorageController.settingsBackup.get();
+            expect(backup).not.toBeNull();
+            expect(backup['v1.0.0']).toBeDefined();
+            expect(backup['v1.0.0'].ts).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+            expect(backup['v1.0.0'].preferences).toBe(JSON.stringify({ darkTheme: true }));
+            expect(backup['v1.0.0'].device_id).toBe('abc123');
+            expect(backup['v1.0.0'].settingsBackup).toBeUndefined();
+        });
+
+        test('does not overwrite an existing version entry', () => {
+            const dom = loadController((storage) => {
+                storage.setItem('device_id', 'original');
+            });
+            const { StorageController, localStorage } = dom.window;
+
+            StorageController.settingsBackup.maybeBackup('1.0.0');
+            const firstTs = StorageController.settingsBackup.get()['v1.0.0'].ts;
+
+            localStorage.setItem('device_id', 'changed');
+            StorageController.settingsBackup.maybeBackup('1.0.0');
+
+            const backup = StorageController.settingsBackup.get();
+            expect(backup['v1.0.0'].ts).toBe(firstTs);
+            expect(backup['v1.0.0'].device_id).toBe('original');
+        });
+
+        test('adds a new entry when version changes', () => {
+            const dom = loadController((storage) => {
+                storage.setItem('device_id', 'abc');
+            });
+            const { StorageController } = dom.window;
+
+            StorageController.settingsBackup.maybeBackup('1.0.0');
+            StorageController.settingsBackup.maybeBackup('1.0.1');
+
+            const backup = StorageController.settingsBackup.get();
+            expect(backup['v1.0.0']).toBeDefined();
+            expect(backup['v1.0.1']).toBeDefined();
+        });
+
+        test('does nothing when version is falsy', () => {
+            const dom = loadController();
+            const { StorageController } = dom.window;
+
+            StorageController.settingsBackup.maybeBackup(null);
+            StorageController.settingsBackup.maybeBackup('');
+            StorageController.settingsBackup.maybeBackup(undefined);
+
+            expect(StorageController.settingsBackup.get()).toBeNull();
+        });
+
+        test('initializes from empty settingsBackup', () => {
+            const dom = loadController((storage) => {
+                storage.setItem('settingsBackup', '');
+            });
+            const { StorageController } = dom.window;
+
+            StorageController.settingsBackup.maybeBackup('2.0.0');
+
+            expect(StorageController.settingsBackup.get()['v2.0.0']).toBeDefined();
+        });
+    });
 });
