@@ -50,6 +50,11 @@
             return this.request("/api/v1/game/guess", options);
         }
 
+        async submitDiagnostics(payload, options) {
+            options = Object.assign({}, options, { body: payload, method: "POST", timeoutMs: 15000 });
+            return this.request("/api/v1/diagnostics", options);
+        }
+
         async puzzleMetadata(date, options) {
             var query = new URLSearchParams({ date: date });
             return this.request("/api/v1/game/puzzle?" + query.toString(), options);

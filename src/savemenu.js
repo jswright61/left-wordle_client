@@ -1199,6 +1199,54 @@ class SaveMenu {
         }
     }
 
+    collectAllSettings() {
+        var data = {};
+        for (var i = 0; i < window.localStorage.length; i++) {
+            var key = window.localStorage.key(i);
+            var raw = window.localStorage.getItem(key);
+            try { data[key] = JSON.parse(raw); } catch (e) { data[key] = raw; }
+        }
+        return data;
+    }
+
+    wireTroubleshootingSection(statusElement) {
+        var self = this;
+        var downloadButton = document.getElementById("downloadAllSettingsButton");
+        var sendButton = document.getElementById("sendSettingsToDevelopersButton");
+
+        if (downloadButton) {
+            downloadButton.addEventListener("click", function() {
+                SaveMenu.flashElement(downloadButton);
+                var data = self.collectAllSettings();
+                var filename = "left_wordle_settings_" + self.resolver.formatLocalDate(new Date()) + ".json";
+                SaveMenu.createDownload(filename, JSON.stringify(data, null, 2), "application/json");
+                SaveMenu.showStatus(statusElement, "Settings downloaded", false);
+            });
+        }
+
+        if (sendButton) {
+            sendButton.addEventListener("click", function() {
+                SaveMenu.flashElement(sendButton);
+                sendButton.disabled = true;
+                SaveMenu.showStatus(statusElement, "Sending settings...", false);
+                var data = self.collectAllSettings();
+                window.LeftWordleApi.client.submitDiagnostics(data)
+                    .then(function() {
+                        SaveMenu.showStatus(statusElement, "Settings sent to developers", false);
+                    })
+                    .catch(function(err) {
+                        var msg = (err && err.status === 503)
+                            ? "Unable to send — please use Download All Settings instead"
+                            : "Failed to send — please try again or use Download All Settings";
+                        SaveMenu.showStatus(statusElement, msg, true);
+                    })
+                    .finally(function() {
+                        sendButton.disabled = false;
+                    });
+            });
+        }
+    }
+
     init() {
         var closeButton = document.getElementById("save-close");
         var saveModal = document.querySelector("#save");
@@ -1214,6 +1262,7 @@ class SaveMenu {
         this.wireHistoryImportExport(statusElement);
         this.wireHistoryImportSummaryModal();
         this.wireAdjustStatsModal(statusElement);
+        this.wireTroubleshootingSection(statusElement);
     }
 }
 
