@@ -1583,7 +1583,15 @@
             if (envLabel) {
                 var envBanner = document.createElement("div");
                 envBanner.id = "env-banner";
-                envBanner.textContent = envLabel + " — stats & history are not shared with left-wordle.com";
+                var bannerText = document.createElement("span");
+                bannerText.textContent = envLabel + " — stats & history are not shared with left-wordle.com";
+                var dismissBtn = document.createElement("button");
+                dismissBtn.id = "env-banner-dismiss";
+                dismissBtn.setAttribute("aria-label", "Dismiss");
+                dismissBtn.textContent = "✕";
+                dismissBtn.addEventListener("click", () => envBanner.remove());
+                envBanner.appendChild(bannerText);
+                envBanner.appendChild(dismissBtn);
                 this.$game.insertBefore(envBanner, this.$game.querySelector("#board-container"));
             }
         }
