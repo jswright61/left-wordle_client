@@ -650,7 +650,7 @@
                 guessSum += i * (stats.guesses[i] || 0);
             }
             stats.winPercentage = stats.gamesPlayed ? Math.round(stats.gamesWon / stats.gamesPlayed * 100) : 0;
-            stats.averageGuesses = stats.gamesWon ? Math.round(guessSum / stats.gamesWon) : 0;
+            stats.averageGuesses = stats.gamesWon ? Math.round(guessSum / stats.gamesWon * 100) / 100 : 0;
         }
 
         static computeHistoryOnlyStatistics() {
@@ -691,7 +691,7 @@
             });
 
             stats.winPercentage = stats.gamesPlayed ? Math.round(stats.gamesWon / stats.gamesPlayed * 100) : 0;
-            stats.averageGuesses = stats.gamesWon ? Math.round(guessSum / stats.gamesWon) : 0;
+            stats.averageGuesses = stats.gamesWon ? Math.round(guessSum / stats.gamesWon * 100) / 100 : 0;
 
             var currentStreak = 0;
             var maxStreak = 0;
@@ -797,7 +797,7 @@
 
             var totalGuessSum = historyStats.guessSum + legacyGuessSum;
             stats.winPercentage = stats.gamesPlayed ? Math.round(stats.gamesWon / stats.gamesPlayed * 100) : 0;
-            stats.averageGuesses = stats.gamesWon ? Math.round(totalGuessSum / stats.gamesWon) : 0;
+            stats.averageGuesses = stats.gamesWon ? Math.round(totalGuessSum / stats.gamesWon * 100) / 100 : 0;
             stats.maxStreak = Math.max(historyStats.maxStreak, legacy.maxStreak || 0);
 
             var legacyCurrent = parseInt(legacy.current_streak_length, 10) || 0;
@@ -1987,7 +1987,7 @@
         winPercentage: "Win %",
         gamesPlayed: "Played",
         gamesWon: "Won",
-        averageGuesses: "Av. Guesses"
+        averageGuesses: "Average Guesses"
     };
 
     class GameStats extends HTMLElement {
@@ -2026,12 +2026,17 @@
                     }
                     distributionEl.appendChild(barFragment);
                 }
-            ["gamesPlayed", "winPercentage", "currentStreak", "maxStreak"].forEach((statKey) => {
+            ["gamesPlayed", "winPercentage", "currentStreak", "maxStreak", "averageGuesses"].forEach((statKey) => {
+                if (statKey === "averageGuesses") {
+                    var spacer = document.createElement("div");
+                    spacer.classList.add("statistic-spacer");
+                    statisticsEl.appendChild(spacer);
+                }
                 var label = STATISTIC_LABELS[statKey],
                     value = this.stats[statKey],
                     itemFragment = statisticItemTemplate.content.cloneNode(true);
                 itemFragment.querySelector(".label").textContent = label;
-                itemFragment.querySelector(".statistic").textContent = value;
+                itemFragment.querySelector(".statistic").textContent = statKey === "averageGuesses" ? Number(value).toFixed(2) : value;
                 statisticsEl.appendChild(itemFragment);
             });
             if (this.gameApp.gameStatus !== GAME_STATUS_IN_PROGRESS) {

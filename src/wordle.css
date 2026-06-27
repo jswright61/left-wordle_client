@@ -1061,6 +1061,11 @@ game-stats .statistic-container {
     flex: 1;
 }
 
+game-stats .statistic-spacer {
+    width: 16px;
+    flex: none;
+}
+
 game-stats .statistic-container .statistic {
     font-size: 36px;
     font-weight: 400;
