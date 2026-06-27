@@ -1206,6 +1206,10 @@ class SaveMenu {
             var raw = window.localStorage.getItem(key);
             try { data[key] = JSON.parse(raw); } catch (e) { data[key] = raw; }
         }
+        data.diagnostics = {
+            server: window.location.hostname,
+            version: window.APP_VERSION || null
+        };
         return data;
     }
 

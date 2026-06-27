@@ -282,3 +282,37 @@ describe('importRecords', () => {
         expect(history['0'].origin).toBe('imported');
     });
 });
+
+describe('SaveMenu#collectAllSettings', () => {
+    var { SaveMenu } = dom.window.savemenuTestExports;
+    var saveMenu;
+
+    beforeEach(() => {
+        dom.window.localStorage.clear();
+        delete dom.window.APP_VERSION;
+        saveMenu = new SaveMenu(new HistoryManager(resolver));
+    });
+
+    test('includes a diagnostics key with server and version', () => {
+        var data = saveMenu.collectAllSettings();
+        expect(data.diagnostics).toBeDefined();
+        expect(Object.keys(data.diagnostics)).toContain('server');
+        expect(Object.keys(data.diagnostics)).toContain('version');
+    });
+
+    test('sets server to the current hostname', () => {
+        var data = saveMenu.collectAllSettings();
+        expect(data.diagnostics.server).toBe('localhost');
+    });
+
+    test('sets version to APP_VERSION when available', () => {
+        dom.window.APP_VERSION = '1.2.3';
+        var data = saveMenu.collectAllSettings();
+        expect(data.diagnostics.version).toBe('1.2.3');
+    });
+
+    test('sets version to null when APP_VERSION is not defined', () => {
+        var data = saveMenu.collectAllSettings();
+        expect(data.diagnostics.version).toBeNull();
+    });
+});
