@@ -1403,7 +1403,7 @@
             if (showRemainingInShareText === null) showRemainingInShareText = true;
             if ((gameStatus === GAME_STATUS_WIN || gameStatus === GAME_STATUS_FAIL) &&
                 showRemainingInShareText) {
-                this._fetchRemainingCounts();
+                this._remainingCountsPromise = this._fetchRemainingCounts();
             }
         }
 
@@ -2192,12 +2192,15 @@
                 var footer = this.querySelector(".stats-footer"),
                     countdownFragment = countdownTemplate.content.cloneNode(true);
                 footer.appendChild(countdownFragment);
-                this.querySelector("button#share-button").addEventListener("click", (event) => {
+                this.querySelector("button#share-button").addEventListener("click", async (event) => {
                     event.preventDefault();
                     event.stopPropagation();
                     var completedState = GameStateManager.getGameState();
                     var showRemainingInShareText = StorageController.preferences.get("showRemainingInShareText");
                     if (showRemainingInShareText === null) showRemainingInShareText = true;
+                    if (showRemainingInShareText && this.gameApp._remainingCountsPromise) {
+                        await this.gameApp._remainingCountsPromise;
+                    }
                     var shareAnswersRemaining = showRemainingInShareText ? this.gameApp.answersRemaining : null;
                     ShareUtils.shareOrCopy(ShareUtils.buildShareText({
                         evaluations: this.gameApp.evaluations,
