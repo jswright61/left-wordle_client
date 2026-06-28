@@ -2192,31 +2192,41 @@
                 var footer = this.querySelector(".stats-footer"),
                     countdownFragment = countdownTemplate.content.cloneNode(true);
                 footer.appendChild(countdownFragment);
+                // Start building share text immediately so it's ready before the button is clicked.
+                // If showRemainingInShareText is true and counts are still in-flight, this promise
+                // waits for them internally; otherwise it resolves right away.
+                this._shareTextPromise = this._buildShareText();
                 this.querySelector("button#share-button").addEventListener("click", async (event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    var completedState = GameStateManager.getGameState();
-                    var showRemainingInShareText = StorageController.preferences.get("showRemainingInShareText");
-                    if (showRemainingInShareText === null) showRemainingInShareText = true;
-                    if (showRemainingInShareText && this.gameApp._remainingCountsPromise) {
-                        await this.gameApp._remainingCountsPromise;
-                    }
-                    var shareAnswersRemaining = showRemainingInShareText ? this.gameApp.answersRemaining : null;
-                    ShareUtils.shareOrCopy(ShareUtils.buildShareText({
-                        evaluations: this.gameApp.evaluations,
-                        dayOffset: this.gameApp.dayOffset,
-                        rowIndex: this.gameApp.rowIndex,
-                        isHardMode: completedState.completedInHardMode != null ? completedState.completedInHardMode : this.gameApp.hardMode,
-                        isInsaneMode: completedState.completedInInsaneMode != null ? completedState.completedInInsaneMode : this.gameApp.insaneMode,
-                        isWin: this.gameApp.gameStatus === GAME_STATUS_WIN,
-                        answersRemaining: shareAnswersRemaining
-                    }), () => {
+                    ShareUtils.shareOrCopy(await this._shareTextPromise, () => {
                         this.gameApp.addToast("Copied results to clipboard", 2000, true);
                     }, () => {
                         this.gameApp.addToast("Share failed", 2000, true);
                     });
                 });
             }
+        }
+        async _buildShareText() {
+            var showRemainingInShareText = StorageController.preferences.get("showRemainingInShareText");
+            if (showRemainingInShareText === null) showRemainingInShareText = true;
+            var shareAnswersRemaining = null;
+            if (showRemainingInShareText) {
+                if (this.gameApp._remainingCountsPromise) {
+                    await this.gameApp._remainingCountsPromise;
+                }
+                shareAnswersRemaining = this.gameApp.answersRemaining;
+            }
+            var completedState = GameStateManager.getGameState();
+            return ShareUtils.buildShareText({
+                evaluations: this.gameApp.evaluations,
+                dayOffset: this.gameApp.dayOffset,
+                rowIndex: this.gameApp.rowIndex,
+                isHardMode: completedState.completedInHardMode != null ? completedState.completedInHardMode : this.gameApp.hardMode,
+                isInsaneMode: completedState.completedInInsaneMode != null ? completedState.completedInInsaneMode : this.gameApp.insaneMode,
+                isWin: this.gameApp.gameStatus === GAME_STATUS_WIN,
+                answersRemaining: shareAnswersRemaining
+            });
         }
     }
     customElements.define("game-stats", GameStats);
