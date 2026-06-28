@@ -1198,6 +1198,9 @@
         today;
         lastPlayedTs;
         lastCompletedTs;
+        isHistoryPlay = false;
+        historyPlaySkipStats = false;
+        _historyPlayBlocked = false;
         hardMode;
         insaneMode;
         goofProtection;
@@ -1207,10 +1210,37 @@
 
         constructor() {
             super();
-            this.today = new Date;
+            var realToday = new Date();
+            var todayOffset = PuzzleUtils.getDayOffset(realToday);
+            var gameDateParam = new URLSearchParams(window.location.search).get("gameDate");
+            var requestedDate = null;
+            var reqOffset = todayOffset;
+            if (gameDateParam && /^\d{4}-\d{2}-\d{2}$/.test(gameDateParam)) {
+                var parsed = DateUtils.parseLocalDateString(gameDateParam);
+                if (parsed && DateUtils.formatLocalDate(parsed) === gameDateParam) {
+                    var offset = PuzzleUtils.getDayOffset(parsed);
+                    // Allow up to +2 days ahead (covers UTC-12 vs UTC+14 gap)
+                    if (offset >= 0 && offset <= todayOffset + 2) {
+                        requestedDate = parsed;
+                        reqOffset = offset;
+                    }
+                }
+            }
+            this.isHistoryPlay = requestedDate !== null && reqOffset !== todayOffset;
+            this.historyPlaySkipStats = this.isHistoryPlay && reqOffset < todayOffset;
+            if (this.isHistoryPlay && reqOffset > todayOffset) {
+                for (var n = todayOffset; n < reqOffset; n++) {
+                    if (!HistoryManager.getHistoryCompletionForPuzzle(n)) {
+                        this._historyPlayBlocked = true;
+                        break;
+                    }
+                }
+            }
+            this.today = this.isHistoryPlay ? requestedDate : realToday;
+
             var state = GameStateManager.getGameState();
             this.lastPlayedTs = state.lastPlayedTs;
-            if (!this.lastPlayedTs || DateUtils.calculateDaysBetween(new Date(this.lastPlayedTs), this.today) >= 1) {
+            if (this.isHistoryPlay || !this.lastPlayedTs || DateUtils.calculateDaysBetween(new Date(this.lastPlayedTs), this.today) >= 1) {
                 this.boardState = new Array(6).fill("");
                 this.evaluations = new Array(6).fill(null);
                 this.solution = null;
@@ -1224,20 +1254,22 @@
                 this.goofProtection = prefGoof !== null ? prefGoof : true;
                 this.restoringFromLocalStorage = false;
                 this.canInput = false;
-                GameStateManager.saveGameState({
-                    rowIndex: this.rowIndex,
-                    boardState: this.boardState,
-                    evaluations: this.evaluations,
-                    gameStatus: this.gameStatus,
-                    hardMode: this.hardMode,
-                    insaneMode: this.insaneMode,
-                    goofProtectionMode: this.goofProtection,
-                    puzzleNum: this.dayOffset,
-                    date: DateUtils.formatLocalDate(this.today)
-                });
-                gtag("event", "level_start", {
-                    level_name: String(this.dayOffset)
-                });
+                if (!this.isHistoryPlay) {
+                    GameStateManager.saveGameState({
+                        rowIndex: this.rowIndex,
+                        boardState: this.boardState,
+                        evaluations: this.evaluations,
+                        gameStatus: this.gameStatus,
+                        hardMode: this.hardMode,
+                        insaneMode: this.insaneMode,
+                        goofProtectionMode: this.goofProtection,
+                        puzzleNum: this.dayOffset,
+                        date: DateUtils.formatLocalDate(this.today)
+                    });
+                    gtag("event", "level_start", {
+                        level_name: String(this.dayOffset)
+                    });
+                }
             } else {
                 this.boardState = state.boardState;
                 this.evaluations = state.evaluations;
@@ -1257,28 +1289,30 @@
                 this.restoringFromLocalStorage = true;
             }
 
-            var historyCompletion = HistoryManager.getHistoryCompletionForPuzzle(this.dayOffset);
-            if (historyCompletion && this.gameStatus === GAME_STATUS_IN_PROGRESS) {
-                this.boardState = new Array(6).fill("");
-                this.evaluations = new Array(6).fill(null);
-                this.letterEvaluations = {};
-                this.rowIndex = historyCompletion.rowIndex;
-                this.gameStatus = historyCompletion.status;
-                this.canInput = false;
-                this.restoringFromLocalStorage = true;
-                this.lastCompletedTs = historyCompletion.completedAt || this.lastCompletedTs || Date.now();
-                this.lastPlayedTs = historyCompletion.completedAt || this.lastPlayedTs || Date.now();
-                GameStateManager.saveGameState({
-                    rowIndex: this.rowIndex,
-                    boardState: this.boardState,
-                    evaluations: this.evaluations,
-                    solution: this.solution,
-                    gameStatus: this.gameStatus,
-                    lastPlayedTs: this.lastPlayedTs,
-                    lastCompletedTs: this.lastCompletedTs,
-                    puzzleNum: this.dayOffset,
-                    date: DateUtils.formatLocalDate(this.today)
-                });
+            if (!this.isHistoryPlay) {
+                var historyCompletion = HistoryManager.getHistoryCompletionForPuzzle(this.dayOffset);
+                if (historyCompletion && this.gameStatus === GAME_STATUS_IN_PROGRESS) {
+                    this.boardState = new Array(6).fill("");
+                    this.evaluations = new Array(6).fill(null);
+                    this.letterEvaluations = {};
+                    this.rowIndex = historyCompletion.rowIndex;
+                    this.gameStatus = historyCompletion.status;
+                    this.canInput = false;
+                    this.restoringFromLocalStorage = true;
+                    this.lastCompletedTs = historyCompletion.completedAt || this.lastCompletedTs || Date.now();
+                    this.lastPlayedTs = historyCompletion.completedAt || this.lastPlayedTs || Date.now();
+                    GameStateManager.saveGameState({
+                        rowIndex: this.rowIndex,
+                        boardState: this.boardState,
+                        evaluations: this.evaluations,
+                        solution: this.solution,
+                        gameStatus: this.gameStatus,
+                        lastPlayedTs: this.lastPlayedTs,
+                        lastCompletedTs: this.lastCompletedTs,
+                        puzzleNum: this.dayOffset,
+                        date: DateUtils.formatLocalDate(this.today)
+                    });
+                }
             }
         }
 
@@ -1296,50 +1330,68 @@
             var gameOver = this.gameStatus === GAME_STATUS_WIN || this.gameStatus === GAME_STATUS_FAIL;
             if (gameOver) {
                 this.solution = result.solution;
-                var isCorrect = this.gameStatus === GAME_STATUS_WIN;
-                var isStreak = !!this.lastCompletedTs &&
-                    DateUtils.calculateDaysBetween(new Date(this.lastCompletedTs), new Date) === 1;
-                StatisticsEngine.updateStatistics({
-                    isWin: isCorrect,
-                    isStreak: isStreak,
-                    numGuesses: this.rowIndex,
-                    puzzleNum: this.dayOffset,
-                    date: DateUtils.formatLocalDate(this.today),
-                    answer: this.solution,
-                    mode: this.hardMode ? "hard" : "regular",
-                    hardMode: this.hardMode,
-                    starter: this.boardState && this.boardState[0] ? this.boardState[0] : null
-                });
-                GameStateManager.saveGameState({
-                    lastCompletedTs: Date.now(),
-                    puzzleNum: this.dayOffset,
-                    date: DateUtils.formatLocalDate(this.today)
-                });
-                gtag("event", "level_end", {
-                    level_name: StringUtils.encodeWord(this.solution),
-                    num_guesses: this.rowIndex,
-                    success: isCorrect
-                });
+                if (this.historyPlaySkipStats) {
+                    // Past date play: record to history only, no stats update
+                    HistoryManager.recordHistoryEntry({
+                        puzzleNum: this.dayOffset,
+                        date: DateUtils.formatLocalDate(this.today),
+                        result: this.gameStatus === GAME_STATUS_WIN ? this.rowIndex : 7,
+                        completedAt: Date.now(),
+                        answer: this.solution,
+                        mode: this.hardMode ? "hard" : "regular",
+                        hardMode: this.hardMode,
+                        starter: this.boardState && this.boardState[0] ? this.boardState[0] : null
+                    });
+                } else {
+                    var isCorrect = this.gameStatus === GAME_STATUS_WIN;
+                    var isStreak = !!this.lastCompletedTs &&
+                        DateUtils.calculateDaysBetween(new Date(this.lastCompletedTs), new Date) === 1;
+                    StatisticsEngine.updateStatistics({
+                        isWin: isCorrect,
+                        isStreak: isStreak,
+                        numGuesses: this.rowIndex,
+                        puzzleNum: this.dayOffset,
+                        date: DateUtils.formatLocalDate(this.today),
+                        answer: this.solution,
+                        mode: this.hardMode ? "hard" : "regular",
+                        hardMode: this.hardMode,
+                        starter: this.boardState && this.boardState[0] ? this.boardState[0] : null
+                    });
+                    if (!this.isHistoryPlay) {
+                        GameStateManager.saveGameState({
+                            lastCompletedTs: Date.now(),
+                            puzzleNum: this.dayOffset,
+                            date: DateUtils.formatLocalDate(this.today)
+                        });
+                        gtag("event", "level_end", {
+                            level_name: StringUtils.encodeWord(this.solution),
+                            num_guesses: this.rowIndex,
+                            success: isCorrect
+                        });
+                    }
+                }
             }
 
             this.tileIndex = 0;
-            var saveData = {
-                rowIndex: this.rowIndex,
-                boardState: this.boardState,
-                evaluations: this.evaluations,
-                solution: this.solution,
-                gameStatus: this.gameStatus,
-                lastPlayedTs: Date.now(),
-                hardMode: this.hardMode,
-                puzzleNum: this.dayOffset,
-                date: DateUtils.formatLocalDate(this.today),
-                answersRemaining: this.answersRemaining
-            };
-            if (gameOver) {
-                saveData.completedInHardMode = this.hardMode;
-                saveData.completedInInsaneMode = this.insaneMode;
+            if (!this.isHistoryPlay) {
+                var saveData = {
+                    rowIndex: this.rowIndex,
+                    boardState: this.boardState,
+                    evaluations: this.evaluations,
+                    solution: this.solution,
+                    gameStatus: this.gameStatus,
+                    lastPlayedTs: Date.now(),
+                    hardMode: this.hardMode,
+                    puzzleNum: this.dayOffset,
+                    date: DateUtils.formatLocalDate(this.today),
+                    answersRemaining: this.answersRemaining
+                };
+                if (gameOver) {
+                    saveData.completedInHardMode = this.hardMode;
+                    saveData.completedInInsaneMode = this.insaneMode;
+                }
+                GameStateManager.saveGameState(saveData);
             }
-            GameStateManager.saveGameState(saveData);
 
         }
 
@@ -1387,6 +1439,7 @@
                 : rowNumber >= 6 ? GAME_STATUS_FAIL
                 : GAME_STATUS_IN_PROGRESS;
 
+            var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
             var result = {
                 date: DateUtils.formatLocalDate(this.today),
                 evaluation: rawEvaluation,
@@ -1395,14 +1448,19 @@
                 rowIndex: rowNumber,
                 solution: gameStatus !== GAME_STATUS_IN_PROGRESS ? this.answer : null,
                 source: "local",
-                answersRemaining: null
+                answersRemaining: (remainingAnswersMode !== "neither" && gameStatus === GAME_STATUS_WIN) ? 0 : null
             };
 
             this.applyEvaluation(row, guess, evaluatedRowIndex, result);
 
-            var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
             if (remainingAnswersMode !== "neither") {
-                this._fireRemainingCountRequest(evaluatedRowIndex, guess, mode, prevGuesses);
+                if (gameStatus === GAME_STATUS_WIN) {
+                    if (remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") {
+                        setTimeout(() => { this.updateRowCount(evaluatedRowIndex, 0); }, 1300);
+                    }
+                } else {
+                    this._fireRemainingCountRequest(evaluatedRowIndex, guess, mode, prevGuesses);
+                }
             }
         }
 
@@ -1516,6 +1574,42 @@
             modal.setAttribute("open", "");
         }
 
+        _showFuturePlayBlocked() {
+            var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+            var todayOffset = PuzzleUtils.getDayOffset(new Date());
+            var firstMissingDate = null;
+            for (var n = todayOffset; n < this.dayOffset; n++) {
+                if (!HistoryManager.getHistoryCompletionForPuzzle(n)) {
+                    firstMissingDate = DateUtils.getDateFromDayOffset(n);
+                    break;
+                }
+            }
+            var dateLabel = firstMissingDate
+                ? MONTHS[firstMissingDate.getMonth()] + " " + firstMissingDate.getDate() + ", " + firstMissingDate.getFullYear()
+                : "a previous puzzle";
+            var banner = document.createElement("div");
+            banner.className = "already-played-banner";
+            banner.innerHTML =
+                "<div class='already-played-heading'>Not Yet</div>" +
+                "<div class='already-played-meta'>Play " + dateLabel + " first</div>";
+            this.querySelector("#board-container").appendChild(banner);
+            this.canInput = false;
+        }
+
+        _showAlreadyPlayed(histCompletion) {
+            var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+            var dateLabel = MONTHS[this.today.getMonth()] + " " + this.today.getDate() + ", " + this.today.getFullYear();
+            var resultLabel = histCompletion.isWin ? histCompletion.rowIndex + "/6" : "X/6";
+            var banner = document.createElement("div");
+            banner.className = "already-played-banner";
+            banner.innerHTML =
+                "<div class='already-played-heading'>Already Played</div>" +
+                "<div class='already-played-meta'>" + dateLabel + " &mdash; Puzzle #" + this.dayOffset + "</div>" +
+                "<div class='already-played-result'>" + resultLabel + "</div>";
+            this.querySelector("#board-container").appendChild(banner);
+            this.canInput = false;
+        }
+
         connectedCallback() {
             StatisticsEngine.migrateIfNeeded();
             this.appendChild(gameAppTemplate.content.cloneNode(true));
@@ -1556,7 +1650,14 @@
                     }
                 }
             }
-            if (this.gameStatus === GAME_STATUS_IN_PROGRESS && !this.answer) {
+            var histPlayCompletion = this.isHistoryPlay
+                ? HistoryManager.getHistoryCompletionForPuzzle(this.dayOffset)
+                : null;
+            if (histPlayCompletion) {
+                this._showAlreadyPlayed(histPlayCompletion);
+            } else if (this._historyPlayBlocked) {
+                this._showFuturePlayBlocked();
+            } else if (this.gameStatus === GAME_STATUS_IN_PROGRESS && !this.answer) {
                 this._fetchAnswer();
             }
             this.$game.addEventListener("game-key-press", (event) => {
@@ -1582,7 +1683,7 @@
                     this.gameStatus === GAME_STATUS_FAIL;
                 if (gameOver) {
                     if (this.restoringFromLocalStorage) {
-                        this.showStatsModal();
+                        if (!this.historyPlaySkipStats) this.showStatsModal();
                     } else {
                         if (this.gameStatus === GAME_STATUS_WIN) {
                             lastRow.setAttribute("win", "");
@@ -1591,9 +1692,11 @@
                         if (this.gameStatus === GAME_STATUS_FAIL) {
                             this.addToast(this.solution.toUpperCase(), Infinity);
                         }
-                        setTimeout(() => {
-                            this.showStatsModal();
-                        }, 2500);
+                        if (!this.historyPlaySkipStats) {
+                            setTimeout(() => {
+                                this.showStatsModal();
+                            }, 2500);
+                        }
                     }
                 }
                 this.restoringFromLocalStorage = false;
@@ -1619,12 +1722,14 @@
                     }
                     this.hardMode = isHard;
                     this.insaneMode = isInsane;
-                    GameStateManager.saveGameState({
-                        hardMode: isHard,
-                        insaneMode: isInsane,
-                        puzzleNum: this.dayOffset,
-                        date: DateUtils.formatLocalDate(this.today)
-                    });
+                    if (!this.isHistoryPlay) {
+                        GameStateManager.saveGameState({
+                            hardMode: isHard,
+                            insaneMode: isInsane,
+                            puzzleNum: this.dayOffset,
+                            date: DateUtils.formatLocalDate(this.today)
+                        });
+                    }
                     return;
                 case "goof-protection-mode":
                     StorageController.preferences.set("goofProtectionMode", checked);
@@ -1633,11 +1738,13 @@
                         return;
                     }
                     this.goofProtection = checked;
-                    GameStateManager.saveGameState({
-                        goofProtectionMode: checked,
-                        puzzleNum: this.dayOffset,
-                        date: DateUtils.formatLocalDate(this.today)
-                    });
+                    if (!this.isHistoryPlay) {
+                        GameStateManager.saveGameState({
+                            goofProtectionMode: checked,
+                            puzzleNum: this.dayOffset,
+                            date: DateUtils.formatLocalDate(this.today)
+                        });
+                    }
                     return;
                 case "hide-date-in-share-header":
                     StorageController.preferences.set("hideDateInShareHeader", checked);
@@ -1777,7 +1884,9 @@
             }).then((result) => {
                 if (typeof result.answersRemaining === "number") {
                     this.answersRemaining[rowIndex] = result.answersRemaining;
-                    GameStateManager.saveGameState({ answersRemaining: this.answersRemaining });
+                    if (!this.isHistoryPlay) {
+                        GameStateManager.saveGameState({ answersRemaining: this.answersRemaining });
+                    }
                     var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
                     if (remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") {
                         this.updateRowCount(rowIndex, result.answersRemaining);
