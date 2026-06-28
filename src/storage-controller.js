@@ -86,6 +86,7 @@ class PreferencesStorage extends NamespacedStorage {
             "hideDateInShareHeader",
             "suppressLoginPrompt",
             "remainingAnswersMode",
+            "showRemainingInShareText",
             "goofProtectionMode",
             "hardMode",
             "insaneMode"
