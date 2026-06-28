@@ -1181,6 +1181,8 @@
     const GAME_STATUS_WIN = "WIN";
     const GAME_STATUS_FAIL = "FAIL";
     const WIN_COMMENTS = ["Genius", "Magnificent", "Impressive", "Splendid", "Great", "Whew"];
+    const REMAINING_COUNT_DELAY_MS = 1800;
+    const REMAINING_COUNT_WIN_DELAY_MS = 2500;
 
     class GameApp extends HTMLElement {
         tileIndex = 0;
@@ -1456,7 +1458,7 @@
             if (remainingAnswersMode !== "neither") {
                 if (gameStatus === GAME_STATUS_WIN) {
                     if (remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") {
-                        setTimeout(() => { this.updateRowCount(evaluatedRowIndex, 0); }, 1300);
+                        setTimeout(() => { this.updateRowCount(evaluatedRowIndex, 0); }, REMAINING_COUNT_WIN_DELAY_MS);
                     }
                 } else {
                     this._fireRemainingCountRequest(evaluatedRowIndex, guess, mode, prevGuesses);
@@ -1873,7 +1875,8 @@
         }
 
         _fireRemainingCountRequest(rowIndex, guess, mode, prevGuesses) {
-            window.LeftWordleApi.gameplay.evaluate({
+            var minDelay = new Promise((resolve) => setTimeout(resolve, REMAINING_COUNT_DELAY_MS));
+            var request = window.LeftWordleApi.gameplay.evaluate({
                 date: DateUtils.formatLocalDate(this.today),
                 guess: guess,
                 puzzleNum: this.dayOffset,
@@ -1887,6 +1890,11 @@
                     if (!this.isHistoryPlay) {
                         GameStateManager.saveGameState({ answersRemaining: this.answersRemaining });
                     }
+                }
+                return result;
+            });
+            Promise.all([request, minDelay]).then(([result]) => {
+                if (typeof result.answersRemaining === "number") {
                     var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
                     if (remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") {
                         this.updateRowCount(rowIndex, result.answersRemaining);
