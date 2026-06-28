@@ -968,13 +968,13 @@
             stats.winPercentage = Math.round(stats.gamesWon / stats.gamesPlayed * 100);
 
             // Calculate average guesses (excluding failures)
-            stats.averageGuesses = Math.round(
+            stats.averageGuesses = stats.gamesWon ? Math.round(
                 Object.entries(stats.guesses).reduce(function(total, entry) {
                     var key = entry[0];
                     var count = entry[1];
                     return key !== StatisticsEngine.FAIL_KEY ? total + key * count : total;
-                }, 0) / stats.gamesWon
-            );
+                }, 0) / stats.gamesWon * 100
+            ) / 100 : 0;
 
             StorageController.statistics.replace(stats);
 
