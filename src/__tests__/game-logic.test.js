@@ -368,11 +368,12 @@ describe('updateStatistics (currently Va)', () => {
         expect(stats.winPercentage).toBe(67); // Math.round(2/3 * 100)
     });
 
-    test('calculates average guesses', () => {
-        updateStatistics({ isWin: true, isStreak: false, numGuesses: 2 });
+    test('calculates average guesses to two decimal places', () => {
+        updateStatistics({ isWin: true, isStreak: false, numGuesses: 3 });
+        updateStatistics({ isWin: true, isStreak: true, numGuesses: 3 });
         updateStatistics({ isWin: true, isStreak: true, numGuesses: 4 });
         const stats = getStatistics();
-        expect(stats.averageGuesses).toBe(3); // Math.round((2+4)/2)
+        expect(stats.averageGuesses).toBe(3.33); // (3+3+4)/3 = 3.333... → 3.33
     });
 
     test('persists to localStorage', () => {
