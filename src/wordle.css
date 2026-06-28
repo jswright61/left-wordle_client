@@ -1516,18 +1516,68 @@ game-icon {
     margin-top: 8px;
 }
 
-#save #adjustStatsButton {
-    cursor: pointer;
+#adjust-stats-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 3500;
 }
 
-#save .adjust-stats-grid {
+#adjust-stats-modal.hidden {
+    display: none;
+}
+
+.adjust-stats-modal-card {
+    width: min(540px, 100%);
+    max-height: 90vh;
+    overflow-y: auto;
+    background: var(--color-background);
+    border: 1px solid var(--color-tone-4);
+    border-radius: 8px;
+    padding: 16px;
+    color: var(--color-tone-1);
+}
+
+.adjust-stats-modal-card h3 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+}
+
+.adjust-stats-modal-card p {
+    margin: 6px 0;
+}
+
+.adjust-stats-modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.adjust-stats-modal-actions button {
+    flex: 1;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--color-tone-4);
+    border-radius: 4px;
+    background: var(--color-background);
+    color: var(--color-tone-1);
+}
+
+.adjust-stats-grid {
     margin-top: 10px;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px 10px;
 }
 
-#save .adjust-stats-grid label {
+.adjust-stats-grid label {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -1535,13 +1585,13 @@ game-icon {
     color: var(--color-tone-2);
 }
 
-#save .adjust-stats-grid input {
+.adjust-stats-grid input {
     width: 100%;
     font-size: 14px;
     padding: 6px;
 }
 
-#save .adjust-stats-preview {
+.adjust-stats-preview {
     margin-top: 12px;
     font-size: 13px;
     display: grid;
@@ -1549,10 +1599,25 @@ game-icon {
     gap: 6px 10px;
 }
 
-#save #adjust-stats-error {
+#adjust-stats-error {
     min-height: 18px;
     margin-top: 10px;
     color: #d64242;
+}
+
+.stats-adjust-link-row {
+    text-align: center;
+    margin-top: 12px;
+}
+
+.stats-adjust-link {
+    background: none;
+    border: none;
+    color: var(--color-tone-3);
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
 }
 
 /* game-downloads styles */

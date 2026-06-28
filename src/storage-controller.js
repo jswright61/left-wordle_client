@@ -277,10 +277,9 @@ window.StorageController = {
     ])),
     history: new HistoryStorage("history"),
     legacyStats: new BlobStorage("legacy_stats"),
-    legacyStatsBackup: new BlobStorage("legacy_stats_pre_history_authoritative"),
     statistics: new NamespacedStorage("statistics", new Set([
         "currentStreak", "maxStreak", "guesses", "winPercentage",
-        "gamesPlayed", "gamesWon", "averageGuesses"
+        "gamesPlayed", "gamesWon", "averageGuesses", "versionNumber"
     ])),
     deviceId: new ScalarStorage("device_id"),
     settingsBackup: new SettingsBackupStorage()

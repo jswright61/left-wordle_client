@@ -107,19 +107,6 @@
                     <slot name="content">
                       <div class="sections">
     <section>
-      <h2 class="save-section-heading">Statistics</h2>
-      <div class="save-row">
-        <button class="save-item-left save-action-button" id="saveButton" type="button"
-                title="Save your statistics to a local json file.">Save Stats</button>
-        <label class="save-item-right save-action-button" for="inputload"
-               title="Upload statistics from a local json file.">
-          Load Stats
-          <input id="inputload" type="file" accept=".json" class="save-file-input">
-        </label>
-      </div>
-      <hr class="save-divider">
-    </section>
-    <section>
       <h2 class="save-section-heading">Game History</h2>
       <div class="save-row">
         <button class="save-item-left save-action-button" id="exportHistoryJsonButton" type="button"
@@ -156,7 +143,7 @@
       <p id="history-import-summary-line3"></p>
       <p id="history-import-summary-line4"></p>
       <p>When you close this window, your updated stats will be shown.</p>
-      <p>If totals need correction, go to Save and choose Adjust Stats.</p>
+      <p>If totals need correction, use Adjust Stats from the Statistics screen.</p>
       <div id="history-import-summary-flagged" class="hidden">
         <h4>Flagged Rows (not imported)</h4>
         <div class="flagged-table-scroll">
@@ -173,10 +160,15 @@
       </div>
     </div>
   </div>
-  <div id="adjust-stats-modal" class="save-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="adjust-stats-title">
-    <div class="save-inline-modal-card">
+                    </slot>
+                </div>
+            </div>
+        </div>
+    </div>
+  <div id="adjust-stats-modal" class="adjust-stats-modal hidden" role="dialog" aria-modal="true" aria-labelledby="adjust-stats-title">
+    <div class="adjust-stats-modal-card">
       <h3 id="adjust-stats-title">Adjust Stats</h3>
-      <p>Enter totals you want to see. History stays unchanged and baseline is recalculated automatically.</p>
+      <p>Enter the totals you want to see. Your game history stays unchanged.</p>
       <div class="adjust-stats-grid">
         <label>Games Played<input id="adjust-gamesPlayed" type="number" min="0" step="1" /></label>
         <label>Games Won<input id="adjust-gamesWon" type="number" min="0" step="1" /></label>
@@ -195,17 +187,12 @@
         <div><strong>Average Guesses:</strong> <span id="adjust-preview-averageGuesses">0</span></div>
       </div>
       <div id="adjust-stats-error" class="description"></div>
-      <div class="save-inline-modal-actions">
-        <button id="adjust-stats-apply" type="button">Apply Adjustment</button>
+      <div class="adjust-stats-modal-actions">
+        <button id="adjust-stats-apply" type="button">Apply</button>
         <button id="adjust-stats-cancel" type="button">Cancel</button>
       </div>
     </div>
   </div>
-                    </slot>
-                </div>
-            </div>
-        </div>
-    </div>
     <template id="settings-template">
       <div class="sections">
         <section>
@@ -331,6 +318,9 @@
         <h1>Guess Distribution</h1>
         <div id="guess-distribution"></div>
         <div class="stats-footer"></div>
+        <div class="stats-adjust-link-row">
+          <button class="stats-adjust-link" type="button">Adjust stats manually</button>
+        </div>
       </div>
     </template>
 

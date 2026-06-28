@@ -166,7 +166,7 @@ class PuzzleResolver {
 
     parseCsvRecords(text) {
         var self = this;
-        var cleaned = text.replace(/^\uFEFF/, "").trim();
+        var cleaned = text.replace(/^﻿/, "").trim();
         if (!cleaned) return [];
 
         var lines = cleaned.split(/\r?\n/).filter(function(line) {
@@ -352,8 +352,6 @@ class PuzzleResolver {
 class HistoryManager {
     constructor(resolver) {
         this.resolver = resolver;
-        this.HISTORY_AUTHORITATIVE_MODEL = "history_authoritative_v1";
-        this.DEVICE_ID_KEY = "device_id";
     }
 
     static get HISTORY_BASE_FIELDS() {
@@ -371,26 +369,6 @@ class HistoryManager {
         ];
     }
 
-    static toDefaultStats() {
-        return {
-            currentStreak: 0,
-            maxStreak: 0,
-            guesses: {
-                1: 0,
-                2: 0,
-                3: 0,
-                4: 0,
-                5: 0,
-                6: 0,
-                fail: 0
-            },
-            winPercentage: 0,
-            gamesPlayed: 0,
-            gamesWon: 0,
-            averageGuesses: 0
-        };
-    }
-
     getHistoryObject() {
         return StorageController.history.getAll();
     }
@@ -399,174 +377,12 @@ class HistoryManager {
         StorageController.history.replace(history || {});
     }
 
-    getLegacyStatsObject() {
-        return StorageController.legacyStats.get() || {};
-    }
-
-    setLegacyStatsObject(legacy) {
-        StorageController.legacyStats.set(legacy || {});
-    }
-
-    createZeroTotals() {
-        return {
-            gamesPlayed: 0,
-            gamesWon: 0,
-            guesses: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, fail: 0 }
-        };
-    }
-
-    normalizeStatsTotals(stats) {
-        stats = stats || {};
-        var guesses = stats.guesses || {};
-        return {
-            gamesPlayed: Number(stats.gamesPlayed) || 0,
-            gamesWon: Number(stats.gamesWon) || 0,
-            currentStreak: Number(stats.currentStreak) || 0,
-            maxStreak: Number(stats.maxStreak) || 0,
-            guesses: {
-                1: Number(guesses[1]) || 0,
-                2: Number(guesses[2]) || 0,
-                3: Number(guesses[3]) || 0,
-                4: Number(guesses[4]) || 0,
-                5: Number(guesses[5]) || 0,
-                6: Number(guesses[6]) || 0,
-                fail: Number(guesses.fail) || 0
-            }
-        };
-    }
-
-    createZeroLegacyForHistoryAuthoritative() {
-        return {
-            model: this.HISTORY_AUTHORITATIVE_MODEL,
-            totals_delta: this.createZeroTotals(),
-            current_streak_adjustment: {
-                delta: 0,
-                anchor_puzzle_num: -1
-            },
-            max_streak_floor: 0,
-            recorded_on: this.resolver.formatLocalDate(new Date())
-        };
-    }
-
-    backupLegacyStatsIfNeeded(currentLegacy) {
-        if (!currentLegacy || typeof currentLegacy !== "object") return;
-        if (!Object.keys(currentLegacy).length) return;
-        if (currentLegacy.model === this.HISTORY_AUTHORITATIVE_MODEL) return;
-        if (StorageController.legacyStatsBackup.get() !== null) return;
-        StorageController.legacyStatsBackup.set(currentLegacy);
-    }
-
-    setHistoryAuthoritativeLegacyZeroed() {
-        var currentLegacy = this.getLegacyStatsObject();
-        this.backupLegacyStatsIfNeeded(currentLegacy);
-        this.setLegacyStatsObject(this.createZeroLegacyForHistoryAuthoritative());
-    }
-
-    computeHistoryMinimums(history) {
-        var totals = this.normalizeStatsTotals(this.createZeroTotals());
-        var entries = Object.values(history || {}).map(function(entry) {
-            if (!entry) return null;
-            var puzzleNum = Number(entry.puzzle_num);
-            var result = Number(entry.result);
-            if (!Number.isFinite(puzzleNum) || !Number.isFinite(result)) return null;
-            return { puzzle_num: puzzleNum, result: result };
-        }).filter(Boolean).sort(function(a, b) {
-            return a.puzzle_num - b.puzzle_num;
-        });
-
-        var currentStreak = 0;
-        var maxStreak = 0;
-        var lastPuzzle = null;
-        var lastWasWin = false;
-
-        entries.forEach(function(entry) {
-            if (entry.result >= 1 && entry.result <= 6) {
-                totals.gamesPlayed += 1;
-                totals.gamesWon += 1;
-                totals.guesses[entry.result] += 1;
-
-                if (lastWasWin && lastPuzzle !== null && entry.puzzle_num === lastPuzzle + 1) {
-                    currentStreak += 1;
-                } else {
-                    currentStreak = 1;
-                }
-                if (currentStreak > maxStreak) maxStreak = currentStreak;
-                lastWasWin = true;
-                lastPuzzle = entry.puzzle_num;
-                return;
-            }
-
-            if (entry.result === 7) {
-                totals.gamesPlayed += 1;
-                totals.guesses.fail += 1;
-                currentStreak = 0;
-                lastWasWin = false;
-                lastPuzzle = entry.puzzle_num;
-            }
-        });
-
-        totals.currentStreak = currentStreak;
-        totals.maxStreak = maxStreak;
-        totals.latestPuzzleNum = entries.length ? entries[entries.length - 1].puzzle_num : -1;
-        return totals;
-    }
-
-    buildHistoryAuthoritativeLegacyFromTarget(historyMinimums, targetTotals) {
-        var currentDelta = targetTotals.currentStreak - historyMinimums.currentStreak;
-        return {
-            model: this.HISTORY_AUTHORITATIVE_MODEL,
-            totals_delta: {
-                gamesPlayed: targetTotals.gamesPlayed - historyMinimums.gamesPlayed,
-                gamesWon: targetTotals.gamesWon - historyMinimums.gamesWon,
-                guesses: {
-                    1: targetTotals.guesses[1] - historyMinimums.guesses[1],
-                    2: targetTotals.guesses[2] - historyMinimums.guesses[2],
-                    3: targetTotals.guesses[3] - historyMinimums.guesses[3],
-                    4: targetTotals.guesses[4] - historyMinimums.guesses[4],
-                    5: targetTotals.guesses[5] - historyMinimums.guesses[5],
-                    6: targetTotals.guesses[6] - historyMinimums.guesses[6],
-                    fail: targetTotals.guesses.fail - historyMinimums.guesses.fail
-                }
-            },
-            current_streak_adjustment: {
-                delta: currentDelta,
-                anchor_puzzle_num: historyMinimums.latestPuzzleNum
-            },
-            max_streak_floor: targetTotals.maxStreak,
-            recorded_on: this.resolver.formatLocalDate(new Date())
-        };
-    }
-
-    hasNegativeTotalsDelta(legacyWithDelta) {
-        var delta = legacyWithDelta && legacyWithDelta.totals_delta ? legacyWithDelta.totals_delta : this.createZeroTotals();
-        if ((Number(delta.gamesPlayed) || 0) < 0) return true;
-        if ((Number(delta.gamesWon) || 0) < 0) return true;
-        var guesses = delta.guesses || {};
-        if ((Number(guesses.fail) || 0) < 0) return true;
-        for (var i = 1; i <= 6; i += 1) {
-            if ((Number(guesses[i]) || 0) < 0) return true;
+    getCurrentStatsForAdjustment() {
+        var raw = StorageController.statistics.getAll();
+        if (!raw || !Object.keys(raw).length) {
+            return { currentStreak: 0, maxStreak: 0, guesses: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, fail: 0 }, winPercentage: 0, gamesPlayed: 0, gamesWon: 0, averageGuesses: 0 };
         }
-        return false;
-    }
-
-    hasTargetBelowHistoryMinimums(targetTotals, historyMinimums) {
-        if (targetTotals.gamesPlayed < historyMinimums.gamesPlayed) return true;
-        if (targetTotals.gamesWon < historyMinimums.gamesWon) return true;
-        if (targetTotals.currentStreak < historyMinimums.currentStreak) return true;
-        if (targetTotals.maxStreak < historyMinimums.maxStreak) return true;
-        if (targetTotals.maxStreak < targetTotals.currentStreak) return true;
-        if (targetTotals.guesses.fail < historyMinimums.guesses.fail) return true;
-        for (var i = 1; i <= 6; i += 1) {
-            if (targetTotals.guesses[i] < historyMinimums.guesses[i]) return true;
-        }
-        return false;
-    }
-
-    formatHistoryMinimumsMessage(historyMinimums) {
-        return "Values cannot be below history minimums: Played " + historyMinimums.gamesPlayed +
-            ", Won " + historyMinimums.gamesWon +
-            ", Current Streak " + historyMinimums.currentStreak +
-            ", Max Streak " + historyMinimums.maxStreak + ".";
+        return raw;
     }
 
     computeDerivedFromTotals(totals) {
@@ -576,7 +392,7 @@ class HistoryManager {
         }
         return {
             winPercentage: totals.gamesPlayed ? Math.round(totals.gamesWon / totals.gamesPlayed * 100) : 0,
-            averageGuesses: totals.gamesWon ? Math.round(guessSum / totals.gamesWon) : 0
+            averageGuesses: totals.gamesWon ? Math.round(guessSum / totals.gamesWon * 100) / 100 : 0
         };
     }
 
@@ -696,21 +512,6 @@ class HistoryManager {
         return lines.join("\n");
     }
 
-    getCurrentStatsForAdjustment() {
-        if (window.wordleStats && typeof window.wordleStats.compute === "function") {
-            return this.normalizeStatsTotals(window.wordleStats.compute());
-        }
-        var raw = StorageController.statistics.getAll();
-        if (!raw || !Object.keys(raw).length) raw = HistoryManager.toDefaultStats();
-        return this.normalizeStatsTotals(raw);
-    }
-
-    recomputeStatisticsAfterHistoryImport() {
-        if (window.wordleStats && typeof window.wordleStats.recompute === "function") {
-            window.wordleStats.recompute();
-        }
-    }
-
     importRecords(rawRecords) {
         var self = this;
         var localHistory = this.getHistoryObject();
@@ -750,9 +551,6 @@ class HistoryManager {
         if (changedPuzzleNums.length) {
             this.setHistoryObject(localHistory);
         }
-
-        this.setHistoryAuthoritativeLegacyZeroed();
-        this.recomputeStatisticsAfterHistoryImport();
 
         return {
             addedCount: addedCount,
@@ -819,8 +617,8 @@ class SaveMenu {
         var n = summary.newGames;
         this.setImportSummaryLine("history-import-summary-line1", p + (p === 1 ? " game was" : " games were") + " processed from your file.");
         this.setImportSummaryLine("history-import-summary-line2", n + " of " + (n === 1 ? "those was" : "those were") + " not previously recorded in your history.");
-        this.setImportSummaryLine("history-import-summary-line3", n + (n === 1 ? " new game was" : " new games were") + " counted toward stats and streaks.");
-        this.setImportSummaryLine("history-import-summary-line4", "Legacy baseline was reset so history is now the authoritative source.");
+        this.setImportSummaryLine("history-import-summary-line3", n + (n === 1 ? " new game was" : " new games were") + " added to your history.");
+        this.setImportSummaryLine("history-import-summary-line4", "Use Adjust Stats from the Statistics screen if your totals need correction.");
 
         // Handle flagged rows
         var flaggedContainer = document.getElementById("history-import-summary-flagged");
@@ -927,7 +725,7 @@ class SaveMenu {
                     }
                     return;
                 }
-                SaveMenu.showStatus(statusElement, noChangeMessage + "; stats recalculated from full history", false);
+                SaveMenu.showStatus(statusElement, noChangeMessage, false);
                 this.openHistoryImportSummaryModal({
                     processed: rawRecords.length,
                     newGames: 0,
@@ -975,20 +773,19 @@ class SaveMenu {
         var errorEl = document.getElementById("adjust-stats-error");
 
         var stats = this.historyManager.getCurrentStatsForAdjustment();
-        inputs.gamesPlayed.value = stats.gamesPlayed;
-        inputs.gamesWon.value = stats.gamesWon;
-        inputs.currentStreak.value = stats.currentStreak;
-        inputs.maxStreak.value = stats.maxStreak;
+        inputs.gamesPlayed.value = stats.gamesPlayed || 0;
+        inputs.gamesWon.value = stats.gamesWon || 0;
+        inputs.currentStreak.value = stats.currentStreak || 0;
+        inputs.maxStreak.value = stats.maxStreak || 0;
         for (var i = 1; i <= 6; i += 1) {
-            inputs["g" + i].value = stats.guesses[i];
+            inputs["g" + i].value = (stats.guesses && stats.guesses[i]) || 0;
         }
-        inputs.gfail.value = stats.guesses.fail;
+        inputs.gfail.value = (stats.guesses && stats.guesses.fail) || 0;
 
         if (errorEl) errorEl.textContent = "";
 
         this.updateAdjustStatsPreview(inputs, preview);
         modal.classList.remove("hidden");
-        SaveMenu.showStatus(statusElement, "Adjusting stats totals...", false);
     }
 
     closeAdjustStatsModal() {
@@ -1040,7 +837,6 @@ class SaveMenu {
 
     wireAdjustStatsModal(statusElement) {
         var self = this;
-        var openButton = document.getElementById("adjustStatsButton");
         var applyButton = document.getElementById("adjust-stats-apply");
         var cancelButton = document.getElementById("adjust-stats-cancel");
         var errorEl = document.getElementById("adjust-stats-error");
@@ -1076,13 +872,6 @@ class SaveMenu {
             });
         });
 
-        if (openButton) {
-            openButton.addEventListener("click", function() {
-                SaveMenu.flashElement(openButton);
-                self.openAdjustStatsModal(statusElement);
-            });
-        }
-
         if (cancelButton) {
             cancelButton.addEventListener("click", function() {
                 self.closeAdjustStatsModal();
@@ -1099,66 +888,15 @@ class SaveMenu {
                     return;
                 }
 
-                var history = self.historyManager.getHistoryObject();
-                var historyMinimums = self.historyManager.computeHistoryMinimums(history);
-                if (self.historyManager.hasTargetBelowHistoryMinimums(targetTotals, historyMinimums)) {
-                    setError(self.historyManager.formatHistoryMinimumsMessage(historyMinimums));
-                    return;
-                }
+                var derived = self.historyManager.computeDerivedFromTotals(targetTotals);
+                targetTotals.winPercentage = derived.winPercentage;
+                targetTotals.averageGuesses = derived.averageGuesses;
+                targetTotals.versionNumber = 1;
+                StorageController.statistics.replace(targetTotals);
 
-                var nextLegacy = self.historyManager.buildHistoryAuthoritativeLegacyFromTarget(historyMinimums, targetTotals);
-                if (self.historyManager.hasNegativeTotalsDelta(nextLegacy)) {
-                    setError("Values cannot be lower than history-derived totals.");
-                    return;
-                }
-                self.historyManager.backupLegacyStatsIfNeeded(self.historyManager.getLegacyStatsObject());
-
-                self.historyManager.setLegacyStatsObject(nextLegacy);
-                self.historyManager.recomputeStatisticsAfterHistoryImport();
                 self.closeAdjustStatsModal();
                 SaveMenu.showStatus(statusElement, "Stats adjustment applied", false);
                 self.openStatsModalFromSaveMenu();
-            });
-        }
-    }
-
-    wireStatsImportExport(statusElement) {
-        var self = this;
-        var saveButton = document.getElementById("saveButton");
-        var loadInput = document.getElementById("inputload");
-
-        if (saveButton) {
-            saveButton.addEventListener("click", function() {
-                SaveMenu.flashElement(saveButton);
-                var statsObject = StorageController.statistics.getAll();
-                if (!statsObject || !Object.keys(statsObject).length) statsObject = HistoryManager.toDefaultStats();
-                var stats = JSON.stringify(statsObject);
-                SaveMenu.createDownload(
-                    "wordle_stats_" + self.resolver.formatLocalDate(new Date()) + ".json",
-                    stats,
-                    "application/json"
-                );
-                SaveMenu.showStatus(statusElement, "Statistics exported", false);
-            });
-        }
-
-        if (loadInput) {
-            loadInput.addEventListener("change", function() {
-                var file = loadInput.files && loadInput.files[0];
-                if (!file) return;
-
-                file.text().then(function(text) {
-                    var json = self.resolver.safeParseJSON(text, null);
-                    if (!json) throw new Error("Invalid JSON");
-                    StorageController.statistics.replace(json);
-                    SaveMenu.showStatus(statusElement, "Statistics loaded. Reloading...", false);
-                    window.location.reload();
-                }).catch(function(err) {
-                    console.error("Could not load stats", err);
-                    SaveMenu.showStatus(statusElement, "Could not load stats", true);
-                }).finally(function() {
-                    loadInput.value = "";
-                });
             });
         }
     }
@@ -1262,7 +1000,6 @@ class SaveMenu {
             });
         }
 
-        this.wireStatsImportExport(statusElement);
         this.wireHistoryImportExport(statusElement);
         this.wireHistoryImportSummaryModal();
         this.wireAdjustStatsModal(statusElement);
@@ -1283,6 +1020,8 @@ window.savemenuTestExports = {
     var resolver = new PuzzleResolver(window.answer_list, window.PUZZLE_START_DATE);
     var manager = new HistoryManager(resolver);
     var menu = new SaveMenu(manager);
+
+    window.leftWordleSaveMenu = menu;
 
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", function() { menu.init(); });

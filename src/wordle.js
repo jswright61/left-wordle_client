@@ -922,10 +922,17 @@
             return stats;
         }
 
+        static migrateIfNeeded() {
+            var stored = StorageController.statistics.getAll();
+            if (stored && stored.versionNumber) return;
+            var stats = StatisticsEngine.computeStatisticsFromHistoryAndLegacy();
+            stats.versionNumber = 1;
+            StorageController.statistics.replace(stats);
+            StorageController.legacyStats.clear();
+        }
+
         static updateStatistics(gameResults) {
             var stats = StatisticsEngine.getStatistics();
-            var history = HistoryManager.getHistory();
-            var legacy = HistoryManager.getLegacyStats();
             var now = new Date();
             var hasExplicitPuzzleNum = !!(gameResults && gameResults.puzzleNum !== undefined && gameResults.puzzleNum !== null);
             var puzzleNum = hasExplicitPuzzleNum ? gameResults.puzzleNum : PuzzleUtils.getDayOffset(now);
@@ -933,7 +940,7 @@
             var existingCompletion = hasExplicitPuzzleNum ? HistoryManager.getHistoryCompletionForPuzzle(puzzleNum) : null;
 
             if (existingCompletion) {
-                // Keep history metadata fresh but avoid double-counting the same puzzle in stats.
+                // Keep history metadata fresh but don't double-count stats for a replayed puzzle.
                 HistoryManager.recordHistoryEntry({
                     puzzleNum: puzzleNum,
                     date: dateStr,
@@ -944,13 +951,7 @@
                     hardMode: gameResults && gameResults.hardMode,
                     starter: gameResults && gameResults.starter
                 });
-                StatisticsEngine.recomputeAndPersistStatistics();
                 return;
-            }
-
-            if ((!history || Object.keys(history).length === 0) && !legacy) {
-                var cutoffDate = DateUtils.getCutoffDateString(dateStr);
-                HistoryManager.setLegacyStats(HistoryManager.buildLegacySnapshot(stats, cutoffDate));
             }
 
             // Update guesses and streak
@@ -1519,6 +1520,7 @@
         }
 
         connectedCallback() {
+            StatisticsEngine.migrateIfNeeded();
             this.appendChild(gameAppTemplate.content.cloneNode(true));
             this.$game = this.querySelector("#game");
             this.$board = this.querySelector("#board");
@@ -2145,7 +2147,7 @@
 
         constructor() {
             super();
-            this.stats = StatisticsEngine.recomputeAndPersistStatistics();
+            this.stats = StatisticsEngine.getStatistics();
         }
 
         connectedCallback() {
@@ -2203,6 +2205,18 @@
                         this.gameApp.addToast("Copied results to clipboard", 2000, true);
                     }, () => {
                         this.gameApp.addToast("Share failed", 2000, true);
+                    });
+                });
+            }
+
+            var adjustLink = this.querySelector(".stats-adjust-link");
+            if (adjustLink) {
+                adjustLink.addEventListener("click", function() {
+                    document.addEventListener("game-modal-closed", function handler() {
+                        document.removeEventListener("game-modal-closed", handler);
+                        if (window.leftWordleSaveMenu) {
+                            window.leftWordleSaveMenu.openAdjustStatsModal(null);
+                        }
                     });
                 });
             }
