@@ -508,7 +508,7 @@ game-row .win {
     }
 }
 
-#save-buttion game-icon svg path {
+#tools-button game-icon svg path {
     transform: translate(-1.99 -2.72);
     fill: none !important;
     stroke: #000;
@@ -1236,7 +1236,7 @@ game-icon {
 }
 
 /* ========================================
-   Save dialog styles
+   Tools dialog styles
    ======================================== */
 
 .hidden {
@@ -1245,7 +1245,7 @@ game-icon {
     transition: opacity 0.2s;
 }
 
-#save .overlay {
+#tools .overlay {
     position: absolute;
     width: 100%;
     height: 100%;
@@ -1261,7 +1261,7 @@ game-icon {
     display: flex;
 }
 
-#save .content {
+#tools .content {
     position: relative;
     color: var(--color-tone-1);
     padding: 0 32px;
@@ -1273,22 +1273,22 @@ game-icon {
     flex-direction: column;
 }
 
-#save .content-container {
+#tools .content-container {
     height: 100%;
 }
 
-#save .overlay.closing {
+#tools .overlay.closing {
     animation: SlideOut 150ms linear;
 }
 
-#save header {
+#tools header {
     display: flex;
     justify-content: center;
     align-items: center;
     position: relative;
 }
 
-#save h1 {
+#tools h1 {
     font-weight: 700;
     font-size: 16px;
     letter-spacing: 0.5px;
@@ -1298,17 +1298,17 @@ game-icon {
 }
 
 @media only screen and (min-device-width:320px) and (max-device-width:480px) {
-    #save .content {
+    #tools .content {
         max-width: 100%;
         padding: 0;
     }
 
-    #save game-icon {
+    #tools game-icon {
         padding: 0 16px;
     }
 }
 
-#save .setting {
+#tools .setting {
     transition: background-color 0.25s;
     display: flex;
     justify-content: space-between;
@@ -1317,25 +1317,25 @@ game-icon {
     padding: 16px 0;
 }
 
-#save a, #save a:visited {
+#tools a, #tools a:visited {
     color: var(--color-tone-2);
 }
 
-#save .title {
+#tools .title {
     font-size: 18px;
 }
 
-#save .text {
+#tools .text {
     padding-right: 8px;
 }
 
-#save .description {
+#tools .description {
     font-size: 12px;
     color: var(--color-tone-2);
 }
 
 @media only screen and (min-device-width: 320px) and (max-device-width: 480px) {
-    #save .setting {
+    #tools .setting {
         padding: 16px;
     }
 }
@@ -1345,7 +1345,7 @@ game-icon {
     transition: background-color 0.1s ease-out;
 }
 
-#save .save-section-heading {
+#tools .tools-section-heading {
     margin: 20px 0 4px 0;
     font-size: 18px;
     font-weight: 700;
@@ -1355,13 +1355,13 @@ game-icon {
     text-align: center;
 }
 
-#save .save-divider {
+#tools .tools-divider {
     border: none;
     border-top: 1px solid var(--color-tone-4);
     margin: 0;
 }
 
-#save .save-row {
+#tools .tools-row {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     gap: 8px;
@@ -1369,22 +1369,22 @@ game-icon {
     align-items: center;
 }
 
-#save .save-item-left {
+#tools .tools-item-left {
     grid-column: 1;
     justify-self: start;
 }
 
-#save .save-item-center {
+#tools .tools-item-center {
     grid-column: 2;
     justify-self: center;
 }
 
-#save .save-item-right {
+#tools .tools-item-right {
     grid-column: 3;
     justify-self: end;
 }
 
-#save .save-action-button {
+#tools .tools-action-button {
     background: var(--green);
     color: var(--color-tone-5);
     border: none;
@@ -1401,28 +1401,28 @@ game-icon {
     white-space: nowrap;
 }
 
-#save .save-action-button:hover:not(:disabled) {
+#tools .tools-action-button:hover:not(:disabled) {
     opacity: 0.85;
 }
 
-#save .save-action-button:disabled {
+#tools .tools-action-button:disabled {
     background: var(--color-tone-4);
     color: var(--color-tone-3);
     cursor: not-allowed;
 }
 
-#save .save-file-input {
+#tools .tools-file-input {
     display: none;
 }
 
-#save .save-status-message {
+#tools .tools-status-message {
     font-size: 13px;
     color: var(--color-tone-2);
     padding: 12px 0 4px;
     min-height: 20px;
 }
 
-#save .save-inline-modal {
+#tools .tools-inline-modal {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.45);
@@ -1433,11 +1433,11 @@ game-icon {
     z-index: 2200;
 }
 
-#save .save-inline-modal.hidden {
+#tools .tools-inline-modal.hidden {
     display: none;
 }
 
-#save .save-inline-modal-card {
+#tools .tools-inline-modal-card {
     width: min(540px, 100%);
     max-height: 90vh;
     overflow-y: auto;
@@ -1447,23 +1447,23 @@ game-icon {
     padding: 16px;
 }
 
-#save .save-inline-modal-card h3 {
+#tools .tools-inline-modal-card h3 {
     margin: 0 0 8px 0;
     font-size: 18px;
 }
 
-#save .save-inline-modal-card p {
+#tools .tools-inline-modal-card p {
     margin: 6px 0;
 }
 
-#save .save-inline-modal-actions {
+#tools .tools-inline-modal-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 12px;
 }
 
-#save .save-inline-modal-actions button {
+#tools .tools-inline-modal-actions button {
     background: var(--green);
     color: var(--color-tone-5);
     border: none;
@@ -1473,7 +1473,7 @@ game-icon {
     font-size: 12px;
 }
 
-#save .flagged-table-scroll {
+#tools .flagged-table-scroll {
     max-height: 200px;
     overflow-y: auto;
     margin: 8px 0;
@@ -1481,31 +1481,31 @@ game-icon {
     border-radius: 4px;
 }
 
-#save .flagged-table-scroll table {
+#tools .flagged-table-scroll table {
     width: 100%;
     border-collapse: collapse;
     font-size: 12px;
 }
 
-#save .flagged-table-scroll th,
-#save .flagged-table-scroll td {
+#tools .flagged-table-scroll th,
+#tools .flagged-table-scroll td {
     padding: 4px 8px;
     text-align: left;
     border-bottom: 1px solid var(--color-tone-4);
 }
 
-#save .flagged-table-scroll th {
+#tools .flagged-table-scroll th {
     position: sticky;
     top: 0;
     background: var(--color-tone-7);
 }
 
-#save #history-import-summary-flagged h4 {
+#tools #history-import-summary-flagged h4 {
     margin: 12px 0 4px 0;
     font-size: 14px;
 }
 
-#save #history-import-summary-download-flagged {
+#tools #history-import-summary-download-flagged {
     background: var(--color-tone-1);
     color: var(--color-background);
     border: none;

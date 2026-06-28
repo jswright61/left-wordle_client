@@ -146,7 +146,7 @@ describe('Constants', () => {
 
 describe('ICON_PATHS (previously Bs)', () => {
     test('contains all expected icon keys', () => {
-        const expectedKeys = ['help', 'download', 'settings', 'backspace', 'close', 'share', 'statistics', 'save'];
+        const expectedKeys = ['help', 'download', 'settings', 'backspace', 'close', 'share', 'statistics', 'tools'];
         expectedKeys.forEach(function(key) {
             expect(ICON_PATHS[key]).toBeDefined();
         });

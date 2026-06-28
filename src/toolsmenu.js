@@ -562,7 +562,7 @@ class HistoryManager {
 }
 
 
-class SaveMenu {
+class ToolsMenu {
     constructor(historyManager) {
         this.historyManager = historyManager;
         this.resolver = historyManager.resolver;
@@ -655,7 +655,7 @@ class SaveMenu {
 
                 if (downloadButton) {
                     downloadButton.onclick = function() {
-                        SaveMenu.createDownload(
+                        ToolsMenu.createDownload(
                             "wordle_import_flagged_" + self.resolver.formatLocalDate(new Date()) + ".csv",
                             self.historyManager.buildFlaggedRowsCsv(flaggedRows),
                             "text/csv"
@@ -696,14 +696,14 @@ class SaveMenu {
     async handleHistoryImportFile(file, statusElement, loadButtonElement) {
         if (!file) return;
 
-        SaveMenu.showStatus(statusElement, "Importing history...", false);
-        SaveMenu.flashElement(loadButtonElement);
+        ToolsMenu.showStatus(statusElement, "Importing history...", false);
+        ToolsMenu.flashElement(loadButtonElement);
 
         try {
             var text = await file.text();
             var rawRecords = this.resolver.parseImportRecords(text, file.name);
             if (!rawRecords.length) {
-                SaveMenu.showStatus(statusElement, "No history rows found in file", true);
+                ToolsMenu.showStatus(statusElement, "No history rows found in file", true);
                 return;
             }
 
@@ -715,7 +715,7 @@ class SaveMenu {
                     noChangeMessage += " (" + result.flaggedRows.length + " flagged rows skipped)";
                 }
                 if (!result.validCount) {
-                    SaveMenu.showStatus(statusElement, noChangeMessage, false);
+                    ToolsMenu.showStatus(statusElement, noChangeMessage, false);
                     if (result.flaggedRows.length) {
                         this.openHistoryImportSummaryModal({
                             processed: rawRecords.length,
@@ -725,7 +725,7 @@ class SaveMenu {
                     }
                     return;
                 }
-                SaveMenu.showStatus(statusElement, noChangeMessage, false);
+                ToolsMenu.showStatus(statusElement, noChangeMessage, false);
                 this.openHistoryImportSummaryModal({
                     processed: rawRecords.length,
                     newGames: 0,
@@ -736,7 +736,7 @@ class SaveMenu {
 
             var statusMessage = "Import complete: " + result.addedCount + " new games added";
             if (result.flaggedRows.length) statusMessage += ", " + result.flaggedRows.length + " flagged";
-            SaveMenu.showStatus(statusElement, statusMessage, false);
+            ToolsMenu.showStatus(statusElement, statusMessage, false);
 
             this.openHistoryImportSummaryModal({
                 processed: rawRecords.length,
@@ -745,7 +745,7 @@ class SaveMenu {
             });
         } catch (err) {
             console.error("History import failed", err);
-            SaveMenu.showStatus(statusElement, "History import failed: " + (err && err.message ? err.message : "unknown error"), true);
+            ToolsMenu.showStatus(statusElement, "History import failed: " + (err && err.message ? err.message : "unknown error"), true);
         }
     }
 
@@ -875,7 +875,7 @@ class SaveMenu {
         if (cancelButton) {
             cancelButton.addEventListener("click", function() {
                 self.closeAdjustStatsModal();
-                SaveMenu.showStatus(statusElement, "Adjustment cancelled", false);
+                ToolsMenu.showStatus(statusElement, "Adjustment cancelled", false);
             });
         }
 
@@ -895,7 +895,7 @@ class SaveMenu {
                 StorageController.statistics.replace(targetTotals);
 
                 self.closeAdjustStatsModal();
-                SaveMenu.showStatus(statusElement, "Stats adjustment applied", false);
+                ToolsMenu.showStatus(statusElement, "Stats adjustment applied", false);
                 self.openStatsModalFromSaveMenu();
             });
         }
@@ -910,19 +910,19 @@ class SaveMenu {
 
         if (exportJsonButton) {
             exportJsonButton.addEventListener("click", function() {
-                SaveMenu.flashElement(exportJsonButton);
+                ToolsMenu.flashElement(exportJsonButton);
                 var exportData = self.historyManager.exportAsJson();
-                SaveMenu.createDownload(exportData.filename, exportData.content, exportData.mimeType);
-                SaveMenu.showStatus(statusElement, "History exported (JSON)", false);
+                ToolsMenu.createDownload(exportData.filename, exportData.content, exportData.mimeType);
+                ToolsMenu.showStatus(statusElement, "History exported (JSON)", false);
             });
         }
 
         if (exportCsvButton) {
             exportCsvButton.addEventListener("click", function() {
-                SaveMenu.flashElement(exportCsvButton);
+                ToolsMenu.flashElement(exportCsvButton);
                 var exportData = self.historyManager.exportAsCsv();
-                SaveMenu.createDownload(exportData.filename, exportData.content, exportData.mimeType);
-                SaveMenu.showStatus(statusElement, "History exported (CSV)", false);
+                ToolsMenu.createDownload(exportData.filename, exportData.content, exportData.mimeType);
+                ToolsMenu.showStatus(statusElement, "History exported (CSV)", false);
             });
         }
 
@@ -958,29 +958,29 @@ class SaveMenu {
 
         if (downloadButton) {
             downloadButton.addEventListener("click", function() {
-                SaveMenu.flashElement(downloadButton);
+                ToolsMenu.flashElement(downloadButton);
                 var data = self.collectAllSettings();
                 var filename = "left_wordle_settings_" + self.resolver.formatLocalDate(new Date()) + ".json";
-                SaveMenu.createDownload(filename, JSON.stringify(data, null, 2), "application/json");
-                SaveMenu.showStatus(statusElement, "Settings downloaded", false);
+                ToolsMenu.createDownload(filename, JSON.stringify(data, null, 2), "application/json");
+                ToolsMenu.showStatus(statusElement, "Settings downloaded", false);
             });
         }
 
         if (sendButton) {
             sendButton.addEventListener("click", function() {
-                SaveMenu.flashElement(sendButton);
+                ToolsMenu.flashElement(sendButton);
                 sendButton.disabled = true;
-                SaveMenu.showStatus(statusElement, "Sending settings...", false);
+                ToolsMenu.showStatus(statusElement, "Sending settings...", false);
                 var data = self.collectAllSettings();
                 window.LeftWordleApi.client.submitDiagnostics(data)
                     .then(function() {
-                        SaveMenu.showStatus(statusElement, "Settings sent to developers", false);
+                        ToolsMenu.showStatus(statusElement, "Settings sent to developers", false);
                     })
                     .catch(function(err) {
                         var msg = (err && err.status === 503)
                             ? "Unable to send — please use Download All Settings instead"
                             : "Failed to send — please try again or use Download All Settings";
-                        SaveMenu.showStatus(statusElement, msg, true);
+                        ToolsMenu.showStatus(statusElement, msg, true);
                     })
                     .finally(function() {
                         sendButton.disabled = false;
@@ -990,9 +990,9 @@ class SaveMenu {
     }
 
     init() {
-        var closeButton = document.getElementById("save-close");
-        var saveModal = document.querySelector("#save");
-        var statusElement = document.getElementById("save-status");
+        var closeButton = document.getElementById("tools-close");
+        var saveModal = document.querySelector("#tools");
+        var statusElement = document.getElementById("tools-status");
 
         if (closeButton && saveModal) {
             closeButton.addEventListener("click", function() {
@@ -1009,19 +1009,19 @@ class SaveMenu {
 
 
 // Expose classes for testing
-window.savemenuTestExports = {
+window.toolsmenuTestExports = {
     PuzzleResolver: PuzzleResolver,
     HistoryManager: HistoryManager,
-    SaveMenu: SaveMenu
+    ToolsMenu: ToolsMenu
 };
 
 // Bootstrap
 (function() {
     var resolver = new PuzzleResolver(window.answer_list, window.PUZZLE_START_DATE);
     var manager = new HistoryManager(resolver);
-    var menu = new SaveMenu(manager);
+    var menu = new ToolsMenu(manager);
 
-    window.leftWordleSaveMenu = menu;
+    window.leftWordleToolsMenu = menu;
 
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", function() { menu.init(); });

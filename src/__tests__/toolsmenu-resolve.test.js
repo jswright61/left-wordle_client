@@ -19,11 +19,11 @@ dom.window.PUZZLE_START_DATE = new Date(2021, 5, 19);
 const storageControllerCode = fs.readFileSync(path.join(__dirname, '../storage-controller.js'), 'utf8');
 dom.window.eval(storageControllerCode);
 
-// Load savemenu.js
-const savemenuCode = fs.readFileSync(path.join(__dirname, '../savemenu.js'), 'utf8');
+// Load toolsmenu.js
+const savemenuCode = fs.readFileSync(path.join(__dirname, '../toolsmenu.js'), 'utf8');
 dom.window.eval(savemenuCode);
 
-const { PuzzleResolver } = dom.window.savemenuTestExports;
+const { PuzzleResolver } = dom.window.toolsmenuTestExports;
 
 var resolver = new PuzzleResolver(dom.window.answer_list, dom.window.PUZZLE_START_DATE);
 
@@ -223,7 +223,7 @@ describe('resolveAndValidateEntry', () => {
     });
 });
 
-var { HistoryManager } = dom.window.savemenuTestExports;
+var { HistoryManager } = dom.window.toolsmenuTestExports;
 
 describe('HISTORY_BASE_FIELDS', () => {
     test('includes origin', () => {
@@ -281,14 +281,14 @@ describe('importRecords', () => {
     });
 });
 
-describe('SaveMenu#collectAllSettings', () => {
-    var { SaveMenu } = dom.window.savemenuTestExports;
+describe('ToolsMenu#collectAllSettings', () => {
+    var { ToolsMenu } = dom.window.toolsmenuTestExports;
     var saveMenu;
 
     beforeEach(() => {
         dom.window.localStorage.clear();
         delete dom.window.APP_VERSION;
-        saveMenu = new SaveMenu(new HistoryManager(resolver));
+        saveMenu = new ToolsMenu(new HistoryManager(resolver));
     });
 
     test('includes a diagnostics key with server and version', () => {

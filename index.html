@@ -71,8 +71,8 @@
                         Left Wordle
                     </div>
                     <div class="menu">
-                        <button id="save-button" class="icon" aria-label="save" title="Save">
-                            <game-icon icon="save"></game-icon>
+                        <button id="tools-button" class="icon" aria-label="tools" title="Tools">
+                            <game-icon icon="tools"></game-icon>
                         </button>
                         <button id="statistics-button" class="icon" aria-label="statistics" title="Statistics">
                             <game-icon icon="statistics"></game-icon>
@@ -94,49 +94,47 @@
     </div>
     <div id="debug-tools"></div>
     </div>
-    <div id="save" class="hidden">
+    <div id="tools" class="hidden">
         <div class="overlay">
             <div class="content">
                 <header>
-                    <h1>
-                        <slot></slot>
-                    </h1>
-                    <game-icon id="save-close" icon="close"></game-icon>
+                    <h1>Tools</h1>
+                    <game-icon id="tools-close" icon="close"></game-icon>
                 </header>
                 <div class="content-container">
                     <slot name="content">
                       <div class="sections">
     <section>
-      <h2 class="save-section-heading">Game History</h2>
-      <div class="save-row">
-        <button class="save-item-left save-action-button" id="exportHistoryJsonButton" type="button"
+      <h2 class="tools-section-heading">Game History</h2>
+      <div class="tools-row">
+        <button class="tools-item-left tools-action-button" id="exportHistoryJsonButton" type="button"
                 title="Save your game history to a local json file.">Save as JSON</button>
-        <button class="save-item-center save-action-button" id="exportHistoryCsvButton" type="button"
+        <button class="tools-item-center tools-action-button" id="exportHistoryCsvButton" type="button"
                 title="Save your game history to a local comma separated values file.">Save as CSV</button>
-        <label class="save-item-right save-action-button" id="loadHistoryButton" for="inputHistoryLoad"
+        <label class="tools-item-right tools-action-button" id="loadHistoryButton" for="inputHistoryLoad"
                title="Add historical games from either a json or CSV file.">
           Import Games
-          <input id="inputHistoryLoad" type="file" accept=".json,.csv,text/csv,application/json" class="save-file-input">
+          <input id="inputHistoryLoad" type="file" accept=".json,.csv,text/csv,application/json" class="tools-file-input">
         </label>
       </div>
-      <hr class="save-divider">
+      <hr class="tools-divider">
     </section>
     <section>
-      <h2 class="save-section-heading">Troubleshooting</h2>
-      <div class="save-row">
-        <button class="save-item-left save-action-button" id="downloadAllSettingsButton" type="button"
+      <h2 class="tools-section-heading">Troubleshooting</h2>
+      <div class="tools-row">
+        <button class="tools-item-left tools-action-button" id="downloadAllSettingsButton" type="button"
                 title="Download all settings and backup history as a JSON file.">Download All Settings</button>
-        <button class="save-item-right save-action-button" id="sendSettingsToDevelopersButton" type="button"
+        <button class="tools-item-right tools-action-button" id="sendSettingsToDevelopersButton" type="button"
                 title="Send your settings to the developers for troubleshooting.">Send Settings to Developers</button>
       </div>
-      <hr class="save-divider">
+      <hr class="tools-divider">
     </section>
     <section>
-      <div id="save-status" class="save-status-message"></div>
+      <div id="tools-status" class="tools-status-message"></div>
     </section>
   </div>
-  <div id="history-import-summary-modal" class="save-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="history-import-summary-title">
-    <div class="save-inline-modal-card">
+  <div id="history-import-summary-modal" class="tools-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="history-import-summary-title">
+    <div class="tools-inline-modal-card">
       <h3 id="history-import-summary-title">Import Complete</h3>
       <p id="history-import-summary-line1"></p>
       <p id="history-import-summary-line2"></p>
@@ -154,7 +152,7 @@
         </div>
         <button id="history-import-summary-download-flagged" type="button">Download Flagged Rows</button>
       </div>
-      <div class="save-inline-modal-actions">
+      <div class="tools-inline-modal-actions">
         <button id="history-import-summary-view-stats" type="button">View Updated Stats</button>
         <button id="history-import-summary-close" type="button">Close</button>
       </div>
@@ -422,7 +420,7 @@
     <script src="src/api_client.js"></script>
     <script src="src/api_gameplay.js"></script>
     <script src="src/wordle.js"></script>
-    <script src="src/savemenu.js"></script>
+    <script src="src/toolsmenu.js"></script>
     <script src="src/downloads.js"></script>
     <script>
     (function() {
