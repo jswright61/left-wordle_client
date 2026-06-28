@@ -272,7 +272,7 @@ window.StorageController = {
         "puzzleNum", "date", "rowIndex", "boardState", "evaluations",
         "gameStatus", "hardMode", "insaneMode", "goofProtectionMode", "completedInHardMode", "completedInInsaneMode", "solution",
         "lastPlayedTs", "lastCompletedTs", "updatedAt", "restoringFromLocalStorage",
-        "answersRemaining"
+        "answersRemaining", "encryptedAnswer"
     ])),
     history: new HistoryStorage("history"),
     legacyStats: new BlobStorage("legacy_stats"),
