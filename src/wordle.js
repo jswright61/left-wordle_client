@@ -355,6 +355,12 @@
                     this.saveShareFormat(event.target.value);
                 });
             });
+            // Handle remaining answers mode radio changes
+            this.querySelectorAll('input[name="remaining-answers-mode"]').forEach((radio) => {
+                radio.addEventListener("change", (event) => {
+                    StorageController.preferences.set("remainingAnswersMode", event.target.value);
+                });
+            });
             // Handle gameplay mode radio changes
             this.querySelectorAll('input[name="gameplay-mode"]').forEach((radio) => {
                 radio.addEventListener("change", (event) => {
@@ -418,16 +424,10 @@
             hideDateInShareHeader
                 ? this.querySelector("#hide-date-in-share-header").setAttribute("checked", "")
                 : this.querySelector("#hide-date-in-share-header").removeAttribute("checked");
-            // Show Remaining Guesses in Share Text preference (default true)
-            var showRemaining = StorageController.preferences.get("showRemainingInShareText");
-            if (showRemaining === null) {
-                var oldMode = StorageController.preferences.get("remainingAnswersMode");
-                showRemaining = oldMode === null || oldMode === "sharetext" || oldMode === "both";
-                StorageController.preferences.set("showRemainingInShareText", showRemaining);
-            }
-            showRemaining
-                ? this.querySelector("#show-remaining-in-share-text").setAttribute("checked", "")
-                : this.querySelector("#show-remaining-in-share-text").removeAttribute("checked");
+            // Remaining answers mode preference (default "neither")
+            var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
+            var remainingModeRadio = this.querySelector('input[name="remaining-answers-mode"][value="' + remainingAnswersMode + '"]');
+            if (remainingModeRadio) remainingModeRadio.checked = true;
         }
     }
     customElements.define("game-settings", GameSettings);
@@ -1400,11 +1400,9 @@
 
             this.applyEvaluation(row, guess, evaluatedRowIndex, result);
 
-            var showRemainingInShareText = StorageController.preferences.get("showRemainingInShareText");
-            if (showRemainingInShareText === null) showRemainingInShareText = true;
-            if ((gameStatus === GAME_STATUS_WIN || gameStatus === GAME_STATUS_FAIL) &&
-                showRemainingInShareText) {
-                this._remainingCountsPromise = this._fetchRemainingCounts();
+            var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
+            if (remainingAnswersMode !== "neither") {
+                this._fireRemainingCountRequest(evaluatedRowIndex, guess, mode, prevGuesses);
             }
         }
 
@@ -1437,8 +1435,7 @@
         }
 
         updateRowCount(rowIdx, count) {
-            var counts = this.$board.querySelectorAll(".gameplay-row-count");
-            var el = counts[rowIdx];
+            var el = document.getElementById("gprc" + rowIdx);
             if (!el) return;
             el.textContent = typeof count === "number" ? count : "";
         }
@@ -1545,9 +1542,20 @@
                 this.$board.appendChild(row);
                 var countEl = document.createElement("div");
                 countEl.classList.add("gameplay-row-count");
+                countEl.id = "gprc" + i;
                 this.$board.appendChild(countEl);
             }
             this.positionRowCounts();
+            if (this.restoringFromLocalStorage) {
+                var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
+                if (remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") {
+                    for (var j = 0; j < this.rowIndex; j++) {
+                        if (typeof this.answersRemaining[j] === "number") {
+                            this.updateRowCount(j, this.answersRemaining[j]);
+                        }
+                    }
+                }
+            }
             if (this.gameStatus === GAME_STATUS_IN_PROGRESS && !this.answer) {
                 this._fetchAnswer();
             }
@@ -1633,9 +1641,6 @@
                     return;
                 case "hide-date-in-share-header":
                     StorageController.preferences.set("hideDateInShareHeader", checked);
-                    return;
-                case "show-remaining-in-share-text":
-                    StorageController.preferences.set("showRemainingInShareText", checked);
                     return;
                 }
             });
@@ -1760,20 +1765,25 @@
             }
         }
 
-        async _fetchRemainingCounts() {
-            try {
-                var allGuesses = this.buildPrevGuesses(this.rowIndex);
-                if (!allGuesses.length) return;
-                var dateStr = DateUtils.formatLocalDate(this.today);
-                var response = await window.LeftWordleApi.client.fetchRemainingCounts(dateStr, allGuesses);
-                if (!response || !Array.isArray(response.remaining_counts)) return;
-                response.remaining_counts.forEach((count, i) => {
-                    if (typeof count === "number") this.answersRemaining[i] = count;
-                });
-                GameStateManager.saveGameState({ answersRemaining: this.answersRemaining });
-            } catch (error) {
-                console.warn("Failed to fetch remaining counts", error);
-            }
+        _fireRemainingCountRequest(rowIndex, guess, mode, prevGuesses) {
+            window.LeftWordleApi.gameplay.evaluate({
+                date: DateUtils.formatLocalDate(this.today),
+                guess: guess,
+                puzzleNum: this.dayOffset,
+                rowIndex: rowIndex,
+                mode: mode,
+                prevGuesses: prevGuesses,
+                returnRemainingCount: true
+            }).then((result) => {
+                if (typeof result.answersRemaining === "number") {
+                    this.answersRemaining[rowIndex] = result.answersRemaining;
+                    GameStateManager.saveGameState({ answersRemaining: this.answersRemaining });
+                    var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
+                    if (remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") {
+                        this.updateRowCount(rowIndex, result.answersRemaining);
+                    }
+                }
+            }).catch(() => {});
         }
 
         debugTools() {
@@ -2195,8 +2205,6 @@
                     countdownFragment = countdownTemplate.content.cloneNode(true);
                 footer.appendChild(countdownFragment);
                 // Start building share text immediately so it's ready before the button is clicked.
-                // If showRemainingInShareText is true and counts are still in-flight, this promise
-                // waits for them internally; otherwise it resolves right away.
                 this._shareTextPromise = this._buildShareText();
                 this.querySelector("button#share-button").addEventListener("click", async (event) => {
                     event.preventDefault();
@@ -2222,13 +2230,9 @@
             }
         }
         async _buildShareText() {
-            var showRemainingInShareText = StorageController.preferences.get("showRemainingInShareText");
-            if (showRemainingInShareText === null) showRemainingInShareText = true;
+            var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
             var shareAnswersRemaining = null;
-            if (showRemainingInShareText) {
-                if (this.gameApp._remainingCountsPromise) {
-                    await this.gameApp._remainingCountsPromise;
-                }
+            if (remainingAnswersMode === "sharetext" || remainingAnswersMode === "both") {
                 shareAnswersRemaining = this.gameApp.answersRemaining;
             }
             var completedState = GameStateManager.getGameState();
