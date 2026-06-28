@@ -508,13 +508,6 @@ game-row .win {
     }
 }
 
-#tools-button game-icon svg path {
-    transform: translate(-1.99 -2.72);
-    fill: none !important;
-    stroke: #000;
-    stroke-miterlimit: 10;
-    stroke-width: 2px
-}
 
 /* Slide animations (used by game-modal and game-page) */
 @keyframes SlideIn {
