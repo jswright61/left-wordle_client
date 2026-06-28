@@ -434,14 +434,8 @@
     <script src="src/toolsmenu.js"></script>
     <script src="src/downloads.js"></script>
     <script>
-    (function() {
-        window.wordle = window.wordle || {};
-        window.wordle.hash = 'e65ce0a5';
-    })();
-    </script>
-    <script>
     window.addEventListener("load", function() {
-        if (window.APP_VERSION && window.StorageController) {
+        if (window.APP_VERSION && window.StorageController && window.StorageController.settingsBackup) {
             StorageController.settingsBackup.maybeBackup(window.APP_VERSION);
         }
     });

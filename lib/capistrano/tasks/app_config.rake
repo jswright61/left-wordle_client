@@ -32,6 +32,12 @@ namespace :deploy do
     on roles(:app) do
       upload! StringIO.new(config_js), release_path.join("app_config.js")
       upload! StringIO.new(version_js), release_path.join("app_version.js")
+
+      html = capture(:cat, release_path.join("index.html"))
+      busted = html.gsub(/(<script\s[^>]*src=")([^"?]+\.js)(")/) do
+        "#{$1}#{$2}?v=#{version_tag}#{$3}"
+      end
+      upload! StringIO.new(busted), release_path.join("index.html")
     end
   end
 end
