@@ -49,14 +49,8 @@ global.localStorage = {
 };
 global.window.localStorage = global.localStorage;
 
-// Load answer_list.js and valid_guesses.js first
-const answerListPath = path.join(__dirname, '../answer_list.js');
 const validGuessesPath = path.join(__dirname, '../valid_guesses.js');
 const wordleJsPath = path.join(__dirname, '../wordle.js');
-
-// Execute answer_list.js to define global answer_list
-const answerListCode = fs.readFileSync(answerListPath, 'utf8');
-dom.window.eval(answerListCode);
 
 // Execute valid_guesses.js to define global valid_guesses
 const validGuessesCode = fs.readFileSync(validGuessesPath, 'utf8');
@@ -93,12 +87,14 @@ const ICON_PATHS = testExports.ICON_PATHS;                // Bs -> ICON_PATHS
 const aggregateLetterEvaluations = testExports.aggregateLetterEvaluations; // Pa -> aggregateLetterEvaluations
 const getOrdinal = testExports.getOrdinal;                 // $a -> getOrdinal
 const calculateDaysBetween = testExports.calculateDaysBetween;       // Na -> calculateDaysBetween
-const getSolution = testExports.getSolution;               // Da -> getSolution
 const getDayOffset = testExports.getDayOffset;             // Ga -> getDayOffset
 const encodeWord = testExports.encodeWord;                 // Wa -> encodeWord
 const getStatistics = testExports.getStatistics;            // Xa -> getStatistics
 const updateStatistics = testExports.updateStatistics;      // Va -> updateStatistics
 const evaluateGuess = testExports.evaluateGuess;            // IIFE -> evaluateGuess
+const validateHardMode = testExports.validateHardMode;
+const validateInsaneMode = testExports.validateInsaneMode;
+const decryptAnswer = testExports.decryptAnswer;
 const buildShareText = testExports.buildShareText;          // IIFE -> buildShareText
 const buildAccessibleRows = testExports.buildAccessibleRows; // ShareUtils.buildAccessibleRows
 
@@ -231,31 +227,6 @@ describe('getDayOffset (previously Ga)', () => {
     test('one year after start', () => {
         const date = new Date(2022, 5, 19);
         expect(getDayOffset(date)).toBe(365);
-    });
-});
-
-describe('getSolution (previously Da)', () => {
-    test('returns a 5-letter word', () => {
-        const solution = getSolution(new Date(2023, 5, 15));
-        expect(solution).toHaveLength(5);
-    });
-
-    test('same date returns same word', () => {
-        const date1 = new Date(2023, 5, 15, 10, 30);
-        const date2 = new Date(2023, 5, 15, 22, 45);
-        expect(getSolution(date1)).toBe(getSolution(date2));
-    });
-
-    test('different dates return different words (usually)', () => {
-        const word1 = getSolution(new Date(2023, 5, 15));
-        const word2 = getSolution(new Date(2023, 5, 16));
-        // They could theoretically be the same if answer_list repeats, but very unlikely
-        expect(word1).not.toBe(word2);
-    });
-
-    test('puzzle start date returns first word in answer list', () => {
-        const solution = getSolution(PUZZLE_START_DATE);
-        expect(solution).toBe(dom.window.answer_list[0]);
     });
 });
 
@@ -449,6 +420,92 @@ describe('evaluateGuess (extracted IIFE)', () => {
     test('returns array same length as solution', () => {
         const result = evaluateGuess('crane', 'crane');
         expect(result).toHaveLength(5);
+    });
+});
+
+describe('decryptAnswer', () => {
+    // "cigar" XOR key "xQ7mN2vK9pL4wR8tY1sB6dF3hJ0cG5eA" = 1b38500c3c
+    test('decrypts a known hex string to the correct word', () => {
+        expect(decryptAnswer('1b38500c3c')).toBe('cigar');
+    });
+
+    test('roundtrips correctly for all-lowercase letters', () => {
+        const KEY = 'xQ7mN2vK9pL4wR8tY1sB6dF3hJ0cG5eA';
+        function encrypt(word) {
+            const bytes = [];
+            for (let i = 0; i < word.length; i++) {
+                bytes.push(word.charCodeAt(i) ^ KEY.charCodeAt(i % KEY.length));
+            }
+            return bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+        expect(decryptAnswer(encrypt('rebut'))).toBe('rebut');
+        expect(decryptAnswer(encrypt('abbey'))).toBe('abbey');
+    });
+});
+
+describe('validateHardMode', () => {
+    test('returns null with no previous guesses', () => {
+        expect(validateHardMode('crane', [])).toBeNull();
+        expect(validateHardMode('crane', null)).toBeNull();
+    });
+
+    test('returns null when guess satisfies all hard mode constraints', () => {
+        // "crane" evaluated as "21100": c correct at 0, r present, a present
+        // "cargo" has c at 0, contains r and a
+        expect(validateHardMode('cargo', [['crane', '21100']])).toBeNull();
+    });
+
+    test('returns error when correct-position letter is not reused', () => {
+        // c must stay at position 0
+        const error = validateHardMode('stale', [['crane', '21100']]);
+        expect(error).toMatch(/1st letter must be C/i);
+    });
+
+    test('returns error when required present letter is missing', () => {
+        // r and a were present in "crane" — "might" has neither
+        const error = validateHardMode('might', [['crane', '21100']]);
+        expect(error).not.toBeNull();
+    });
+
+    test('validates only against the most recent previous guess', () => {
+        // "might" "00000" — no letters required; only the most recent guess matters
+        expect(validateHardMode('zzzzz', [['crane', '21100'], ['might', '00000']])).toBeNull();
+    });
+});
+
+describe('validateInsaneMode', () => {
+    test('returns null with no previous guesses', () => {
+        expect(validateInsaneMode('crane', [])).toBeNull();
+    });
+
+    test('returns null for a fully valid insane guess', () => {
+        // "crane" "21100": c correct at 0, r present (not pos 1), a present (not pos 2), n/e absent
+        // "cargo": c at 0 ✓, a at 1 (not pos 2 ✓), r at 2 (not pos 1 ✓), no n or e ✓
+        expect(validateInsaneMode('cargo', [['crane', '21100']])).toBeNull();
+    });
+
+    test('returns hard mode error for correct-position violation', () => {
+        const error = validateInsaneMode('stale', [['crane', '21100']]);
+        expect(error).toMatch(/1st letter must be C/i);
+    });
+
+    test('returns error when present letter reappears in a forbidden position', () => {
+        // r was present (marked 1) at position 1 — cannot use r at position 1 again
+        const error = validateInsaneMode('craft', [['crane', '21100']]);
+        expect(error).toMatch(/can't be in 2nd position/i);
+    });
+
+    test('returns error when absent letter appears in guess', () => {
+        // n and e are absent in "crane" "21100" — "carve" uses e
+        const error = validateInsaneMode('carve', [['crane', '21100']]);
+        expect(error).toMatch(/cannot contain E/i);
+    });
+
+    test('returns error when absent letter count exceeds limit from double-letter row', () => {
+        // "geese" "01001": e present at pos 1 (→ forbidden pos 1), two e's absent → maxCounts['e'] = 1
+        // "ereed" has e at pos 0, 2, 3 (not pos 1) — passes position check but has 3 e's > max 1
+        const error = validateInsaneMode('ereed', [['geese', '01001']]);
+        expect(error).toMatch(/too many Es/i);
     });
 });
 

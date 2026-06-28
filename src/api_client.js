@@ -60,6 +60,16 @@
             return this.request("/api/v1/game/puzzle?" + query.toString(), options);
         }
 
+        async fetchAnswer(date, options) {
+            var query = new URLSearchParams({ date: date });
+            return this.request("/api/v1/game/answer?" + query.toString(), options);
+        }
+
+        async fetchRemainingCounts(date, guesses, options) {
+            options = Object.assign({}, options, { body: { date: date, guesses: guesses }, method: "POST" });
+            return this.request("/api/v1/game/remaining_counts", options);
+        }
+
         async request(path, options) {
             options = options || {};
             var controller = new AbortController();

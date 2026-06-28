@@ -58,6 +58,40 @@ describe('LeftWordleApi', () => {
         );
     });
 
+    test('fetches the encrypted answer for a date', async () => {
+        const fetchImpl = jest.fn().mockResolvedValue(response({
+            body: '{"encrypted_answer":"1b38500c3c","puzzle_num":0,"date":"2021-06-19"}'
+        }));
+        const dom = loadClient(fetchImpl);
+
+        const result = await dom.window.LeftWordleApi.client.fetchAnswer('2021-06-19');
+
+        expect(fetchImpl.mock.calls[0][0]).toBe(
+            'http://localhost:9292/api/v1/game/answer?date=2021-06-19'
+        );
+        expect(fetchImpl.mock.calls[0][1]).toMatchObject({ method: 'GET' });
+        expect(result).toEqual({ encrypted_answer: '1b38500c3c', puzzle_num: 0, date: '2021-06-19' });
+    });
+
+    test('posts remaining counts for a list of guesses', async () => {
+        const fetchImpl = jest.fn().mockResolvedValue(response({
+            body: '{"date":"2021-06-19","remaining_counts":[145,23]}'
+        }));
+        const dom = loadClient(fetchImpl);
+        const guesses = [['crane', '01200'], ['slate', '00110']];
+
+        const result = await dom.window.LeftWordleApi.client.fetchRemainingCounts('2021-06-19', guesses);
+
+        expect(fetchImpl).toHaveBeenCalledWith(
+            'http://localhost:9292/api/v1/game/remaining_counts',
+            expect.objectContaining({
+                body: JSON.stringify({ date: '2021-06-19', guesses: guesses }),
+                method: 'POST'
+            })
+        );
+        expect(result).toEqual({ date: '2021-06-19', remaining_counts: [145, 23] });
+    });
+
     test('posts guesses for evaluation', async () => {
         const fetchImpl = jest.fn().mockResolvedValue(response({
             body: '{"evaluation":["correct"],"game_status":"IN_PROGRESS"}'

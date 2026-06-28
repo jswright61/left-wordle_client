@@ -1,6 +1,26 @@
 (function() {
     "use strict";
 
+    var ANSWER_KEY = "xQ7mN2vK9pL4wR8tY1sB6dF3hJ0cG5eA";
+
+    function decryptAnswer(hex) {
+        var bytes = [];
+        for (var i = 0; i < hex.length; i += 2) {
+            bytes.push(parseInt(hex.substr(i, 2), 16));
+        }
+        return bytes.map(function(b, i) {
+            return String.fromCharCode(b ^ ANSWER_KEY.charCodeAt(i % ANSWER_KEY.length));
+        }).join("");
+    }
+
+    var _allValidWordsSet = null;
+    function getAllValidWordsSet() {
+        if (!_allValidWordsSet) {
+            _allValidWordsSet = new Set(typeof valid_guesses !== "undefined" ? valid_guesses : []);
+        }
+        return _allValidWordsSet;
+    }
+
     class GameTile extends HTMLElement {
         _letter = "";
         _state = "empty";
@@ -188,7 +208,8 @@
             hardMode: false,
             insaneMode: false,
             goofProtectionMode: true,
-            answersRemaining: null
+            answersRemaining: null,
+            encryptedAnswer: null
         };
 
         static deepMerge(target, source) {
@@ -334,12 +355,6 @@
                     this.saveShareFormat(event.target.value);
                 });
             });
-            // Handle remaining answers mode radio changes
-            this.querySelectorAll('input[name="remaining-answers-mode"]').forEach((radio) => {
-                radio.addEventListener("change", (event) => {
-                    StorageController.preferences.set("remainingAnswersMode", event.target.value);
-                });
-            });
             // Handle gameplay mode radio changes
             this.querySelectorAll('input[name="gameplay-mode"]').forEach((radio) => {
                 radio.addEventListener("change", (event) => {
@@ -403,10 +418,16 @@
             hideDateInShareHeader
                 ? this.querySelector("#hide-date-in-share-header").setAttribute("checked", "")
                 : this.querySelector("#hide-date-in-share-header").removeAttribute("checked");
-            // Remaining answers mode preference
-            var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
-            var modeRadio = this.querySelector('input[name="remaining-answers-mode"][value="' + remainingAnswersMode + '"]');
-            if (modeRadio) modeRadio.checked = true;
+            // Show Remaining Guesses in Share Text preference (default true)
+            var showRemaining = StorageController.preferences.get("showRemainingInShareText");
+            if (showRemaining === null) {
+                var oldMode = StorageController.preferences.get("remainingAnswersMode");
+                showRemaining = oldMode === null || oldMode === "sharetext" || oldMode === "both";
+                StorageController.preferences.set("showRemainingInShareText", showRemaining);
+            }
+            showRemaining
+                ? this.querySelector("#show-remaining-in-share-text").setAttribute("checked", "")
+                : this.querySelector("#show-remaining-in-share-text").removeAttribute("checked");
         }
     }
     customElements.define("game-settings", GameSettings);
@@ -503,6 +524,86 @@
             return result;
         }
 
+        static validateHardMode(guess, prevGuesses) {
+            if (!prevGuesses || !prevGuesses.length) return null;
+            var lastPair = prevGuesses[prevGuesses.length - 1];
+            var lastWord = String(lastPair[0]).toLowerCase();
+            var lastMask = String(lastPair[1]);
+            for (var i = 0; i < lastMask.length; i++) {
+                if (lastMask[i] === "2" && guess[i] !== lastWord[i]) {
+                    return GameEvaluator.getOrdinal(i + 1) + " letter must be " + lastWord[i].toUpperCase();
+                }
+            }
+            var required = {};
+            for (var i = 0; i < lastMask.length; i++) {
+                if (lastMask[i] === "1" || lastMask[i] === "2") {
+                    required[lastWord[i]] = (required[lastWord[i]] || 0) + 1;
+                }
+            }
+            var guessCounts = {};
+            for (var i = 0; i < guess.length; i++) {
+                guessCounts[guess[i]] = (guessCounts[guess[i]] || 0) + 1;
+            }
+            for (var letter in required) {
+                if ((guessCounts[letter] || 0) < required[letter]) {
+                    return "Guess must contain " + letter.toUpperCase();
+                }
+            }
+            return null;
+        }
+
+        static validateInsaneMode(guess, prevGuesses) {
+            var hardError = GameEvaluator.validateHardMode(guess, prevGuesses);
+            if (hardError) return hardError;
+            if (!prevGuesses || !prevGuesses.length) return null;
+            var forbiddenPositions = {};
+            var knownAbsent = {};
+            var maxCounts = {};
+            for (var pi = 0; pi < prevGuesses.length; pi++) {
+                var word = String(prevGuesses[pi][0]).toLowerCase();
+                var mask = String(prevGuesses[pi][1]);
+                var absCount = {};
+                var presCorrCount = {};
+                for (var i = 0; i < mask.length; i++) {
+                    var letter = word[i];
+                    if (mask[i] === "1") {
+                        if (!forbiddenPositions[letter]) forbiddenPositions[letter] = [];
+                        forbiddenPositions[letter].push(i);
+                        presCorrCount[letter] = (presCorrCount[letter] || 0) + 1;
+                    } else if (mask[i] === "2") {
+                        presCorrCount[letter] = (presCorrCount[letter] || 0) + 1;
+                    } else {
+                        absCount[letter] = (absCount[letter] || 0) + 1;
+                    }
+                }
+                for (var l in absCount) {
+                    if (!presCorrCount[l]) {
+                        knownAbsent[l] = true;
+                    } else {
+                        var maxAllowed = presCorrCount[l];
+                        maxCounts[l] = maxCounts[l] === undefined ? maxAllowed : Math.min(maxCounts[l], maxAllowed);
+                    }
+                }
+            }
+            for (var i = 0; i < guess.length; i++) {
+                var letter = guess[i];
+                if (forbiddenPositions[letter] && forbiddenPositions[letter].includes(i)) {
+                    return letter.toUpperCase() + " can't be in " + GameEvaluator.getOrdinal(i + 1) + " position";
+                }
+            }
+            var guessCounts = {};
+            for (var i = 0; i < guess.length; i++) {
+                guessCounts[guess[i]] = (guessCounts[guess[i]] || 0) + 1;
+            }
+            for (var l in knownAbsent) {
+                if (guessCounts[l]) return "Guess cannot contain " + l.toUpperCase();
+            }
+            for (var l in maxCounts) {
+                if ((guessCounts[l] || 0) > maxCounts[l]) return "Too many " + l.toUpperCase() + "s";
+            }
+            return null;
+        }
+
     }
 
     class DateUtils {
@@ -551,12 +652,6 @@
     window.PUZZLE_START_DATE = DateUtils.PUZZLE_START_DATE;
 
     class PuzzleUtils {
-        static getSolution(date) {
-            var offset = PuzzleUtils.getDayOffset(date);
-            // modulo will return the index in a loop if length is 100 and offset is 333 it will return 33
-            return answer_list[offset % answer_list.length];
-        }
-
         static getDayOffset(date) {
             return DateUtils.calculateDaysBetween(DateUtils.PUZZLE_START_DATE, date);
         }
@@ -844,7 +939,7 @@
                     date: dateStr,
                     result: existingCompletion.result,
                     completedAt: existingCompletion.completedAt || Date.now(),
-                    answer: gameResults && gameResults.answer ? gameResults.answer : PuzzleUtils.getSolution(now),
+                    answer: gameResults ? gameResults.answer : null,
                     mode: gameResults && gameResults.mode ? gameResults.mode : (gameResults && gameResults.hardMode ? "hard" : "regular"),
                     hardMode: gameResults && gameResults.hardMode,
                     starter: gameResults && gameResults.starter
@@ -889,7 +984,7 @@
                 date: dateStr,
                 result: result,
                 completedAt: Date.now(),
-                answer: gameResults && gameResults.answer ? gameResults.answer : PuzzleUtils.getSolution(now),
+                answer: gameResults ? gameResults.answer : null,
                 mode: gameResults && gameResults.mode ? gameResults.mode : (gameResults && gameResults.hardMode ? "hard" : "regular"),
                 hardMode: gameResults && gameResults.hardMode,
                 starter: gameResults && gameResults.starter
@@ -1115,6 +1210,8 @@
         insaneMode;
         goofProtection;
         dayOffset;
+        encryptedAnswer = null;
+        answer = null;
 
         constructor() {
             super();
@@ -1134,6 +1231,7 @@
                 this.insaneMode = prefInsane !== null ? prefInsane : (state.insaneMode || false);
                 this.goofProtection = prefGoof !== null ? prefGoof : true;
                 this.restoringFromLocalStorage = false;
+                this.canInput = false;
                 GameStateManager.saveGameState({
                     rowIndex: this.rowIndex,
                     boardState: this.boardState,
@@ -1161,6 +1259,8 @@
                 this.insaneMode = state.insaneMode;
                 this.goofProtection = state.goofProtectionMode != null ? state.goofProtectionMode : true;
                 this.answersRemaining = state.answersRemaining || new Array(6).fill(null);
+                this.encryptedAnswer = state.encryptedAnswer || null;
+                this.answer = this.encryptedAnswer ? decryptAnswer(this.encryptedAnswer) : null;
                 this.gameStatus !== GAME_STATUS_IN_PROGRESS && (this.canInput = false);
                 this.restoringFromLocalStorage = true;
             }
@@ -1251,47 +1351,68 @@
 
         }
 
-        async evaluateRow() {
+        evaluateRow() {
             if (this.tileIndex !== 5 || this.rowIndex >= 6) return;
+            if (!this.answer) return;
 
             var evaluatedRowIndex = this.rowIndex;
             var row = this.$board.querySelectorAll("game-row")[evaluatedRowIndex];
             var guess = this.boardState[evaluatedRowIndex];
+
             if (this.goofProtection && this.boardState.slice(0, evaluatedRowIndex).includes(guess)) {
                 row.setAttribute("invalid", "");
                 this.addToast("You already guessed that!");
                 return;
             }
 
-            this.canInput = false;
-            try {
-                var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
-                var mode = this.insaneMode ? "insane" : this.hardMode ? "hard" : "regular";
-                var result = await window.LeftWordleApi.gameplay.evaluate({
-                    date: DateUtils.formatLocalDate(this.today),
-                    guess: guess,
-                    puzzleNum: this.dayOffset,
-                    rowIndex: evaluatedRowIndex,
-                    mode: mode,
-                    prevGuesses: this.buildPrevGuesses(evaluatedRowIndex),
-                    returnRemainingCount: remainingAnswersMode !== "neither"
-                });
-                this.applyEvaluation(row, guess, evaluatedRowIndex, result);
-            } catch (error) {
-                this.canInput = true;
-                if (error && error.status === 400) {
+            if (!getAllValidWordsSet().has(guess)) {
+                row.setAttribute("invalid", "");
+                this.addToast("Not in word list");
+                return;
+            }
+
+            var prevGuesses = this.buildPrevGuesses(evaluatedRowIndex);
+            var mode = this.insaneMode ? "insane" : this.hardMode ? "hard" : "regular";
+            if (mode !== "regular") {
+                var modeError = mode === "insane"
+                    ? GameEvaluator.validateInsaneMode(guess, prevGuesses)
+                    : GameEvaluator.validateHardMode(guess, prevGuesses);
+                if (modeError) {
                     row.setAttribute("invalid", "");
-                    this.addToast(error.detail || "Not in word list");
-                } else {
-                    this.addToast("Unable to check guess", 2000, true);
-                    console.warn("Left Wordle API gameplay request failed", {
-                        code: error && error.code ? error.code : "request_failed",
-                        puzzleNum: this.dayOffset,
-                        retryable: !!(error && error.retryable),
-                        rowIndex: evaluatedRowIndex,
-                        status: error && error.status ? error.status : null
-                    });
+                    this.addToast(modeError);
+                    return;
                 }
+            }
+
+            this.canInput = false;
+
+            var rawEvaluation = GameEvaluator.evaluateGuess(guess, this.answer);
+            var evalStr = rawEvaluation.map(function(v) {
+                return v === GameEvaluator.CORRECT ? "2" : v === GameEvaluator.PRESENT ? "1" : "0";
+            }).join("");
+            var rowNumber = evaluatedRowIndex + 1;
+            var gameStatus = evalStr === "22222" ? GAME_STATUS_WIN
+                : rowNumber >= 6 ? GAME_STATUS_FAIL
+                : GAME_STATUS_IN_PROGRESS;
+
+            var result = {
+                date: DateUtils.formatLocalDate(this.today),
+                evaluation: rawEvaluation,
+                gameStatus: gameStatus,
+                puzzleNum: this.dayOffset,
+                rowIndex: rowNumber,
+                solution: gameStatus !== GAME_STATUS_IN_PROGRESS ? this.answer : null,
+                source: "local",
+                answersRemaining: null
+            };
+
+            this.applyEvaluation(row, guess, evaluatedRowIndex, result);
+
+            var showRemainingInShareText = StorageController.preferences.get("showRemainingInShareText");
+            if (showRemainingInShareText === null) showRemainingInShareText = true;
+            if ((gameStatus === GAME_STATUS_WIN || gameStatus === GAME_STATUS_FAIL) &&
+                showRemainingInShareText) {
+                this._fetchRemainingCounts();
             }
         }
 
@@ -1434,15 +1555,8 @@
                 this.$board.appendChild(countEl);
             }
             this.positionRowCounts();
-            if (this.restoringFromLocalStorage) {
-                var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
-                if (remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") {
-                    for (var j = 0; j < this.rowIndex; j++) {
-                        if (typeof this.answersRemaining[j] === "number") {
-                            this.updateRowCount(j, this.answersRemaining[j]);
-                        }
-                    }
-                }
+            if (this.gameStatus === GAME_STATUS_IN_PROGRESS && !this.answer) {
+                this._fetchAnswer();
             }
             this.$game.addEventListener("game-key-press", (event) => {
                 var key = event.detail.key;
@@ -1462,14 +1576,6 @@
                 var lastRow = this.$board.querySelectorAll("game-row")[this.rowIndex - 1];
                 var eventPath = event.path || (event.composedPath && event.composedPath());
                 if (!eventPath || !eventPath.includes(lastRow)) return;
-
-                var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
-                if (remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") {
-                    var countRowIdx = this.rowIndex - 1;
-                    var count = this.answersRemaining[countRowIdx];
-                    var countDelay = this.gameStatus === GAME_STATUS_WIN ? 1300 : 300;
-                    setTimeout(() => { this.updateRowCount(countRowIdx, count); }, countDelay);
-                }
 
                 var gameOver = this.gameStatus === GAME_STATUS_WIN ||
                     this.gameStatus === GAME_STATUS_FAIL;
@@ -1535,6 +1641,9 @@
                 case "hide-date-in-share-header":
                     StorageController.preferences.set("hideDateInShareHeader", checked);
                     return;
+                case "show-remaining-in-share-text":
+                    StorageController.preferences.set("showRemainingInShareText", checked);
+                    return;
                 }
             });
             this.querySelector("#settings-button").addEventListener("click", () => {
@@ -1576,7 +1685,7 @@
             window.addEventListener("resize", () => { this.sizeBoard(); this.positionRowCounts(); });
             this._pendingQueryGuesses = this._parseQueryGuesses();
             if (!this.restoringFromLocalStorage && this.gameStatus === GAME_STATUS_IN_PROGRESS &&
-                    this._pendingQueryGuesses.some(Boolean)) {
+                    this._pendingQueryGuesses.some(Boolean) && this.answer) {
                 setTimeout(() => this._submitNextQueryStringGuess(), 0);
             }
             var envLabel = getEnvironmentLabel(window.location.hostname);
@@ -1630,6 +1739,47 @@
                     row.removeAttribute("invalid");
                     this.tileIndex = 0;
                 }, 800);
+            }
+        }
+
+        async _fetchAnswer() {
+            this.canInput = false;
+            try {
+                var dateStr = DateUtils.formatLocalDate(this.today);
+                var response = await window.LeftWordleApi.client.fetchAnswer(dateStr);
+                if (!response || typeof response.encrypted_answer !== "string" ||
+                    response.puzzle_num !== this.dayOffset) {
+                    throw new Error("Invalid answer response");
+                }
+                this.encryptedAnswer = response.encrypted_answer;
+                this.answer = decryptAnswer(this.encryptedAnswer);
+                GameStateManager.saveGameState({ encryptedAnswer: this.encryptedAnswer });
+                if (this.gameStatus === GAME_STATUS_IN_PROGRESS) {
+                    this.canInput = true;
+                }
+                if (!this.restoringFromLocalStorage && this._pendingQueryGuesses &&
+                    this._pendingQueryGuesses.some(Boolean)) {
+                    setTimeout(() => this._submitNextQueryStringGuess(), 0);
+                }
+            } catch (error) {
+                this.addToast("Unable to load puzzle. Please refresh.", Infinity, true);
+                console.error("Failed to fetch answer:", error);
+            }
+        }
+
+        async _fetchRemainingCounts() {
+            try {
+                var allGuesses = this.buildPrevGuesses(this.rowIndex);
+                if (!allGuesses.length) return;
+                var dateStr = DateUtils.formatLocalDate(this.today);
+                var response = await window.LeftWordleApi.client.fetchRemainingCounts(dateStr, allGuesses);
+                if (!response || !Array.isArray(response.remaining_counts)) return;
+                response.remaining_counts.forEach((count, i) => {
+                    if (typeof count === "number") this.answersRemaining[i] = count;
+                });
+                GameStateManager.saveGameState({ answersRemaining: this.answersRemaining });
+            } catch (error) {
+                console.warn("Failed to fetch remaining counts", error);
             }
         }
 
@@ -2055,8 +2205,9 @@
                     event.preventDefault();
                     event.stopPropagation();
                     var completedState = GameStateManager.getGameState();
-                    var shareMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
-                    var shareAnswersRemaining = (shareMode === "sharetext" || shareMode === "both") ? this.gameApp.answersRemaining : null;
+                    var showRemainingInShareText = StorageController.preferences.get("showRemainingInShareText");
+                    if (showRemainingInShareText === null) showRemainingInShareText = true;
+                    var shareAnswersRemaining = showRemainingInShareText ? this.gameApp.answersRemaining : null;
                     ShareUtils.shareOrCopy(ShareUtils.buildShareText({
                         evaluations: this.gameApp.evaluations,
                         dayOffset: this.gameApp.dayOffset,
@@ -2253,7 +2404,6 @@
         aggregateLetterEvaluations: GameEvaluator.aggregateLetterEvaluations,
         getOrdinal: GameEvaluator.getOrdinal,
         calculateDaysBetween: DateUtils.calculateDaysBetween,
-        getSolution: PuzzleUtils.getSolution,
         getDayOffset: PuzzleUtils.getDayOffset,
         encodeWord: StringUtils.encodeWord,
         getStatistics: StatisticsEngine.getStatistics,
@@ -2262,6 +2412,9 @@
         computeStatisticsFromHistoryAndLegacy: StatisticsEngine.computeStatisticsFromHistoryAndLegacy,
         recomputeAndPersistStatistics: StatisticsEngine.recomputeAndPersistStatistics,
         evaluateGuess: GameEvaluator.evaluateGuess,
+        validateHardMode: GameEvaluator.validateHardMode,
+        validateInsaneMode: GameEvaluator.validateInsaneMode,
+        decryptAnswer: decryptAnswer,
         buildShareText: ShareUtils.buildShareText,
         buildAccessibleRows: ShareUtils.buildAccessibleRows,
     };
