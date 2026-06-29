@@ -234,22 +234,34 @@ class SettingsBackupStorage {
         this._storageKey = "settingsBackup";
     }
 
-    maybeBackup(version) {
-        if (!version) return;
+    maybeBackup(appVersion) {
+        if (!appVersion) return;
         try {
-            var vKey = "v" + version;
+            var storedVersion = window.localStorage.getItem("version");
+            var baseKey = (storedVersion && storedVersion.trim())
+                ? storedVersion.trim()
+                : appVersion + "-pre";
+
             var raw = window.localStorage.getItem(this._storageKey);
             var backup = null;
             try { backup = raw ? JSON.parse(raw) : null; } catch (e) {}
             if (!backup || typeof backup !== "object" || Array.isArray(backup)) backup = {};
-            if (backup[vKey]) return;
+
+            var key = baseKey;
+            var counter = 1;
+            while (backup[key]) {
+                key = baseKey + "." + String(counter).padStart(3, "0");
+                counter++;
+            }
+
             var snapshot = { ts: new Date().toISOString() };
             for (var i = 0; i < window.localStorage.length; i++) {
-                var key = window.localStorage.key(i);
-                if (key !== this._storageKey) snapshot[key] = window.localStorage.getItem(key);
+                var lsKey = window.localStorage.key(i);
+                if (lsKey !== this._storageKey) snapshot[lsKey] = window.localStorage.getItem(lsKey);
             }
-            backup[vKey] = snapshot;
+            backup[key] = snapshot;
             window.localStorage.setItem(this._storageKey, JSON.stringify(backup));
+            window.localStorage.setItem("version", appVersion);
         } catch (e) {}
     }
 

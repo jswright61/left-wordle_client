@@ -62,75 +62,122 @@ describe('StorageController', () => {
     });
 
     describe('settingsBackup', () => {
-        test('creates a versioned snapshot on first backup', () => {
+        test('uses appVersion-pre as key when no version is stored', () => {
             const dom = loadController((storage) => {
                 storage.setItem('preferences', JSON.stringify({ darkTheme: true }));
                 storage.setItem('device_id', 'abc123');
             });
             const { StorageController, localStorage } = dom.window;
 
-            StorageController.settingsBackup.maybeBackup('1.0.0');
+            StorageController.settingsBackup.maybeBackup('v1.0.0');
 
             const backup = StorageController.settingsBackup.get();
-            expect(backup).not.toBeNull();
-            expect(backup['v1.0.0']).toBeDefined();
-            expect(backup['v1.0.0'].ts).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
-            expect(backup['v1.0.0'].preferences).toBe(JSON.stringify({ darkTheme: true }));
-            expect(backup['v1.0.0'].device_id).toBe('abc123');
-            expect(backup['v1.0.0'].settingsBackup).toBeUndefined();
+            expect(backup['v1.0.0-pre']).toBeDefined();
+            expect(backup['v1.0.0-pre'].ts).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+            expect(backup['v1.0.0-pre'].preferences).toBe(JSON.stringify({ darkTheme: true }));
+            expect(backup['v1.0.0-pre'].device_id).toBe('abc123');
+            expect(backup['v1.0.0-pre'].settingsBackup).toBeUndefined();
         });
 
-        test('does not overwrite an existing version entry', () => {
+        test('uses stored version as key when version is present', () => {
             const dom = loadController((storage) => {
-                storage.setItem('device_id', 'original');
+                storage.setItem('version', 'v1.0.0');
+                storage.setItem('device_id', 'abc123');
+            });
+            const { StorageController } = dom.window;
+
+            StorageController.settingsBackup.maybeBackup('v1.0.1');
+
+            const backup = StorageController.settingsBackup.get();
+            expect(backup['v1.0.0']).toBeDefined();
+            expect(backup['v1.0.1']).toBeUndefined();
+        });
+
+        test('sets the version key to appVersion after backup', () => {
+            const dom = loadController();
+            const { StorageController, localStorage } = dom.window;
+
+            StorageController.settingsBackup.maybeBackup('v1.0.0');
+
+            expect(localStorage.getItem('version')).toBe('v1.0.0');
+        });
+
+        test('updates version key to new appVersion on each call', () => {
+            const dom = loadController((storage) => {
+                storage.setItem('version', 'v1.0.0');
             });
             const { StorageController, localStorage } = dom.window;
 
-            StorageController.settingsBackup.maybeBackup('1.0.0');
-            const firstTs = StorageController.settingsBackup.get()['v1.0.0'].ts;
+            StorageController.settingsBackup.maybeBackup('v1.0.1');
 
-            localStorage.setItem('device_id', 'changed');
-            StorageController.settingsBackup.maybeBackup('1.0.0');
-
-            const backup = StorageController.settingsBackup.get();
-            expect(backup['v1.0.0'].ts).toBe(firstTs);
-            expect(backup['v1.0.0'].device_id).toBe('original');
+            expect(localStorage.getItem('version')).toBe('v1.0.1');
         });
 
-        test('adds a new entry when version changes', () => {
+        test('appends .001 when key already exists, then .002, etc.', () => {
+            const dom = loadController();
+            const { StorageController, localStorage } = dom.window;
+
+            StorageController.settingsBackup.maybeBackup('v1.0.0'); // key: v1.0.0-pre, version → v1.0.0
+            StorageController.settingsBackup.maybeBackup('v1.0.0'); // key: v1.0.0 (from stored version)
+            StorageController.settingsBackup.maybeBackup('v1.0.0'); // key: v1.0.0.001
+            StorageController.settingsBackup.maybeBackup('v1.0.0'); // key: v1.0.0.002
+
+            const backup = StorageController.settingsBackup.get();
+            expect(backup['v1.0.0-pre']).toBeDefined();
+            expect(backup['v1.0.0']).toBeDefined();
+            expect(backup['v1.0.0.001']).toBeDefined();
+            expect(backup['v1.0.0.002']).toBeDefined();
+        });
+
+        test('captures pre-upgrade state using the stored version as key', () => {
             const dom = loadController((storage) => {
-                storage.setItem('device_id', 'abc');
+                storage.setItem('version', 'v1.0.0');
+                storage.setItem('device_id', 'pre-upgrade-value');
+            });
+            const { StorageController, localStorage } = dom.window;
+
+            StorageController.settingsBackup.maybeBackup('v1.0.1');
+            localStorage.setItem('device_id', 'post-upgrade-value');
+            StorageController.settingsBackup.maybeBackup('v1.0.1');
+
+            const backup = StorageController.settingsBackup.get();
+            expect(backup['v1.0.0'].device_id).toBe('pre-upgrade-value');
+            expect(backup['v1.0.1'].device_id).toBe('post-upgrade-value');
+        });
+
+        test('treats blank stored version the same as missing', () => {
+            const dom = loadController((storage) => {
+                storage.setItem('version', '   ');
             });
             const { StorageController } = dom.window;
 
-            StorageController.settingsBackup.maybeBackup('1.0.0');
-            StorageController.settingsBackup.maybeBackup('1.0.1');
+            StorageController.settingsBackup.maybeBackup('v2.0.0');
 
             const backup = StorageController.settingsBackup.get();
-            expect(backup['v1.0.0']).toBeDefined();
-            expect(backup['v1.0.1']).toBeDefined();
+            expect(backup['v2.0.0-pre']).toBeDefined();
         });
 
-        test('does nothing when version is falsy', () => {
+        test('does nothing when appVersion is falsy', () => {
             const dom = loadController();
-            const { StorageController } = dom.window;
+            const { StorageController, localStorage } = dom.window;
 
             StorageController.settingsBackup.maybeBackup(null);
             StorageController.settingsBackup.maybeBackup('');
             StorageController.settingsBackup.maybeBackup(undefined);
 
             expect(StorageController.settingsBackup.get()).toBeNull();
+            expect(localStorage.getItem('version')).toBeNull();
         });
 
-        test('initializes from empty settingsBackup', () => {
+        test('initializes gracefully from empty or corrupt settingsBackup', () => {
             const dom = loadController((storage) => {
                 storage.setItem('settingsBackup', '');
             });
             const { StorageController } = dom.window;
 
-            StorageController.settingsBackup.maybeBackup('2.0.0');
+            StorageController.settingsBackup.maybeBackup('v2.0.0');
 
-            expect(StorageController.settingsBackup.get()['v2.0.0']).toBeDefined();
+            expect(StorageController.settingsBackup.get()['v2.0.0-pre']).toBeDefined();
         });
     });
 });
