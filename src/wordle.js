@@ -1257,6 +1257,9 @@
                 this.restoringFromLocalStorage = false;
                 this.canInput = false;
                 if (!this.isHistoryPlay) {
+                    if (GameStateManager.isNewUser() && StorageController.preferences.get("shareFormat") === null) {
+                        StorageController.preferences.set("shareFormat", "both");
+                    }
                     GameStateManager.saveGameState({
                         rowIndex: this.rowIndex,
                         boardState: this.boardState,
@@ -1622,9 +1625,6 @@
             this.sizeBoard();
             var willShowStatsModal = this.restoringFromLocalStorage &&
                 (this.gameStatus === GAME_STATUS_WIN || this.gameStatus === GAME_STATUS_FAIL);
-            if (isNewUser && StorageController.preferences.get("shareFormat") === null) {
-                StorageController.preferences.set("shareFormat", "both");
-            }
             if (!willShowStatsModal && isNewUser) {
                 setTimeout(() => {
                     this.showHelpModal();
