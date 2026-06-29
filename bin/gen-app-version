@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${RACK_ENV:-}" != "development" ]]; then
+  echo "Error: RACK_ENV must be 'development' (got '${RACK_ENV:-<unset>}')" >&2
+  echo "This script is for local development only. app_version.js is written by the deploy pipeline in other environments." >&2
+  exit 1
+fi
+
+VERSION=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --version)
+      VERSION="${2:-}"
+      if [[ -z "$VERSION" ]]; then
+        echo "Error: --version requires a value" >&2
+        exit 1
+      fi
+      shift 2
+      ;;
+    *)
+      echo "Error: unknown argument '$1'" >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$VERSION" ]]; then
+  VERSION=$(git tag --list 'v*' --sort=-version:refname 2>/dev/null | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+  if [[ -z "$VERSION" ]]; then
+    echo "Error: no version tag found. Create one with: git tag -a vX.Y.Z -m 'Release X.Y.Z'" >&2
+    exit 1
+  fi
+fi
+
+if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Error: invalid version '$VERSION' — expected format: vX.Y.Z" >&2
+  exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OUT="$SCRIPT_DIR/../app_version.js"
+
+printf '// generated; do not edit\nwindow.APP_VERSION = "%s";\n' "$VERSION" > "$OUT"
+echo "Wrote APP_VERSION = \"$VERSION\""
