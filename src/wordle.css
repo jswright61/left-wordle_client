@@ -834,7 +834,7 @@ game-page[open] {
 
 game-page .page-overlay {
     display: flex;
-    position: absolute;
+    position: fixed;
     width: 100%;
     height: 100%;
     top: 0;
@@ -856,6 +856,7 @@ game-page .page-content {
     max-width: var(--game-max-width);
     width: 100%;
     overflow-y: auto;
+    overscroll-behavior: contain;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -928,17 +929,14 @@ game-settings a, game-settings a:visited {
 }
 
 game-settings #footnote {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 16px;
+    padding: 16px 0;
     color: var(--color-tone-2);
     font-size: 12px;
     text-align: right;
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
+    flex-shrink: 0;
 }
 
 game-settings #privacy-policy,
@@ -949,6 +947,31 @@ game-settings #copyright {
 @media only screen and (min-device-width: 320px) and (max-device-width: 480px) {
     game-settings .setting {
         padding: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    game-settings .section-heading,
+    game-settings .remaining-answers-setting,
+    game-settings .share-format-setting,
+    game-settings .share-text-row,
+    game-settings section > .share-text-field {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    game-settings .remaining-answers-setting {
+        flex-wrap: wrap;
+        gap: 8px 12px;
+    }
+
+    game-settings .share-text-row {
+        flex-direction: column;
+    }
+
+    game-settings #footnote {
+        padding-left: 16px;
+        padding-right: 16px;
     }
 }
 
