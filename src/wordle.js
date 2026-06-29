@@ -1613,6 +1613,7 @@
         }
 
         connectedCallback() {
+            var isNewUser = GameStateManager.isNewUser();
             StatisticsEngine.migrateIfNeeded();
             this.appendChild(gameAppTemplate.content.cloneNode(true));
             this.$game = this.querySelector("#game");
@@ -1621,7 +1622,6 @@
             this.sizeBoard();
             var willShowStatsModal = this.restoringFromLocalStorage &&
                 (this.gameStatus === GAME_STATUS_WIN || this.gameStatus === GAME_STATUS_FAIL);
-            var isNewUser = GameStateManager.isNewUser();
             if (isNewUser && StorageController.preferences.get("shareFormat") === null) {
                 StorageController.preferences.set("shareFormat", "both");
             }
