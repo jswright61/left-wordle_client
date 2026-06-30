@@ -1203,6 +1203,7 @@
         isHistoryPlay = false;
         historyPlaySkipStats = false;
         _historyPlayBlocked = false;
+        _paramWarnings = [];
         hardMode;
         insaneMode;
         goofProtection;
@@ -1214,19 +1215,43 @@
             super();
             var realToday = new Date();
             var todayOffset = PuzzleUtils.getDayOffset(realToday);
-            var gameDateParam = new URLSearchParams(window.location.search).get("gameDate");
+            var _sp = new URLSearchParams(window.location.search);
+            var gameDateParam = _sp.get("date");
             var requestedDate = null;
             var reqOffset = todayOffset;
-            if (gameDateParam && /^\d{4}-\d{2}-\d{2}$/.test(gameDateParam)) {
-                var parsed = DateUtils.parseLocalDateString(gameDateParam);
-                if (parsed && DateUtils.formatLocalDate(parsed) === gameDateParam) {
-                    var offset = PuzzleUtils.getDayOffset(parsed);
-                    // Allow up to +2 days ahead (covers UTC-12 vs UTC+14 gap)
-                    if (offset >= 0 && offset <= todayOffset + 2) {
-                        requestedDate = parsed;
-                        reqOffset = offset;
+            var _dateParamError = null;
+            if (gameDateParam) {
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(gameDateParam)) {
+                    _dateParamError = "format";
+                } else {
+                    var parsed = DateUtils.parseLocalDateString(gameDateParam);
+                    if (!parsed || DateUtils.formatLocalDate(parsed) !== gameDateParam) {
+                        _dateParamError = "invalid";
+                    } else {
+                        var offset = PuzzleUtils.getDayOffset(parsed);
+                        // Allow up to +2 days ahead (covers UTC-12 vs UTC+14 gap)
+                        if (offset >= 0 && offset <= todayOffset + 2) {
+                            requestedDate = parsed;
+                            reqOffset = offset;
+                        } else {
+                            _dateParamError = "range";
+                        }
                     }
                 }
+            }
+            this._paramWarnings = [];
+            var _KNOWN_PARAMS = new Set(["date","guess1","guess2","guess3","guess4","guess5","guess6","g1","g2","g3","g4","g5","g6","test-sentry","pwd"]);
+            _sp.forEach(function(value, key) {
+                var keyLower = key.toLowerCase();
+                if (_KNOWN_PARAMS.has(keyLower)) return;
+                if (keyLower.includes("date")) {
+                    this._paramWarnings.push({ type: "date_typo", key: key, value: value });
+                } else {
+                    this._paramWarnings.push({ type: "unknown", key: key, value: value });
+                }
+            }, this);
+            if (_dateParamError) {
+                this._paramWarnings.push({ type: "bad_date", key: "date", value: gameDateParam, reason: _dateParamError });
             }
             this.isHistoryPlay = requestedDate !== null && reqOffset !== todayOffset;
             this.historyPlaySkipStats = this.isHistoryPlay && reqOffset < todayOffset;
@@ -1579,6 +1604,30 @@
             modal.setAttribute("open", "");
         }
 
+        _showParamWarningModal() {
+            var modal = this.$game.querySelector("game-modal");
+            var container = document.createElement("div");
+            container.className = "param-warning-modal";
+            var count = this._paramWarnings.length;
+            var html = "<h2>Unknown URL Parameter" + (count > 1 ? "s" : "") + "</h2>";
+            this._paramWarnings.forEach(function(w) {
+                if (w.type === "date_typo") {
+                    html += "<p>Unrecognized parameter <code>?" + w.key + "=</code>. Did you mean <code>?date=" + w.value + "</code>?</p>";
+                } else if (w.type === "bad_date") {
+                    if (w.reason === "range") {
+                        html += "<p>The date <code>" + w.value + "</code> is outside the allowed range for <code>?date=</code>.</p>";
+                    } else {
+                        html += "<p>Invalid value for <code>?date=</code>: <code>" + w.value + "</code>. Expected format: <code>YYYY-MM-DD</code> (e.g. <code>?date=2026-07-01</code>).</p>";
+                    }
+                } else {
+                    html += "<p>Unknown parameter: <code>?" + w.key + "=" + w.value + "</code></p>";
+                }
+            });
+            container.innerHTML = html;
+            modal.appendChild(container);
+            modal.setAttribute("open", "");
+        }
+
         _showFuturePlayBlocked() {
             var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
             var todayOffset = PuzzleUtils.getDayOffset(new Date());
@@ -1625,9 +1674,15 @@
             this.sizeBoard();
             var willShowStatsModal = this.restoringFromLocalStorage &&
                 (this.gameStatus === GAME_STATUS_WIN || this.gameStatus === GAME_STATUS_FAIL);
-            if (!willShowStatsModal && isNewUser) {
+            var willShowParamWarning = this._paramWarnings.length > 0;
+            if (!willShowStatsModal && !willShowParamWarning && isNewUser) {
                 setTimeout(() => {
                     this.showHelpModal();
+                }, 100);
+            }
+            if (willShowParamWarning) {
+                setTimeout(() => {
+                    this._showParamWarningModal();
                 }, 100);
             }
             for (var i = 0; i < 6; i++) {
