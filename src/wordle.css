@@ -355,6 +355,55 @@ button.icon {
     bottom: 0;
 }
 
+/* suppress text selection on title (used by long-press erase gesture) */
+.title {
+    -webkit-touch-callout: none;
+    user-select: none;
+}
+
+/* erase-confirm-modal styles */
+.erase-confirm-modal h2 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0 0 8px;
+    color: var(--color-tone-1);
+}
+
+.erase-confirm-modal p {
+    font-size: 14px;
+    color: var(--color-tone-1);
+    margin: 0 0 8px;
+    line-height: 1.4;
+}
+
+.erase-confirm-modal .erase-confirm-warning {
+    font-size: 12px;
+    color: var(--color-tone-2);
+    margin-bottom: 20px;
+}
+
+.erase-confirm-modal .erase-confirm-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.erase-confirm-modal button {
+    padding: 8px 20px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 2px solid var(--color-tone-1);
+    background: transparent;
+    color: var(--color-tone-1);
+}
+
+.erase-confirm-modal .erase-confirm-erase {
+    background: var(--color-tone-1);
+    color: var(--modal-content-bg);
+}
+
 /* param-warning-modal styles */
 .param-warning-modal h2 {
     font-size: 16px;

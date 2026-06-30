@@ -958,7 +958,9 @@
             if (gameResults.isWin) {
                 stats.guesses[gameResults.numGuesses] += 1;
                 stats.currentStreak = gameResults.isStreak ? stats.currentStreak + 1 : 1;
+                stats.terminatedStreak = null;
             } else {
+                stats.terminatedStreak = stats.currentStreak;
                 stats.currentStreak = 0;
                 stats.guesses.fail += 1;
             }
@@ -1126,6 +1128,15 @@
                     HistoryManager.saveHistory(history);
                 }
             }
+        }
+
+        static deleteHistoryEntry(puzzleNum) {
+            var history = HistoryManager.getHistory();
+            var key = String(puzzleNum);
+            if (!(key in history)) return false;
+            delete history[key];
+            HistoryManager.saveHistory(history);
+            return true;
         }
 
         static getHistoryCompletionForPuzzle(puzzleNum) {
@@ -1604,6 +1615,112 @@
             modal.setAttribute("open", "");
         }
 
+        _isGameErasable() {
+            if (this.isHistoryPlay) return false;
+            var now = new Date();
+            if (now.getHours() * 100 + now.getMinutes() >= 2345) return false;
+            if (this.dayOffset !== PuzzleUtils.getDayOffset(now)) return false;
+            return this.rowIndex > 0 || this.gameStatus !== GAME_STATUS_IN_PROGRESS;
+        }
+
+        _showEraseConfirmModal() {
+            var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+            var dateLabel = MONTHS[this.today.getMonth()] + " " + this.today.getDate() + ", " + this.today.getFullYear();
+            var modal = this.$game.querySelector("game-modal");
+            var container = document.createElement("div");
+            container.className = "erase-confirm-modal";
+
+            // Streak safety check -- only needed if today's game is completed (in-progress games don't touch stats)
+            var todayCompletion = HistoryManager.getHistoryCompletionForPuzzle(this.dayOffset);
+            if (todayCompletion) {
+                var stats = StatisticsEngine.getStatistics();
+                var streakAtRisk = todayCompletion.isWin ? (stats.currentStreak || 0) : (stats.terminatedStreak || 0);
+                if (streakAtRisk > 0) {
+                    var history = HistoryManager.getHistory();
+                    var todayKey = String(this.dayOffset);
+                    var prevLastCompleted = null;
+                    Object.keys(history).forEach(function(key) {
+                        if (key === todayKey) return;
+                        var entry = history[key];
+                        if (!entry || entry.completed_at == null) return;
+                        var ts = typeof entry.completed_at === "number" ? entry.completed_at : Date.parse(entry.completed_at);
+                        if (Number.isFinite(ts) && (!prevLastCompleted || ts > prevLastCompleted)) prevLastCompleted = ts;
+                    });
+                    var streakSafe = prevLastCompleted &&
+                        DateUtils.calculateDaysBetween(new Date(prevLastCompleted), new Date()) === 1;
+                    if (!streakSafe) {
+                        container.innerHTML =
+                            "<h2>Cannot Safely Erase</h2>" +
+                            "<p>You have an active streak of " + streakAtRisk + ", but there isn’t enough history to safely restore it. Erasing this game could corrupt your streak.</p>";
+                        modal.appendChild(container);
+                        modal.setAttribute("open", "");
+                        return;
+                    }
+                }
+            }
+
+            container.innerHTML =
+                "<h2>Erase Today’s Game?</h2>" +
+                "<p>Puzzle #" + this.dayOffset + " — " + dateLabel + "</p>" +
+                "<p class='erase-confirm-warning'>Stats will be adjusted. You can replay until 11:45 PM.</p>" +
+                "<div class='erase-confirm-buttons'>" +
+                    "<button class='erase-confirm-cancel'>Cancel</button>" +
+                    "<button class='erase-confirm-erase'>Erase</button>" +
+                "</div>";
+            container.querySelector(".erase-confirm-erase").addEventListener("click", () => this.eraseGame());
+            modal.appendChild(container);
+            modal.setAttribute("open", "");
+            setTimeout(() => container.querySelector(".erase-confirm-cancel").focus(), 50);
+        }
+
+        eraseGame() {
+            var todayCompletion = HistoryManager.getHistoryCompletionForPuzzle(this.dayOffset);
+            HistoryManager.deleteHistoryEntry(this.dayOffset);
+
+            // Directly decrement stats -- stats are source of truth, not recomputed from history
+            if (todayCompletion) {
+                var stats = StatisticsEngine.getStatistics();
+                stats.gamesPlayed = Math.max(0, (stats.gamesPlayed || 0) - 1);
+                if (todayCompletion.isWin) {
+                    stats.gamesWon = Math.max(0, (stats.gamesWon || 0) - 1);
+                    stats.guesses[todayCompletion.rowIndex] = Math.max(0, (stats.guesses[todayCompletion.rowIndex] || 0) - 1);
+                    stats.currentStreak = Math.max(0, (stats.currentStreak || 0) - 1);
+                } else {
+                    stats.guesses.fail = Math.max(0, (stats.guesses.fail || 0) - 1);
+                    stats.currentStreak = stats.terminatedStreak || 0;
+                    stats.terminatedStreak = null;
+                }
+                StatisticsEngine.applyFinalRateStats(stats);
+                StorageController.statistics.replace(stats);
+            }
+
+            // Restore lastCompletedTs from the most recent remaining history entry
+            var history = HistoryManager.getHistory();
+            var prevLastCompleted = null;
+            Object.keys(history).forEach(function(key) {
+                var entry = history[key];
+                if (!entry || entry.completed_at == null) return;
+                var ts = typeof entry.completed_at === "number" ? entry.completed_at : Date.parse(entry.completed_at);
+                if (Number.isFinite(ts) && (!prevLastCompleted || ts > prevLastCompleted)) prevLastCompleted = ts;
+            });
+
+            GameStateManager.saveGameState({
+                rowIndex: 0,
+                boardState: new Array(6).fill(""),
+                evaluations: new Array(6).fill(null),
+                gameStatus: GAME_STATUS_IN_PROGRESS,
+                solution: null,
+                encryptedAnswer: null,
+                answersRemaining: new Array(6).fill(null),
+                lastPlayedTs: null,
+                lastCompletedTs: prevLastCompleted,
+                date: DateUtils.formatLocalDate(this.today),
+                puzzleNum: this.dayOffset
+            });
+
+            window.location.reload();
+        }
+
         _showParamWarningModal() {
             var modal = this.$game.querySelector("game-modal");
             var container = document.createElement("div");
@@ -1672,6 +1789,24 @@
             this.$board = this.querySelector("#board");
             this.$keyboard = this.querySelector("game-keyboard");
             this.sizeBoard();
+            var _titleEl = this.$game.querySelector(".title");
+            var _longPressTimer = null;
+            var _startLongPress = (e) => {
+                if (e.type === "touchstart") e.preventDefault();
+                _longPressTimer = setTimeout(() => {
+                    _longPressTimer = null;
+                    if (this._isGameErasable()) this._showEraseConfirmModal();
+                }, 2000);
+            };
+            var _cancelLongPress = () => {
+                if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+            };
+            _titleEl.addEventListener("mousedown", _startLongPress);
+            _titleEl.addEventListener("touchstart", _startLongPress);
+            _titleEl.addEventListener("mouseup", _cancelLongPress);
+            _titleEl.addEventListener("mouseleave", _cancelLongPress);
+            _titleEl.addEventListener("touchend", _cancelLongPress);
+            _titleEl.addEventListener("touchcancel", _cancelLongPress);
             var willShowStatsModal = this.restoringFromLocalStorage &&
                 (this.gameStatus === GAME_STATUS_WIN || this.gameStatus === GAME_STATUS_FAIL);
             var willShowParamWarning = this._paramWarnings.length > 0;
