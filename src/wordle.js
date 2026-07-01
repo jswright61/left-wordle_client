@@ -1611,12 +1611,17 @@
             modal.setAttribute("open", "");
         }
 
-        _isGameErasable() {
-            if (this.isHistoryPlay) return false;
+        _getEraseBlockReason() {
+            if (this.isHistoryPlay) return "This is a historical puzzle — only today’s game can be erased.";
             var now = new Date();
-            if (now.getHours() * 100 + now.getMinutes() >= 2345) return false;
-            if (this.dayOffset !== PuzzleUtils.getDayOffset(now)) return false;
-            return this.rowIndex > 0 || this.gameStatus !== GAME_STATUS_IN_PROGRESS;
+            if (now.getHours() * 100 + now.getMinutes() >= 2345) return "It’s past 11:45 PM — too late to erase today’s game.";
+            if (this.dayOffset !== PuzzleUtils.getDayOffset(now)) return "This doesn’t appear to be today’s puzzle.";
+            if (this.rowIndex === 0 && this.gameStatus === GAME_STATUS_IN_PROGRESS) return "No guesses have been made yet — nothing to erase.";
+            return null;
+        }
+
+        _isGameErasable() {
+            return this._getEraseBlockReason() === null;
         }
 
         _showEraseConfirmModal() {
@@ -1667,6 +1672,15 @@
             modal.appendChild(container);
             modal.setAttribute("open", "");
             setTimeout(() => container.querySelector(".erase-confirm-cancel").focus(), 50);
+        }
+
+        _showEraseBlockedModal(reason) {
+            var modal = this.$game.querySelector("game-modal");
+            var container = document.createElement("div");
+            container.className = "erase-confirm-modal";
+            container.innerHTML = "<h2>Cannot Erase</h2><p>" + reason + "</p>";
+            modal.appendChild(container);
+            modal.setAttribute("open", "");
         }
 
         eraseGame() {
@@ -1785,24 +1799,35 @@
             this.$board = this.querySelector("#board");
             this.$keyboard = this.querySelector("game-keyboard");
             this.sizeBoard();
-            var _titleEl = this.$game.querySelector(".title");
+            var _eraseTarget = document.getElementById("troubleshooting-heading");
             var _longPressTimer = null;
-            var _startLongPress = (e) => {
-                if (e.type === "touchstart") e.preventDefault();
-                _longPressTimer = setTimeout(() => {
-                    _longPressTimer = null;
-                    if (this._isGameErasable()) this._showEraseConfirmModal();
-                }, 2000);
+            var _triggerEraseGesture = () => {
+                var reason = this._getEraseBlockReason();
+                if (reason) {
+                    this._showEraseBlockedModal(reason);
+                } else {
+                    this._showEraseConfirmModal();
+                }
             };
-            var _cancelLongPress = () => {
-                if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
-            };
-            _titleEl.addEventListener("mousedown", _startLongPress);
-            _titleEl.addEventListener("touchstart", _startLongPress);
-            _titleEl.addEventListener("mouseup", _cancelLongPress);
-            _titleEl.addEventListener("mouseleave", _cancelLongPress);
-            _titleEl.addEventListener("touchend", _cancelLongPress);
-            _titleEl.addEventListener("touchcancel", _cancelLongPress);
+            if (_eraseTarget) {
+                var _startLongPress = (e) => {
+                    if (e.type === "touchstart") e.preventDefault();
+                    _longPressTimer = setTimeout(() => {
+                        _longPressTimer = null;
+                        _triggerEraseGesture();
+                    }, 2000);
+                };
+                var _cancelLongPress = () => {
+                    if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+                };
+                _eraseTarget.addEventListener("mousedown", _startLongPress);
+                _eraseTarget.addEventListener("touchstart", _startLongPress);
+                _eraseTarget.addEventListener("mouseup", _cancelLongPress);
+                _eraseTarget.addEventListener("mouseleave", _cancelLongPress);
+                _eraseTarget.addEventListener("touchend", _cancelLongPress);
+                _eraseTarget.addEventListener("touchcancel", _cancelLongPress);
+                _eraseTarget.addEventListener("click", (e) => { if (e.altKey) _triggerEraseGesture(); });
+            }
             var willShowStatsModal = this.restoringFromLocalStorage &&
                 (this.gameStatus === GAME_STATUS_WIN || this.gameStatus === GAME_STATUS_FAIL);
             var willShowParamWarning = this._paramWarnings.length > 0;

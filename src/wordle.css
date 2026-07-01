@@ -355,7 +355,7 @@ button.icon {
     bottom: 0;
 }
 
-/* suppress text selection on title (used by long-press erase gesture) */
+/* suppress text selection on title */
 .title {
     -webkit-touch-callout: none;
     user-select: none;
@@ -1472,6 +1472,12 @@ game-icon {
     text-transform: none;
     color: var(--color-tone-1);
     text-align: center;
+}
+
+/* suppress text selection on troubleshooting heading (used by long-press erase gesture) */
+#troubleshooting-heading {
+    -webkit-touch-callout: none;
+    user-select: none;
 }
 
 #tools .tools-divider {
