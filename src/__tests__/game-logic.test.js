@@ -659,6 +659,25 @@ describe('buildShareText (extracted IIFE)', () => {
         expect(gridLines[1]).not.toMatch(/ \d/);
     });
 
+    test('includes 0 count for winning row (0 is a valid, falsy number)', () => {
+        var result = buildShareText({
+            evaluations: [
+                [ABSENT, PRESENT, ABSENT, ABSENT, ABSENT],
+                [CORRECT, CORRECT, CORRECT, CORRECT, CORRECT],
+                null, null, null, null
+            ],
+            dayOffset: 10,
+            rowIndex: 2,
+            isHardMode: false,
+            isWin: true,
+            answersRemaining: [42, 0, null, null, null, null]
+        });
+        var lines = result.text.split("\n");
+        var gridLines = lines.filter(function(l) { return /[⬜⬛🟩🟨🟧🟦]/.test(l); });
+        expect(gridLines[0]).toMatch(/ 42$/);
+        expect(gridLines[1]).toMatch(/ 0$/);
+    });
+
     test('omits counts when answersRemaining not provided', () => {
         var result = buildShareText({
             evaluations: [

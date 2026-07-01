@@ -1193,7 +1193,6 @@
     const GAME_STATUS_FAIL = "FAIL";
     const WIN_COMMENTS = ["Genius", "Magnificent", "Impressive", "Splendid", "Great", "Whew"];
     const REMAINING_COUNT_DELAY_MS = 1800;
-    const REMAINING_COUNT_WIN_DELAY_MS = 2500;
 
     class GameApp extends HTMLElement {
         tileIndex = 0;
@@ -1324,6 +1323,9 @@
                 this.insaneMode = state.insaneMode;
                 this.goofProtection = state.goofProtectionMode != null ? state.goofProtectionMode : true;
                 this.answersRemaining = state.answersRemaining || new Array(6).fill(null);
+                if (this.gameStatus === GAME_STATUS_WIN) {
+                    this.answersRemaining[this.rowIndex - 1] = 0;
+                }
                 this.encryptedAnswer = state.encryptedAnswer || null;
                 this.answer = this.encryptedAnswer ? decryptAnswer(this.encryptedAnswer) : null;
                 this.gameStatus !== GAME_STATUS_IN_PROGRESS && (this.canInput = false);
@@ -1494,14 +1496,8 @@
 
             this.applyEvaluation(row, guess, evaluatedRowIndex, result);
 
-            if (remainingAnswersMode !== "neither") {
-                if (gameStatus === GAME_STATUS_WIN) {
-                    if (remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") {
-                        setTimeout(() => { this.updateRowCount(evaluatedRowIndex, 0); }, REMAINING_COUNT_WIN_DELAY_MS);
-                    }
-                } else {
-                    this._fireRemainingCountRequest(evaluatedRowIndex, guess, mode, prevGuesses);
-                }
+            if (remainingAnswersMode !== "neither" && gameStatus !== GAME_STATUS_WIN) {
+                this._fireRemainingCountRequest(evaluatedRowIndex, guess, mode, prevGuesses);
             }
         }
 
@@ -1880,6 +1876,10 @@
                         if (this.gameStatus === GAME_STATUS_WIN) {
                             lastRow.setAttribute("win", "");
                             this.addToast(WIN_COMMENTS[this.rowIndex - 1], 2000);
+                            var _remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
+                            if (_remainingAnswersMode === "gameplay" || _remainingAnswersMode === "both") {
+                                this.updateRowCount(this.rowIndex - 1, 0);
+                            }
                         }
                         if (this.gameStatus === GAME_STATUS_FAIL) {
                             this.addToast(this.solution.toUpperCase(), Infinity);

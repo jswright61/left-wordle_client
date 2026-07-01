@@ -834,7 +834,57 @@ test.describe('Wordle E2E Tests', () => {
     });
   });
 
-  // ─── 11. Dark Mode ────────────────────────────────────────────────────────
+  // ─── 11. Remaining Answers Mode ───────────────────────────────────────────
+  test.describe('Remaining Answers Mode', () => {
+    test('winning row shows "0" count immediately after tile reveal', async ({ page }) => {
+      await freshGame(page);
+
+      // Enable gameplay counts before the game starts
+      await page.evaluate(() => {
+        window.StorageController.preferences.set('remainingAnswersMode', 'gameplay');
+      });
+
+      const solution = await getSolution(page);
+      await submitWord(page, solution);
+      await waitForTileReveal(page, 0);  // row 0: 1-guess win
+
+      // Count should be "0" as soon as the last tile reveals — no separate delay
+      const countText = await page.evaluate(() => document.getElementById('gprc0').textContent);
+      expect(countText).toBe('0');
+    });
+
+    test('stale answersRemaining=1 on winning row is shown as 0 after page restore', async ({ page }) => {
+      await freshGame(page);
+
+      await page.evaluate(() => {
+        window.StorageController.preferences.set('remainingAnswersMode', 'gameplay');
+      });
+
+      const solution = await getSolution(page);
+      await submitWord(page, solution);
+      await waitForTileReveal(page, 0);
+
+      // Corrupt the saved state to simulate a stale value from an older code path
+      // where the API returned 1 (the answer word itself) for the winning row.
+      await page.evaluate(() => {
+        window.StorageController.gameState.set('answersRemaining', [1, null, null, null, null, null]);
+      });
+
+      // Reload triggers the restore path
+      await page.reload();
+      await page.waitForFunction(() => {
+        const app = document.querySelector('game-app');
+        return app && app.querySelector('#board');
+      });
+      await waitForTileReveal(page, 0);
+
+      // Normalization in the restore path must correct 1 → 0
+      const countText = await page.evaluate(() => document.getElementById('gprc0').textContent);
+      expect(countText).toBe('0');
+    });
+  });
+
+  // ─── 12. Dark Mode ─────────────────────────────────────────────────────────
   test.describe('Dark Mode', () => {
     test('toggling dark mode applies nightmode class', async ({ page }) => {
       await freshGame(page);
