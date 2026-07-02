@@ -10,8 +10,10 @@ if [[ "$url" != "git@github-1995p:1995p-wordle/1995p-wordle.github.io.git" ]]; t
 fi
 
 branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
-if [[ "$branch" != "main" ]]; then
-  exit 0
+if [[ "$branch" != "main" && "$branch" != "staging" ]]; then
+  echo "pre-push: pushes are only allowed from main or staging." >&2
+  echo "pre-push: please merge your changes into one of those branches and push from there." >&2
+  exit 1
 fi
 
 version_file="app_version.js"
