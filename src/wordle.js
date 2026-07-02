@@ -1400,18 +1400,6 @@
                         hardMode: this.hardMode,
                         starter: this.boardState && this.boardState[0] ? this.boardState[0] : null
                     });
-                    if (!this.isHistoryPlay) {
-                        GameStateManager.saveGameState({
-                            lastCompletedTs: Date.now(),
-                            puzzleNum: this.dayOffset,
-                            date: DateUtils.formatLocalDate(this.today)
-                        });
-                        gtag("event", "level_end", {
-                            level_name: StringUtils.encodeWord(this.solution),
-                            num_guesses: this.rowIndex,
-                            success: isCorrect
-                        });
-                    }
                 }
             }
 
@@ -1432,8 +1420,16 @@
                 if (gameOver) {
                     saveData.completedInHardMode = this.hardMode;
                     saveData.completedInInsaneMode = this.insaneMode;
+                    saveData.lastCompletedTs = Date.now();
                 }
                 GameStateManager.saveGameState(saveData);
+                if (gameOver && !this.historyPlaySkipStats) {
+                    gtag("event", "level_end", {
+                        level_name: StringUtils.encodeWord(this.solution),
+                        num_guesses: this.rowIndex,
+                        success: this.gameStatus === GAME_STATUS_WIN
+                    });
+                }
             }
 
         }

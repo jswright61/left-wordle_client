@@ -10,7 +10,9 @@ class NamespacedStorage {
 
     _assertKey(key) {
         if (!this._validKeys.has(key)) {
-            throw new Error('StorageController.' + this._storageKey + ': unknown key "' + key + '"');
+            var msg = 'StorageController.' + this._storageKey + ': unknown key "' + key + '"';
+            console.error(msg);
+            throw new Error(msg);
         }
     }
 
@@ -290,7 +292,7 @@ window.StorageController = {
     history: new HistoryStorage("history"),
     legacyStats: new BlobStorage("legacy_stats"),
     statistics: new NamespacedStorage("statistics", new Set([
-        "currentStreak", "maxStreak", "guesses", "winPercentage",
+        "currentStreak", "maxStreak", "terminatedStreak", "guesses", "winPercentage",
         "gamesPlayed", "gamesWon", "averageGuesses", "versionNumber"
     ])),
     deviceId: new ScalarStorage("device_id"),
