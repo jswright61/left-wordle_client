@@ -4,16 +4,22 @@ set -euo pipefail
 remote="${1:-}"
 url="${2:-}"
 
-# Only act on pushes to the GitHub Pages origin
-if [[ "$url" != "git@github-1995p:1995p-wordle/1995p-wordle.github.io.git" ]]; then
-  exit 0
-fi
+pushing_main=false
 
-branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
-if [[ "$branch" != "main" && "$branch" != "staging" ]]; then
-  echo "pre-push: pushes are only allowed from main or staging." >&2
-  echo "pre-push: please merge your changes into one of those branches and push from there." >&2
-  exit 1
+while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
+  [[ "$local_ref" == refs/tags/* ]] && continue
+  pushed_branch="${local_ref#refs/heads/}"
+  if [[ "$pushed_branch" != "main" && "$pushed_branch" != "staging" ]]; then
+    echo "pre-push: pushes are only allowed from main or staging." >&2
+    echo "pre-push: please merge your changes into one of those branches and push from there." >&2
+    exit 1
+  fi
+  [[ "$pushed_branch" == "main" ]] && pushing_main=true
+done
+
+# Only create a Sentry release when pushing main to the GitHub Pages origin
+if [[ "$url" != "git@github-1995p:1995p-wordle/1995p-wordle.github.io.git" ]] || ! $pushing_main; then
+  exit 0
 fi
 
 version_file="app_version.js"
