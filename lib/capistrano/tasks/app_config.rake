@@ -29,6 +29,10 @@ namespace :deploy do
 
     version_js = "// generated; do not edit\nwindow.APP_VERSION = \"#{version_tag}\";\n"
 
+    local_root = File.expand_path("../../..", File.dirname(__FILE__))
+    File.write(File.join(local_root, "app_version.js"), version_js)
+    puts "  Wrote app_version.js locally (#{version_tag})"
+
     on roles(:app) do
       upload! StringIO.new(config_js), release_path.join("app_config.js")
       upload! StringIO.new(version_js), release_path.join("app_version.js")
