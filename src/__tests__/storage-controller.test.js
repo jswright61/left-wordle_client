@@ -113,20 +113,32 @@ describe('StorageController', () => {
             expect(localStorage.getItem('version')).toBe('v1.0.1');
         });
 
-        test('appends .001 when key already exists, then .002, etc.', () => {
-            const dom = loadController();
+        test('does not create extra backups when version is unchanged', () => {
+            const dom = loadController((storage) => {
+                storage.setItem('version', 'v1.0.0');
+            });
+            const { StorageController } = dom.window;
+
+            StorageController.settingsBackup.maybeBackup('v1.0.0');
+            StorageController.settingsBackup.maybeBackup('v1.0.0');
+            StorageController.settingsBackup.maybeBackup('v1.0.0');
+
+            expect(StorageController.settingsBackup.get()).toBeNull();
+        });
+
+        test('appends .001 when collision occurs after downgrade-then-upgrade cycle', () => {
+            const dom = loadController((storage) => {
+                storage.setItem('version', 'v1.0.0');
+            });
             const { StorageController, localStorage } = dom.window;
 
-            StorageController.settingsBackup.maybeBackup('v1.0.0'); // key: v1.0.0-pre, version → v1.0.0
-            StorageController.settingsBackup.maybeBackup('v1.0.0'); // key: v1.0.0 (from stored version)
-            StorageController.settingsBackup.maybeBackup('v1.0.0'); // key: v1.0.0.001
-            StorageController.settingsBackup.maybeBackup('v1.0.0'); // key: v1.0.0.002
+            StorageController.settingsBackup.maybeBackup('v1.0.1'); // backup v1.0.0, version → v1.0.1
+            localStorage.setItem('version', 'v1.0.0');              // simulate downgrade
+            StorageController.settingsBackup.maybeBackup('v1.0.1'); // backup v1.0.0 again → v1.0.0.001
 
             const backup = StorageController.settingsBackup.get();
-            expect(backup['v1.0.0-pre']).toBeDefined();
             expect(backup['v1.0.0']).toBeDefined();
             expect(backup['v1.0.0.001']).toBeDefined();
-            expect(backup['v1.0.0.002']).toBeDefined();
         });
 
         test('captures pre-upgrade state using the stored version as key', () => {
@@ -138,11 +150,11 @@ describe('StorageController', () => {
 
             StorageController.settingsBackup.maybeBackup('v1.0.1');
             localStorage.setItem('device_id', 'post-upgrade-value');
-            StorageController.settingsBackup.maybeBackup('v1.0.1');
+            StorageController.settingsBackup.maybeBackup('v1.0.1'); // no-op: version already updated
 
             const backup = StorageController.settingsBackup.get();
             expect(backup['v1.0.0'].device_id).toBe('pre-upgrade-value');
-            expect(backup['v1.0.1'].device_id).toBe('post-upgrade-value');
+            expect(backup['v1.0.1']).toBeUndefined();
         });
 
         test('treats blank stored version the same as missing', () => {
@@ -178,6 +190,95 @@ describe('StorageController', () => {
             StorageController.settingsBackup.maybeBackup('v2.0.0');
 
             expect(StorageController.settingsBackup.get()['v2.0.0-pre']).toBeDefined();
+        });
+    });
+
+    describe('settingsBackup.prune', () => {
+        const recentTs = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();   // 5 days ago
+        const oldTs    = new Date(Date.now() - 61 * 24 * 60 * 60 * 1000).toISOString();  // 61 days ago
+
+        function makeBackup(entries) {
+            return JSON.stringify(Object.fromEntries(entries));
+        }
+
+        test('does nothing when two or fewer backups exist', () => {
+            const dom = loadController((storage) => {
+                storage.setItem('settingsBackup', makeBackup([
+                    ['v1.0.0', { ts: oldTs }],
+                    ['v1.0.1', { ts: oldTs }],
+                ]));
+            });
+            const { StorageController } = dom.window;
+
+            StorageController.settingsBackup.prune();
+
+            const backup = StorageController.settingsBackup.get();
+            expect(Object.keys(backup)).toHaveLength(2);
+        });
+
+        test('always keeps the two most recent even if older than 60 days', () => {
+            const ts90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+            const ts75 = new Date(Date.now() - 75 * 24 * 60 * 60 * 1000).toISOString();
+            const ts61 = new Date(Date.now() - 61 * 24 * 60 * 60 * 1000).toISOString();
+            const dom = loadController((storage) => {
+                storage.setItem('settingsBackup', makeBackup([
+                    ['v1.0.0', { ts: ts90 }],
+                    ['v1.0.1', { ts: ts75 }],
+                    ['v1.0.2', { ts: ts61 }],
+                ]));
+            });
+            const { StorageController } = dom.window;
+
+            StorageController.settingsBackup.prune();
+
+            const backup = StorageController.settingsBackup.get();
+            expect(backup['v1.0.2']).toBeDefined();
+            expect(backup['v1.0.1']).toBeDefined();
+            expect(backup['v1.0.0']).toBeUndefined();
+        });
+
+        test('keeps recent backups beyond the top two', () => {
+            const dom = loadController((storage) => {
+                storage.setItem('settingsBackup', makeBackup([
+                    ['v1.0.0', { ts: recentTs }],
+                    ['v1.0.1', { ts: recentTs }],
+                    ['v1.0.2', { ts: recentTs }],
+                ]));
+            });
+            const { StorageController } = dom.window;
+
+            StorageController.settingsBackup.prune();
+
+            const backup = StorageController.settingsBackup.get();
+            expect(Object.keys(backup)).toHaveLength(3);
+        });
+
+        test('removes old backups beyond the top two', () => {
+            const slightlyOlderRecent = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString();
+            const dom = loadController((storage) => {
+                storage.setItem('settingsBackup', makeBackup([
+                    ['v1.0.0', { ts: oldTs }],
+                    ['v1.0.1', { ts: slightlyOlderRecent }],
+                    ['v1.0.2', { ts: recentTs }],
+                ]));
+            });
+            const { StorageController } = dom.window;
+
+            StorageController.settingsBackup.prune();
+
+            const backup = StorageController.settingsBackup.get();
+            expect(backup['v1.0.2']).toBeDefined();
+            expect(backup['v1.0.1']).toBeDefined();
+            expect(backup['v1.0.0']).toBeUndefined();
+        });
+
+        test('does nothing with missing or corrupt backup data', () => {
+            const dom = loadController((storage) => {
+                storage.setItem('settingsBackup', 'not-json');
+            });
+            const { StorageController } = dom.window;
+
+            expect(() => StorageController.settingsBackup.prune()).not.toThrow();
         });
     });
 });

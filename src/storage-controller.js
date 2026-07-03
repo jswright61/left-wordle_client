@@ -240,9 +240,9 @@ class SettingsBackupStorage {
         if (!appVersion) return;
         try {
             var storedVersion = window.localStorage.getItem("version");
-            var baseKey = (storedVersion && storedVersion.trim())
-                ? storedVersion.trim()
-                : appVersion + "-pre";
+            var trimmedStored = storedVersion ? storedVersion.trim() : "";
+            if (trimmedStored === appVersion) return;
+            var baseKey = trimmedStored ? trimmedStored : appVersion + "-pre";
 
             var raw = window.localStorage.getItem(this._storageKey);
             var backup = null;
@@ -264,6 +264,37 @@ class SettingsBackupStorage {
             backup[key] = snapshot;
             window.localStorage.setItem(this._storageKey, JSON.stringify(backup));
             window.localStorage.setItem("version", appVersion);
+        } catch (e) {}
+    }
+
+    prune() {
+        try {
+            var raw = window.localStorage.getItem(this._storageKey);
+            var backup = null;
+            try { backup = raw ? JSON.parse(raw) : null; } catch (e) {}
+            if (!backup || typeof backup !== "object" || Array.isArray(backup)) return;
+
+            var keys = Object.keys(backup);
+            if (keys.length <= 2) return;
+
+            keys.sort(function(a, b) {
+                var tsA = backup[a] && backup[a].ts ? new Date(backup[a].ts).getTime() : 0;
+                var tsB = backup[b] && backup[b].ts ? new Date(backup[b].ts).getTime() : 0;
+                return tsB - tsA;
+            });
+
+            var cutoff = Date.now() - 60 * 24 * 60 * 60 * 1000;
+            var changed = false;
+            keys.forEach(function(key, index) {
+                if (index < 2) return;
+                var ts = backup[key] && backup[key].ts ? new Date(backup[key].ts).getTime() : 0;
+                if (ts < cutoff) {
+                    delete backup[key];
+                    changed = true;
+                }
+            });
+
+            if (changed) window.localStorage.setItem(this._storageKey, JSON.stringify(backup));
         } catch (e) {}
     }
 

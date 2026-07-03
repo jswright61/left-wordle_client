@@ -437,6 +437,7 @@
     window.addEventListener("load", function() {
         if (window.APP_VERSION && window.StorageController && window.StorageController.settingsBackup) {
             StorageController.settingsBackup.maybeBackup(window.APP_VERSION);
+            StorageController.settingsBackup.prune();
         }
     });
     </script>
