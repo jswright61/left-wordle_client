@@ -2,6 +2,15 @@
 set -euo pipefail
 
 branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+if [[ "$branch" == "main" || "$branch" == "staging" ]]; then
+  git_dir="$(git rev-parse --git-dir)"
+  if [[ ! -f "$git_dir/MERGE_HEAD" ]]; then
+    echo "Direct commits to '$branch' are blocked in this local repo." >&2
+    echo "Create commits on a topic branch, then merge into '$branch' when needed." >&2
+    exit 1
+  fi
+fi
+
 [[ "$branch" == "main" ]] || exit 0
 
 version_file="app_version.js"
