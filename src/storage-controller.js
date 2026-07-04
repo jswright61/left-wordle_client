@@ -324,7 +324,7 @@ window.StorageController = {
     legacyStats: new BlobStorage("legacy_stats"),
     statistics: new NamespacedStorage("statistics", new Set([
         "currentStreak", "maxStreak", "terminatedStreak", "guesses", "winPercentage",
-        "gamesPlayed", "gamesWon", "averageGuesses", "versionNumber"
+        "gamesPlayed", "gamesWon", "averageGuesses", "versionNumber", "migratedBy"
     ])),
     deviceId: new ScalarStorage("device_id"),
     settingsBackup: new SettingsBackupStorage()

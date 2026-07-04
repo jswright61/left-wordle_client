@@ -916,19 +916,69 @@
             return stats;
         }
 
+        static getMigratedByVersion() {
+            var appVer = (typeof window.APP_VERSION === "string") ? window.APP_VERSION.trim() : "";
+            if (/^v?\d+\.\d+\.\d+/.test(appVer)) return appVer;
+            try {
+                var storedVer = window.localStorage.getItem("version");
+                if (storedVer && storedVer.trim()) return storedVer.trim();
+            } catch (e) {}
+            return "v0.0.0";
+        }
+
         static recomputeAndPersistStatistics() {
             var stats = StatisticsEngine.computeStatisticsFromHistoryAndLegacy();
+            stats.versionNumber = 2;
+            stats.migratedBy = StatisticsEngine.getMigratedByVersion();
             StorageController.statistics.replace(stats);
             return stats;
         }
 
         static migrateIfNeeded() {
             var stored = StorageController.statistics.getAll();
-            if (stored && stored.versionNumber) return;
-            var stats = StatisticsEngine.computeStatisticsFromHistoryAndLegacy();
-            stats.versionNumber = 1;
-            StorageController.statistics.replace(stats);
-            StorageController.legacyStats.clear();
+            if (stored && stored.versionNumber >= 2) return;
+            stored.versionNumber = 2;
+            stored.migratedBy = StatisticsEngine.getMigratedByVersion();
+            StorageController.statistics.replace(stored);
+        }
+
+        static preservePreHistoryStats() {
+            var stored = StorageController.statistics.getAll();
+            if (!stored || !stored.versionNumber) return;
+            if (StorageController.legacyStats.get() !== null) return;
+
+            var historyStats = StatisticsEngine.computeHistoryStats(HistoryManager.getHistory(), null);
+            var storedPlayed = Number(stored.gamesPlayed) || 0;
+            var delta = storedPlayed - historyStats.stats.gamesPlayed;
+            if (delta <= 0) return;
+
+            var storedGuesses = stored.guesses || {};
+            var historyGuesses = historyStats.stats.guesses || {};
+            var deltaGuesses = {};
+            for (var i = 1; i <= 6; i++) {
+                deltaGuesses[i] = Math.max(0, (storedGuesses[i] || 0) - (historyGuesses[i] || 0));
+            }
+            deltaGuesses.fail = Math.max(0, (storedGuesses.fail || 0) - (historyGuesses.fail || 0));
+
+            var deltaGamesWon = Math.max(0, (Number(stored.gamesWon) || 0) - historyStats.stats.gamesWon);
+            var legacy = {
+                gamesPlayed: delta,
+                gamesWon: deltaGamesWon,
+                guesses: deltaGuesses,
+                maxStreak: Number(stored.maxStreak) || 0
+            };
+
+            // If all pre-history games were wins and we have a first history entry,
+            // write streak fields so the streak-joining logic can bridge the gap.
+            if (deltaGamesWon === delta && historyStats.firstEntry) {
+                var cutoffDateStr = DateUtils.getCutoffDateString(historyStats.firstEntry.date);
+                if (cutoffDateStr) {
+                    legacy.current_streak_length = delta;
+                    legacy.current_streak_end_date = cutoffDateStr;
+                }
+            }
+
+            StorageController.legacyStats.set(legacy);
         }
 
         static updateStatistics(gameResults) {
@@ -1789,6 +1839,7 @@
 
         connectedCallback() {
             var isNewUser = GameStateManager.isNewUser();
+            StatisticsEngine.preservePreHistoryStats();
             StatisticsEngine.migrateIfNeeded();
             this.appendChild(gameAppTemplate.content.cloneNode(true));
             this.$game = this.querySelector("#game");
@@ -2735,7 +2786,8 @@
     window.wordleStats = {
         recompute: StatisticsEngine.recomputeAndPersistStatistics,
         compute: StatisticsEngine.computeStatisticsFromHistoryAndLegacy,
-        computeHistoryOnly: StatisticsEngine.computeHistoryOnlyStatistics
+        computeHistoryOnly: StatisticsEngine.computeHistoryOnlyStatistics,
+        preservePreHistory: StatisticsEngine.preservePreHistoryStats
     };
 
     // Export pure functions for testing
@@ -2761,6 +2813,8 @@
         computeHistoryOnlyStatistics: StatisticsEngine.computeHistoryOnlyStatistics,
         computeStatisticsFromHistoryAndLegacy: StatisticsEngine.computeStatisticsFromHistoryAndLegacy,
         recomputeAndPersistStatistics: StatisticsEngine.recomputeAndPersistStatistics,
+        preservePreHistoryStats: StatisticsEngine.preservePreHistoryStats,
+        getMigratedByVersion: StatisticsEngine.getMigratedByVersion,
         evaluateGuess: GameEvaluator.evaluateGuess,
         validateHardMode: GameEvaluator.validateHardMode,
         validateInsaneMode: GameEvaluator.validateInsaneMode,

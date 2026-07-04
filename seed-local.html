@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seed Pre-Migration State</title>
+    <style>
+        body {
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+            background-color: #fff;
+            color: #1a1a1b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 0.1rem;
+            text-transform: uppercase;
+            border-bottom: 1px solid #d3d6da;
+            padding-bottom: 16px;
+            margin-bottom: 8px;
+            width: 100%;
+            max-width: 520px;
+            text-align: center;
+        }
+        .subtitle {
+            font-size: 0.85rem;
+            color: #787c7e;
+            max-width: 520px;
+            width: 100%;
+            margin-bottom: 32px;
+            text-align: center;
+        }
+        .info-block {
+            background: #f9f9f9;
+            border: 1px solid #d3d6da;
+            border-radius: 6px;
+            padding: 16px 20px;
+            width: 100%;
+            max-width: 520px;
+            margin-bottom: 24px;
+            font-size: 0.875rem;
+        }
+        .info-block table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .info-block td {
+            padding: 3px 8px 3px 0;
+            vertical-align: top;
+        }
+        .info-block td:first-child {
+            font-weight: 700;
+            color: #538d4e;
+            white-space: nowrap;
+            width: 40%;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 12px 16px;
+            width: 100%;
+            max-width: 520px;
+            margin-bottom: 24px;
+            font-size: 0.85rem;
+            color: #856404;
+        }
+        button {
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 700;
+            letter-spacing: 0.05rem;
+            text-transform: uppercase;
+            background-color: #6aaa64;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 14px 28px;
+            cursor: pointer;
+            width: 100%;
+            max-width: 520px;
+            margin-bottom: 12px;
+        }
+        button:hover { background-color: #538d4e; }
+        button.secondary {
+            background-color: #878a8c;
+        }
+        button.secondary:hover { background-color: #5e6062; }
+        #status {
+            margin-top: 8px;
+            font-size: 0.875rem;
+            min-height: 1.2em;
+            max-width: 520px;
+            width: 100%;
+            text-align: center;
+        }
+        #status.ok { color: #538d4e; font-weight: 700; }
+        #status.err { color: #d64242; font-weight: 700; }
+    </style>
+</head>
+<body>
+    <h1>Seed Pre-Migration State</h1>
+    <p class="subtitle">Seeds the correct pre-v0.8.10 state — 153 true games, 72 captured in history — so the preservePreHistoryStats migration can be tested locally.</p>
+
+    <div class="info-block">
+        <table>
+            <tr><td>Games played</td><td>153</td></tr>
+            <tr><td>Games won</td><td>153</td></tr>
+            <tr><td>Current streak</td><td>153</td></tr>
+            <tr><td>Max streak</td><td>153</td></tr>
+            <tr><td>History entries</td><td>72 (puzzles 1770–1841)</td></tr>
+            <tr><td>Pre-history delta</td><td>81 games (not in history key)</td></tr>
+            <tr><td>Guess dist</td><td>1×2 / 2×16 / 3×105 / 4×30 / 5×0 / 6×0 / fail×0</td></tr>
+        </table>
+    </div>
+
+    <div class="warning">
+        <strong>Warning:</strong> This overwrites the current localStorage for this origin. Any in-progress game or stats will be replaced. Only use on 127.0.0.1:3000.
+    </div>
+
+    <button id="seed-btn">Seed Pre-Migration State</button>
+    <button id="dump-btn" class="secondary">Dump Current localStorage (console)</button>
+    <div id="status"></div>
+
+    <script>
+        // Correct pre-migration state: 153 true games, 72 captured in history (1770–1841),
+        // 81 pre-history games not in the history key. versionNumber:1 must be present so
+        // preservePreHistoryStats() fires and writes the 81-game delta to legacy_stats.
+        var PRE_MIGRATION = {
+            showHelpOnLoad: "false",
+            gameState: "{\"boardState\":[\"raise\",\"notch\",\"camel\",\"\",\"\",\"\"],\"evaluations\":[[\"absent\",\"correct\",\"absent\",\"absent\",\"present\"],[\"absent\",\"absent\",\"absent\",\"present\",\"absent\"],[\"correct\",\"correct\",\"correct\",\"correct\",\"correct\"],null,null,null],\"rowIndex\":3,\"solution\":\"camel\",\"gameStatus\":\"WIN\",\"lastPlayedTs\":1783151350181,\"lastCompletedTs\":1783151350181,\"restoringFromLocalStorage\":null,\"hardMode\":false}",
+            device_id: "4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5",
+            preferences: "{\"darkTheme\":false,\"shareTextAdditions\":{\"header\":\"#LeftWordle\",\"afterGrid\":\"#Wordle #WordPuzzle #Not_NYT\\nLeft-Wordle.com\"}}",
+            statistics: "{\"currentStreak\":153,\"maxStreak\":153,\"guesses\":{\"1\":2,\"2\":16,\"3\":105,\"4\":30,\"5\":0,\"6\":0,\"fail\":0},\"winPercentage\":100,\"gamesPlayed\":153,\"gamesWon\":153,\"averageGuesses\":3,\"versionNumber\":1}",
+            history: "{\"1770\":{\"puzzle_num\":1770,\"date\":\"2026-04-24\",\"result\":4,\"answer\":\"kneed\",\"mode\":\"regular\",\"starter\":\"tenor\",\"completed_at\":1777025335470,\"updated_at\":1777025335471,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1771\":{\"puzzle_num\":1771,\"date\":\"2026-04-25\",\"result\":3,\"answer\":\"decoy\",\"mode\":\"regular\",\"starter\":\"tenor\",\"completed_at\":1777109820173,\"updated_at\":1777109820173,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1772\":{\"puzzle_num\":1772,\"date\":\"2026-04-26\",\"result\":4,\"answer\":\"voila\",\"mode\":\"regular\",\"starter\":\"tenor\",\"completed_at\":1777204968603,\"updated_at\":1777204968603,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1773\":{\"puzzle_num\":1773,\"date\":\"2026-04-27\",\"result\":3,\"answer\":\"ankle\",\"mode\":\"regular\",\"starter\":\"tenor\",\"completed_at\":1777298928540,\"updated_at\":1777298928540,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1774\":{\"puzzle_num\":1774,\"date\":\"2026-04-28\",\"result\":3,\"answer\":\"arrow\",\"mode\":\"regular\",\"starter\":\"tenor\",\"completed_at\":1777374862076,\"updated_at\":1777374862076,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1775\":{\"puzzle_num\":1775,\"date\":\"2026-04-29\",\"result\":4,\"answer\":\"mushy\",\"mode\":\"regular\",\"starter\":\"tenor\",\"completed_at\":1777461836210,\"updated_at\":1777461836210,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1776\":{\"puzzle_num\":1776,\"date\":\"2026-04-30\",\"result\":2,\"answer\":\"tribe\",\"mode\":\"regular\",\"starter\":\"tenor\",\"completed_at\":1777544050612,\"updated_at\":1777544050612,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1777\":{\"puzzle_num\":1777,\"date\":\"2026-05-01\",\"result\":3,\"answer\":\"cease\",\"mode\":\"regular\",\"starter\":\"tenor\",\"completed_at\":1777634390189,\"updated_at\":1777634390189,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1778\":{\"puzzle_num\":1778,\"date\":\"2026-05-02\",\"result\":3,\"answer\":\"eager\",\"mode\":\"regular\",\"starter\":\"tenor\",\"completed_at\":1777725532843,\"updated_at\":1777725532844,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1779\":{\"puzzle_num\":1779,\"date\":\"2026-05-03\",\"result\":3,\"answer\":\"birth\",\"mode\":\"regular\",\"starter\":\"tenor\",\"completed_at\":1777803121599,\"updated_at\":1777803121600,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1780\":{\"puzzle_num\":1780,\"date\":\"2026-05-04\",\"result\":3,\"answer\":\"graph\",\"mode\":\"regular\",\"starter\":\"roate\",\"completed_at\":1777894267225,\"updated_at\":1777894267225,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1781\":{\"puzzle_num\":1781,\"date\":\"2026-05-05\",\"result\":3,\"answer\":\"odder\",\"mode\":\"regular\",\"starter\":\"roate\",\"completed_at\":1777983120367,\"updated_at\":1777983120368,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1782\":{\"puzzle_num\":1782,\"date\":\"2026-05-06\",\"result\":3,\"answer\":\"terra\",\"mode\":\"regular\",\"starter\":\"roate\",\"completed_at\":1778057441367,\"updated_at\":1778057441367,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1783\":{\"puzzle_num\":1783,\"date\":\"2026-05-07\",\"result\":3,\"answer\":\"weird\",\"mode\":\"regular\",\"starter\":\"roate\",\"completed_at\":1778155568950,\"updated_at\":1778155568951,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1784\":{\"puzzle_num\":1784,\"date\":\"2026-05-08\",\"result\":3,\"answer\":\"tried\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1778250696928,\"updated_at\":1778250696929,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1785\":{\"puzzle_num\":1785,\"date\":\"2026-05-09\",\"result\":3,\"answer\":\"clack\",\"mode\":\"regular\",\"starter\":\"roate\",\"completed_at\":1778322164400,\"updated_at\":1778322164400,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1786\":{\"puzzle_num\":1786,\"date\":\"2026-05-10\",\"result\":3,\"answer\":\"color\",\"mode\":\"regular\",\"starter\":\"roate\",\"completed_at\":1778404609898,\"updated_at\":1778404609899,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1787\":{\"puzzle_num\":1787,\"date\":\"2026-05-11\",\"result\":4,\"answer\":\"rough\",\"mode\":\"regular\",\"starter\":\"roate\",\"completed_at\":1778495205900,\"updated_at\":1778495205901,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1788\":{\"puzzle_num\":1788,\"date\":\"2026-05-12\",\"result\":3,\"answer\":\"weigh\",\"mode\":\"regular\",\"starter\":\"roate\",\"completed_at\":1778581033655,\"updated_at\":1778581033655,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1789\":{\"puzzle_num\":1789,\"date\":\"2026-05-13\",\"result\":3,\"answer\":\"uncut\",\"mode\":\"regular\",\"starter\":\"roate\",\"completed_at\":1778673292682,\"updated_at\":1778673292682,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1790\":{\"puzzle_num\":1790,\"date\":\"2026-05-14\",\"result\":4,\"answer\":\"ladle\",\"mode\":\"regular\",\"starter\":\"roate\",\"completed_at\":1778755272738,\"updated_at\":1778755272738,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1791\":{\"puzzle_num\":1791,\"date\":\"2026-05-15\",\"result\":3,\"answer\":\"strip\",\"mode\":\"regular\",\"starter\":\"roate\",\"completed_at\":1778842311783,\"updated_at\":1778842311783,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1792\":{\"puzzle_num\":1792,\"date\":\"2026-05-16\",\"result\":3,\"answer\":\"craft\",\"mode\":\"regular\",\"starter\":\"roate\",\"completed_at\":1778925252857,\"updated_at\":1778925252857,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1793\":{\"puzzle_num\":1793,\"date\":\"2026-05-17\",\"result\":3,\"answer\":\"minus\",\"mode\":\"regular\",\"starter\":\"roate\",\"completed_at\":1779012747249,\"updated_at\":1779012747250,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1794\":{\"puzzle_num\":1794,\"date\":\"2026-05-18\",\"result\":3,\"answer\":\"dicey\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1779108224859,\"updated_at\":1779108224860,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1795\":{\"puzzle_num\":1795,\"date\":\"2026-05-19\",\"result\":3,\"answer\":\"titan\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1779179654909,\"updated_at\":1779179654909,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1796\":{\"puzzle_num\":1796,\"date\":\"2026-05-20\",\"result\":4,\"answer\":\"lucid\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1779275477944,\"updated_at\":1779275477944,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1797\":{\"puzzle_num\":1797,\"date\":\"2026-05-21\",\"result\":3,\"answer\":\"vicar\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1779358979607,\"updated_at\":1779358979607,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1798\":{\"puzzle_num\":1798,\"date\":\"2026-05-22\",\"result\":3,\"answer\":\"dress\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1779445298264,\"updated_at\":1779445298264,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1799\":{\"puzzle_num\":1799,\"date\":\"2026-05-23\",\"result\":4,\"answer\":\"ditch\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1779533917128,\"updated_at\":1779533917129,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1800\":{\"puzzle_num\":1800,\"date\":\"2026-05-24\",\"result\":3,\"answer\":\"gypsy\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1779617141319,\"updated_at\":1779617141319,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1801\":{\"puzzle_num\":1801,\"date\":\"2026-05-25\",\"result\":3,\"answer\":\"pasta\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1779707639167,\"updated_at\":1779707639167,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1802\":{\"puzzle_num\":1802,\"date\":\"2026-05-26\",\"result\":4,\"answer\":\"taffy\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1779787152353,\"updated_at\":1779787152353,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1803\":{\"puzzle_num\":1803,\"date\":\"2026-05-27\",\"result\":4,\"answer\":\"flame\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1779877008843,\"updated_at\":1779877008843,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1804\":{\"puzzle_num\":1804,\"date\":\"2026-05-28\",\"result\":4,\"answer\":\"swoop\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1779963721204,\"updated_at\":1779963721204,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1805\":{\"puzzle_num\":1805,\"date\":\"2026-05-29\",\"result\":3,\"answer\":\"aloof\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1780046603509,\"updated_at\":1780046603509,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1806\":{\"puzzle_num\":1806,\"date\":\"2026-05-30\",\"result\":3,\"answer\":\"sight\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1780116565424,\"updated_at\":1780116565424,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1807\":{\"puzzle_num\":1807,\"date\":\"2026-05-31\",\"result\":4,\"answer\":\"broke\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1780215783732,\"updated_at\":1780215783732,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1808\":{\"puzzle_num\":1808,\"date\":\"2026-06-01\",\"result\":3,\"answer\":\"teary\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1780309145416,\"updated_at\":1780309145417,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1809\":{\"puzzle_num\":1809,\"date\":\"2026-06-02\",\"result\":3,\"answer\":\"chart\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1780395462014,\"updated_at\":1780395462014,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1810\":{\"puzzle_num\":1810,\"date\":\"2026-06-03\",\"result\":3,\"answer\":\"sixty\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1780480199216,\"updated_at\":1780480199217,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1811\":{\"puzzle_num\":1811,\"date\":\"2026-06-04\",\"result\":4,\"answer\":\"wordy\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1780559337240,\"updated_at\":1780559337240,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1812\":{\"puzzle_num\":1812,\"date\":\"2026-06-05\",\"result\":3,\"answer\":\"sheer\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1780652716268,\"updated_at\":1780652716268,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1813\":{\"puzzle_num\":1813,\"date\":\"2026-06-06\",\"result\":4,\"answer\":\"leper\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1780734191794,\"updated_at\":1780734191795,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1814\":{\"puzzle_num\":1814,\"date\":\"2026-06-07\",\"result\":3,\"answer\":\"nosey\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1780827816273,\"updated_at\":1780827816273,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1815\":{\"puzzle_num\":1815,\"date\":\"2026-06-08\",\"result\":3,\"answer\":\"bulge\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1780909007057,\"updated_at\":1780909007057,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1816\":{\"puzzle_num\":1816,\"date\":\"2026-06-09\",\"result\":2,\"answer\":\"savor\",\"mode\":\"regular\",\"starter\":\"share\",\"completed_at\":1780999839028,\"updated_at\":1780999839029,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1817\":{\"puzzle_num\":1817,\"date\":\"2026-06-10\",\"result\":3,\"answer\":\"clamp\",\"mode\":\"regular\",\"starter\":\"tiled\",\"completed_at\":1781081440131,\"updated_at\":1781081440131,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1818\":{\"puzzle_num\":1818,\"date\":\"2026-06-11\",\"result\":4,\"answer\":\"funky\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1781171432040,\"updated_at\":1781171432040,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1819\":{\"puzzle_num\":1819,\"date\":\"2026-06-12\",\"result\":3,\"answer\":\"foamy\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1781251461342,\"updated_at\":1781251461343,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1820\":{\"puzzle_num\":1820,\"date\":\"2026-06-13\",\"result\":4,\"answer\":\"toxic\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1781345997814,\"updated_at\":1781345997814,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1821\":{\"puzzle_num\":1821,\"date\":\"2026-06-14\",\"result\":3,\"answer\":\"brand\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1781433305278,\"updated_at\":1781433305278,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1822\":{\"puzzle_num\":1822,\"date\":\"2026-06-15\",\"result\":3,\"answer\":\"plumb\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1781512817288,\"updated_at\":1781512817288,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1823\":{\"puzzle_num\":1823,\"date\":\"2026-06-16\",\"result\":4,\"answer\":\"dingy\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1781600533351,\"updated_at\":1781600533351,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1824\":{\"puzzle_num\":1824,\"date\":\"2026-06-17\",\"result\":3,\"answer\":\"butte\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1781692023256,\"updated_at\":1781692023257,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1825\":{\"puzzle_num\":1825,\"date\":\"2026-06-18\",\"result\":3,\"answer\":\"drill\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1781778933944,\"updated_at\":1781778933945,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1826\":{\"puzzle_num\":1826,\"date\":\"2026-06-19\",\"result\":3,\"answer\":\"tripe\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1781856052766,\"updated_at\":1781856052767,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1827\":{\"puzzle_num\":1827,\"date\":\"2026-06-20\",\"result\":4,\"answer\":\"bicep\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1781951817321,\"updated_at\":1781951817321,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1828\":{\"puzzle_num\":1828,\"date\":\"2026-06-21\",\"result\":3,\"answer\":\"tenor\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1782033759766,\"updated_at\":1782033759767,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1829\":{\"puzzle_num\":1829,\"date\":\"2026-06-22\",\"result\":4,\"answer\":\"krill\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1782121162485,\"updated_at\":1782121162485,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1830\":{\"puzzle_num\":1830,\"date\":\"2026-06-23\",\"result\":3,\"answer\":\"worse\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1782207704238,\"updated_at\":1782207704238,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1831\":{\"puzzle_num\":1831,\"date\":\"2026-06-24\",\"result\":4,\"answer\":\"drama\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1782294786352,\"updated_at\":1782294786352,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1832\":{\"puzzle_num\":1832,\"date\":\"2026-06-25\",\"result\":3,\"answer\":\"hyena\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1782381023167,\"updated_at\":1782381023168,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1833\":{\"puzzle_num\":1833,\"date\":\"2026-06-26\",\"result\":3,\"answer\":\"think\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1782463828770,\"updated_at\":1782463828770,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1834\":{\"puzzle_num\":1834,\"date\":\"2026-06-27\",\"result\":3,\"answer\":\"ratio\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1782553324214,\"updated_at\":1782553324214,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1835\":{\"puzzle_num\":1835,\"date\":\"2026-06-28\",\"result\":2,\"answer\":\"cobra\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1782646370129,\"updated_at\":1782646370129,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1836\":{\"puzzle_num\":1836,\"date\":\"2026-06-29\",\"result\":3,\"answer\":\"basil\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1782731188680,\"updated_at\":1782731188680,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1837\":{\"puzzle_num\":1837,\"date\":\"2026-06-30\",\"result\":3,\"answer\":\"scrum\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1782819853512,\"updated_at\":1782819853512,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1838\":{\"puzzle_num\":1838,\"date\":\"2026-07-01\",\"result\":3,\"answer\":\"bused\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1782900864449,\"updated_at\":1782900864449,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1839\":{\"puzzle_num\":1839,\"date\":\"2026-07-02\",\"result\":3,\"answer\":\"phone\",\"mode\":\"regular\",\"starter\":\"soare\",\"completed_at\":1782985191124,\"updated_at\":1782985191125,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1840\":{\"puzzle_num\":1840,\"date\":\"2026-07-03\",\"result\":3,\"answer\":\"court\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1783073153994,\"updated_at\":1783073153994,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"},\"1841\":{\"puzzle_num\":1841,\"date\":\"2026-07-04\",\"result\":3,\"answer\":\"camel\",\"mode\":\"regular\",\"starter\":\"raise\",\"completed_at\":1783151350181,\"updated_at\":1783151350181,\"device_id\":\"4d6f3ccd-1923-4355-95c9-aa6d7a5eb0f5\"}}"
+        };
+
+        // Keys to clear that should not exist in the pre-migration snapshot
+        var KEYS_TO_CLEAR = ["version", "legacy_stats", "settingsBackup"];
+
+        document.getElementById("seed-btn").addEventListener("click", function() {
+            var statusEl = document.getElementById("status");
+            try {
+                // Write the pre-migration values
+                Object.keys(PRE_MIGRATION).forEach(function(key) {
+                    localStorage.setItem(key, PRE_MIGRATION[key]);
+                });
+
+                // Clear keys that must not exist pre-migration
+                KEYS_TO_CLEAR.forEach(function(key) {
+                    localStorage.removeItem(key);
+                });
+
+                // Verify
+                var stats = JSON.parse(localStorage.getItem("statistics") || "{}");
+                var history = JSON.parse(localStorage.getItem("history") || "{}");
+                var historyCount = Object.keys(history).length;
+
+                statusEl.className = "ok";
+                statusEl.textContent = "Seeded. statistics.gamesPlayed=" + stats.gamesPlayed +
+                    ", history=" + historyCount + " entries. Load / in this tab — expect legacy_stats with 81-game delta after load.";
+            } catch (e) {
+                statusEl.className = "err";
+                statusEl.textContent = "Error: " + e.message;
+            }
+        });
+
+        document.getElementById("dump-btn").addEventListener("click", function() {
+            var out = {};
+            for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i);
+                var raw = localStorage.getItem(k);
+                try { out[k] = JSON.parse(raw); } catch (e) { out[k] = raw; }
+            }
+            console.log("Current localStorage:", JSON.stringify(out, null, 2));
+            document.getElementById("status").className = "";
+            document.getElementById("status").textContent = "Dumped to browser console (cmd+opt+j).";
+        });
+    </script>
+</body>
+</html>

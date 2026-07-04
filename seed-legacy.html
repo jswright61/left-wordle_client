@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restore from Backup</title>
+    <style>
+        body {
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+            background-color: #fff;
+            color: #1a1a1b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 0.1rem;
+            text-transform: uppercase;
+            border-bottom: 1px solid #d3d6da;
+            padding-bottom: 16px;
+            margin-bottom: 8px;
+            width: 100%;
+            max-width: 560px;
+            text-align: center;
+        }
+        .subtitle {
+            font-size: 0.85rem;
+            color: #787c7e;
+            max-width: 560px;
+            width: 100%;
+            margin-bottom: 32px;
+            text-align: center;
+        }
+        .section-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.08rem;
+            text-transform: uppercase;
+            color: #787c7e;
+            width: 100%;
+            max-width: 560px;
+            margin-bottom: 8px;
+        }
+        /* File upload */
+        #upload-zone {
+            width: 100%;
+            max-width: 560px;
+            border: 2px dashed #d3d6da;
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 24px;
+            transition: border-color 0.15s;
+        }
+        #upload-zone:hover, #upload-zone.drag-over {
+            border-color: #6aaa64;
+        }
+        #upload-zone p {
+            margin: 0 0 12px;
+            color: #787c7e;
+            font-size: 0.9rem;
+        }
+        #file-input { display: none; }
+        .file-btn {
+            display: inline-block;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 700;
+            letter-spacing: 0.05rem;
+            text-transform: uppercase;
+            background-color: #6aaa64;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        .file-btn:hover { background-color: #538d4e; }
+        /* Source cards */
+        .source-card {
+            width: 100%;
+            max-width: 560px;
+            border: 2px solid #d3d6da;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+        .source-card:hover { border-color: #878a8c; }
+        .source-card.selected { border-color: #6aaa64; background: #f0faf0; }
+        .source-card .card-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+        .source-card .card-subtitle {
+            font-size: 0.78rem;
+            color: #787c7e;
+        }
+        .source-card .card-stats {
+            font-size: 0.82rem;
+            color: #538d4e;
+            margin-top: 4px;
+        }
+        /* Preview table */
+        #preview-wrap {
+            width: 100%;
+            max-width: 560px;
+            margin-bottom: 16px;
+        }
+        #preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+        }
+        #preview-table th {
+            text-align: left;
+            padding: 4px 8px;
+            background: #f4f4f4;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.05rem;
+            text-transform: uppercase;
+            color: #787c7e;
+        }
+        #preview-table td {
+            padding: 5px 8px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: top;
+        }
+        #preview-table tr:last-child td { border-bottom: none; }
+        .val-preview { color: #1a1a1b; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+        /* Warning */
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 10px 14px;
+            width: 100%;
+            max-width: 560px;
+            margin-bottom: 16px;
+            font-size: 0.82rem;
+            color: #856404;
+            box-sizing: border-box;
+        }
+        /* Buttons */
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            max-width: 560px;
+            margin-bottom: 12px;
+        }
+        button {
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 700;
+            letter-spacing: 0.05rem;
+            text-transform: uppercase;
+            border: none;
+            border-radius: 4px;
+            padding: 13px 20px;
+            cursor: pointer;
+            flex: 1;
+        }
+        button.primary { background-color: #6aaa64; color: #fff; }
+        button.primary:hover { background-color: #538d4e; }
+        button.primary:disabled { background-color: #c0c0c0; cursor: default; }
+        button.secondary { background-color: #878a8c; color: #fff; }
+        button.secondary:hover { background-color: #5e6062; }
+        #status {
+            font-size: 0.875rem;
+            min-height: 1.2em;
+            max-width: 560px;
+            width: 100%;
+            text-align: center;
+        }
+        #status.ok { color: #538d4e; font-weight: 700; }
+        #status.err { color: #d64242; font-weight: 700; }
+        [hidden] { display: none !important; }
+    </style>
+</head>
+<body>
+    <h1>Restore from Backup</h1>
+    <p class="subtitle">Upload a Left Wordle settings backup file to restore localStorage on this origin.</p>
+
+    <!-- Phase 1: file upload -->
+    <div id="phase-upload">
+        <div id="upload-zone">
+            <p>Drag &amp; drop a .json backup file here, or</p>
+            <label class="file-btn" for="file-input">Choose File</label>
+            <input type="file" id="file-input" accept=".json" />
+        </div>
+    </div>
+
+    <!-- Phase 2: source selection + preview -->
+    <div id="phase-preview" hidden>
+        <p class="section-label">Choose restore source</p>
+        <div id="source-list"></div>
+
+        <p class="section-label" style="margin-top:20px;">Keys to restore</p>
+        <div id="preview-wrap">
+            <table id="preview-table">
+                <thead><tr><th>Key</th><th>Value</th></tr></thead>
+                <tbody id="preview-body"></tbody>
+            </table>
+        </div>
+
+        <div class="warning" id="confirm-warning">
+            This will <strong>erase all localStorage</strong> for this origin and write the keys above. Only use on 127.0.0.1:3000.
+        </div>
+
+        <div class="btn-row">
+            <button class="primary" id="confirm-btn">Restore Now</button>
+            <button class="secondary" id="reset-btn">Upload Different File</button>
+        </div>
+    </div>
+
+    <div id="status"></div>
+
+    <script>
+    (function () {
+        "use strict";
+
+        var sources = [];
+        var selectedIdx = 0;
+
+        // Never valid as localStorage keys for Left Wordle — always excluded from
+        // any restore payload regardless of source format.
+        var EXCLUDE_KEYS = ["ts", "settingsBackup", "diagnostics", "version"];
+
+        // ── Parsing ──────────────────────────────────────────────────────────
+
+        function toStorageString(val) {
+            if (typeof val === "string") return val;
+            if (val === null || val === undefined) return null;
+            return JSON.stringify(val);
+        }
+
+        function buildPayload(obj) {
+            var payload = {};
+            Object.keys(obj).forEach(function (k) {
+                if (EXCLUDE_KEYS.indexOf(k) >= 0) return;
+                var str = toStorageString(obj[k]);
+                if (str !== null) payload[k] = str;
+            });
+            return payload;
+        }
+
+        function summarizePayload(payload) {
+            var parts = [];
+            if (payload.statistics) {
+                try {
+                    var s = JSON.parse(payload.statistics);
+                    if (s.gamesPlayed !== undefined) parts.push(s.gamesPlayed + " played");
+                    if (s.currentStreak !== undefined) parts.push("streak " + s.currentStreak);
+                } catch (e) {}
+            }
+            if (payload.history) {
+                try {
+                    var h = JSON.parse(payload.history);
+                    var keys = Object.keys(h);
+                    if (keys.length) {
+                        var nums = keys.map(Number).filter(isFinite).sort(function (a, b) { return a - b; });
+                        parts.push(nums.length + " history entries (#" + nums[0] + "–#" + nums[nums.length - 1] + ")");
+                    }
+                } catch (e) {}
+            }
+            if (!parts.length) parts.push(Object.keys(payload).length + " key(s)");
+            return parts.join(" · ");
+        }
+
+        function parseFile(text) {
+            var data;
+            try { data = JSON.parse(text); } catch (e) { throw new Error("Not valid JSON: " + e.message); }
+            if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Expected a JSON object.");
+
+            var result = [];
+
+            // settingsBackup snapshots — sorted -pre first (no prior version stored),
+            // then by timestamp descending. These are the canonical pre-migration sources.
+            if (data.settingsBackup && typeof data.settingsBackup === "object" && !Array.isArray(data.settingsBackup)) {
+                var snapEntries = Object.keys(data.settingsBackup).map(function (key) {
+                    var snap = data.settingsBackup[key];
+                    return {
+                        key: key,
+                        snap: snap,
+                        ts: snap && snap.ts ? new Date(snap.ts).getTime() : 0,
+                        isPre: key.indexOf("-pre") >= 0
+                    };
+                }).sort(function (a, b) {
+                    if (a.isPre !== b.isPre) return a.isPre ? -1 : 1;
+                    return b.ts - a.ts;
+                });
+
+                snapEntries.forEach(function (entry) {
+                    if (!entry.snap || typeof entry.snap !== "object") return;
+                    var payload = buildPayload(entry.snap);
+                    if (Object.keys(payload).length === 0) return;
+                    result.push({
+                        label: "Snapshot: " + entry.key,
+                        sublabel: entry.snap.ts || "no timestamp",
+                        writePayload: payload
+                    });
+                });
+            }
+
+            // Top-level keys — the direct format from "Download All Settings" and
+            // similar flat localStorage dumps.
+            var topPayload = buildPayload(data);
+            if (Object.keys(topPayload).length > 0) {
+                var versionHint = data.version ? " · was " + data.version : "";
+                result.push({
+                    label: "Direct keys (top-level)",
+                    sublabel: Object.keys(topPayload).length + " key(s) from file" + versionHint,
+                    writePayload: topPayload
+                });
+            }
+
+            if (result.length === 0) throw new Error("No restorable data found in file.");
+            return result;
+        }
+
+        // ── Preview ──────────────────────────────────────────────────────────
+
+        function briefValue(rawStr) {
+            if (!rawStr) return rawStr;
+            try {
+                var parsed = JSON.parse(rawStr);
+                if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                    if ("gamesPlayed" in parsed) {
+                        return "gamesPlayed:" + parsed.gamesPlayed + " streak:" + parsed.currentStreak +
+                            (parsed.migratedBy ? " migratedBy:" + parsed.migratedBy : "") +
+                            (parsed.versionNumber !== undefined ? " vN:" + parsed.versionNumber : "");
+                    }
+                    var k = Object.keys(parsed);
+                    if (k.length > 0 && !isNaN(Number(k[0]))) return k.length + " entries";
+                    var preview = JSON.stringify(parsed);
+                    return preview.length > 60 ? preview.slice(0, 57) + "…" : preview;
+                }
+            } catch (e) {}
+            return rawStr.length > 60 ? rawStr.slice(0, 57) + "…" : rawStr;
+        }
+
+        function renderPreview(source) {
+            var tbody = document.getElementById("preview-body");
+            tbody.innerHTML = "";
+            Object.keys(source.writePayload).forEach(function (key) {
+                var tr = document.createElement("tr");
+                var tdKey = document.createElement("td");
+                tdKey.textContent = key;
+                var tdVal = document.createElement("td");
+                var span = document.createElement("span");
+                span.className = "val-preview";
+                span.textContent = briefValue(source.writePayload[key]) || "(empty)";
+                tdVal.appendChild(span);
+                tr.appendChild(tdKey);
+                tr.appendChild(tdVal);
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderSources() {
+            var container = document.getElementById("source-list");
+            container.innerHTML = "";
+            sources.forEach(function (src, idx) {
+                var card = document.createElement("div");
+                card.className = "source-card" + (idx === selectedIdx ? " selected" : "");
+
+                var title = document.createElement("div");
+                title.className = "card-title";
+                title.textContent = src.label;
+
+                var sub = document.createElement("div");
+                sub.className = "card-subtitle";
+                sub.textContent = src.sublabel;
+
+                var stats = document.createElement("div");
+                stats.className = "card-stats";
+                stats.textContent = summarizePayload(src.writePayload);
+
+                card.appendChild(title);
+                card.appendChild(sub);
+                card.appendChild(stats);
+                card.addEventListener("click", function () {
+                    selectedIdx = idx;
+                    renderSources();
+                    renderPreview(sources[selectedIdx]);
+                });
+                container.appendChild(card);
+            });
+        }
+
+        // ── Apply ─────────────────────────────────────────────────────────────
+
+        function applySource(source) {
+            localStorage.clear();
+            Object.keys(source.writePayload).forEach(function (k) {
+                try { localStorage.setItem(k, source.writePayload[k]); } catch(e) {}
+            });
+            return Object.keys(source.writePayload).length;
+        }
+
+        // ── Event wiring ─────────────────────────────────────────────────────
+
+        function loadFileText(file, cb) {
+            var reader = new FileReader();
+            reader.onload = function (e) { cb(null, e.target.result); };
+            reader.onerror = function () { cb(new Error("Could not read file.")); };
+            reader.readAsText(file);
+        }
+
+        function handleFile(file) {
+            var statusEl = document.getElementById("status");
+            statusEl.className = "";
+            statusEl.textContent = "";
+            loadFileText(file, function (err, text) {
+                if (err) {
+                    statusEl.className = "err";
+                    statusEl.textContent = "Error: " + err.message;
+                    return;
+                }
+                try {
+                    sources = parseFile(text);
+                } catch (e) {
+                    statusEl.className = "err";
+                    statusEl.textContent = "Parse error: " + e.message;
+                    return;
+                }
+                selectedIdx = 0;
+                document.getElementById("phase-upload").hidden = true;
+                document.getElementById("phase-preview").hidden = false;
+                renderSources();
+                renderPreview(sources[selectedIdx]);
+            });
+        }
+
+        document.getElementById("file-input").addEventListener("change", function (e) {
+            if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
+        });
+
+        var zone = document.getElementById("upload-zone");
+        zone.addEventListener("dragover", function (e) { e.preventDefault(); zone.classList.add("drag-over"); });
+        zone.addEventListener("dragleave", function () { zone.classList.remove("drag-over"); });
+        zone.addEventListener("drop", function (e) {
+            e.preventDefault();
+            zone.classList.remove("drag-over");
+            var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (file) handleFile(file);
+        });
+
+        document.getElementById("confirm-btn").addEventListener("click", function () {
+            var statusEl = document.getElementById("status");
+            try {
+                var written = applySource(sources[selectedIdx]);
+                statusEl.className = "ok";
+                statusEl.textContent = "Done. Cleared localStorage and wrote " + written + " key(s). Reload the game page to continue.";
+            } catch (e) {
+                statusEl.className = "err";
+                statusEl.textContent = "Error: " + e.message;
+            }
+        });
+
+        document.getElementById("reset-btn").addEventListener("click", function () {
+            sources = [];
+            selectedIdx = 0;
+            document.getElementById("phase-upload").hidden = false;
+            document.getElementById("phase-preview").hidden = true;
+            document.getElementById("file-input").value = "";
+            document.getElementById("status").className = "";
+            document.getElementById("status").textContent = "";
+        });
+    })();
+    </script>
+</body>
+</html>
