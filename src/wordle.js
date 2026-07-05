@@ -701,6 +701,7 @@
 
     class StatisticsEngine {
         static FAIL_KEY = "fail";
+        static STATISTICS_VERSION = 2;
         static DEFAULT_STATISTICS = {
             currentStreak: 0,
             maxStreak: 0,
@@ -928,7 +929,7 @@
 
         static recomputeAndPersistStatistics() {
             var stats = StatisticsEngine.computeStatisticsFromHistoryAndLegacy();
-            stats.versionNumber = 2;
+            stats.versionNumber = StatisticsEngine.STATISTICS_VERSION;
             stats.migratedBy = StatisticsEngine.getMigratedByVersion();
             StorageController.statistics.replace(stats);
             return stats;
@@ -936,8 +937,8 @@
 
         static migrateIfNeeded() {
             var stored = StorageController.statistics.getAll();
-            if (stored && stored.versionNumber >= 2) return;
-            stored.versionNumber = 2;
+            if (stored && stored.versionNumber >= StatisticsEngine.STATISTICS_VERSION) return;
+            stored.versionNumber = StatisticsEngine.STATISTICS_VERSION;
             stored.migratedBy = StatisticsEngine.getMigratedByVersion();
             StorageController.statistics.replace(stored);
         }
