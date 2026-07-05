@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Migration Test Harness — Left Wordle</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --surface: #f6f7f8;
+      --border: #d3d6da;
+      --text: #1a1a1b;
+      --muted: #787c7e;
+      --correct: #6aaa64;
+      --present: #c9b458;
+      --absent: #787c7e;
+      --accent: #538d4e;
+      --added-bg: #d4edda;
+      --changed-bg: #fff3cd;
+      --font: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      --mono: 'SFMono-Regular', Consolas, 'Courier New', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      color: var(--text);
+      background: var(--bg);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      font-size: 14px;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: 210px;
+      min-width: 210px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #sidebar-header {
+      padding: 14px 14px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #sidebar-header h1 {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    #sidebar-header p {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    #fixture-list {
+      list-style: none;
+      overflow-y: auto;
+      flex: 1;
+      padding: 8px;
+    }
+
+    #fixture-list li {
+      padding: 8px 10px;
+      cursor: pointer;
+      border-radius: 6px;
+      margin-bottom: 2px;
+      line-height: 1.35;
+    }
+
+    #fixture-list li:hover { background: var(--border); }
+    #fixture-list li.active { background: var(--accent); color: #fff; }
+
+    #fixture-list li .num {
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 600;
+      display: block;
+    }
+
+    #fixture-list li.active .num { color: rgba(255,255,255,0.65); }
+    #fixture-list li .label { font-size: 12px; }
+
+    /* ── Main content ── */
+    #content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+    }
+
+    #placeholder {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .hidden { display: none !important; }
+
+    #fixture-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+
+    /* ── Two-column JSON panels ── */
+    .json-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .panel-head {
+      padding: 9px 13px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-head h3 { font-size: 12px; font-weight: 700; }
+
+    .badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: var(--absent);
+      color: #fff;
+      letter-spacing: 0.03em;
+    }
+
+    .badge.green { background: var(--correct); }
+    .badge.yellow { background: var(--present); }
+
+    pre.json-view {
+      padding: 11px 13px;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.55;
+      overflow: auto;
+      max-height: 380px;
+      tab-size: 2;
+    }
+
+    /* JSON syntax colours */
+    .jk { color: #905; }
+    .js { color: #077; }
+    .jn { color: #0086b3; }
+    .jb { color: #ae81ff; }
+    .jx { color: #999; }
+    /* diff markers */
+    .added   { background: var(--added-bg); }
+    .changed { background: var(--changed-bg); }
+
+    /* ── Bottom row: stats + summary ── */
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 14px;
+    }
+
+    /* ── Stats modal ── */
+    .stats-body { padding: 16px 14px; }
+
+    #stat-tiles {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 16px;
+    }
+
+    .stat-tile { text-align: center; min-width: 44px; }
+    .stat-tile .val { font-size: 26px; font-weight: 700; line-height: 1; }
+    .stat-tile .lbl { font-size: 9px; color: var(--muted); margin-top: 3px; }
+
+    #distribution { width: 100%; }
+
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+
+    .bar-num { width: 12px; text-align: right; font-weight: 700; }
+    .bar-track { flex: 1; }
+
+    .bar {
+      background: var(--absent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 5px;
+      min-width: 22px;
+      text-align: right;
+      border-radius: 2px;
+    }
+
+    .no-data { text-align: center; color: var(--muted); font-size: 12px; padding: 10px 0; }
+
+    /* ── Migration summary ── */
+    #summary-list { list-style: none; padding: 8px 0; }
+
+    .s-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      padding: 7px 14px;
+      border-bottom: 1px solid var(--surface);
+    }
+
+    .s-item:last-child { border-bottom: none; }
+
+    .s-icon {
+      width: 17px; height: 17px;
+      border-radius: 50%;
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .s-icon.ok      { background: var(--correct); color: #fff; }
+    .s-icon.skip    { background: var(--border); color: var(--muted); }
+    .s-icon.warn    { background: var(--present); color: #fff; }
+
+    .s-text { flex: 1; line-height: 1.4; font-size: 12px; }
+    .s-detail { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Stats comparison header ── */
+    .stats-compare {
+      display: flex;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .stats-compare span { font-weight: 600; }
+    .stats-compare .before-val { color: var(--absent); }
+    .stats-compare .after-val  { color: var(--correct); }
+  </style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div id="sidebar-header">
+    <h1>Migration Harness</h1>
+    <p>Left Wordle · prod-paula</p>
+  </div>
+  <ul id="fixture-list"></ul>
+</aside>
+
+<main id="content">
+  <div id="placeholder">← Select a fixture to run migration</div>
+
+  <div id="results" class="hidden">
+    <h2 id="fixture-title"></h2>
+
+    <div class="json-grid">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Before</h3>
+          <span class="badge">prod-gary localStorage</span>
+        </div>
+        <pre class="json-view" id="before-json"></pre>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <h3>After</h3>
+          <span class="badge green" id="after-badge">after migration</span>
+        </div>
+        <pre class="json-view" id="after-json"></pre>
+      </div>
+    </div>
+
+    <div class="bottom-grid">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Statistics Modal</h3>
+          <span class="badge green">after</span>
+        </div>
+        <div class="stats-body">
+          <div id="stat-tiles"></div>
+          <div id="distribution"></div>
+          <div class="stats-compare" id="stats-compare"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Migration Report</h3>
+        </div>
+        <ul id="summary-list"></ul>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+"use strict";
+
+// ── Fixture manifest ──────────────────────────────────────────────────────────
+
+const FIXTURES = [
+  { id: '01', name: 'Fresh User',                   file: '01_fresh_user.json' },
+  { id: '02', name: 'New User, Stats Only',          file: '02_new_user_stats_only.json' },
+  { id: '03', name: 'Established, History Only',     file: '03_established_user_history_only.json' },
+  { id: '04', name: 'Legacy Stats + History',        file: '04_user_with_legacy_and_history.json' },
+  { id: '05', name: 'Mid-Game In Progress',          file: '05_mid_game_in_progress.json' },
+  { id: '06', name: 'Legacy Flat Preferences',       file: '06_legacy_flat_preferences.json' },
+  { id: '07', name: 'Hard Mode, Long Streak',        file: '07_hard_mode_long_streak.json' },
+  { id: '08', name: 'Already Migrated to Paula',     file: '08_already_migrated_to_paula.json' },
+];
+
+// ── Date utilities (mirrors DateUtils in wordle.js) ───────────────────────────
+
+function parseLocalDateString(str) {
+  if (!str || typeof str !== 'string') return null;
+  var parts = str.split('-');
+  if (parts.length !== 3) return null;
+  var y = parseInt(parts[0], 10), m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+}
+
+function daysBetween(start, end) {
+  var s = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+  var e = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+  return Math.round((e - s) / 86400000);
+}
+
+// ── History stats computation (mirrors StatisticsEngine.computeHistoryStats) ──
+
+const DEFAULT_STATS = () => ({
+  currentStreak: 0, maxStreak: 0,
+  guesses: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, fail: 0 },
+  winPercentage: 0, gamesPlayed: 0, gamesWon: 0, averageGuesses: 0,
+});
+
+function computeHistoryStats(history, cutoffDateStr) {
+  var stats = DEFAULT_STATS();
+  var cutoff = parseLocalDateString(cutoffDateStr);
+
+  var entries = Object.values(history || {}).map(function(e) {
+    if (!e) return null;
+    var pn = Number(e.puzzle_num), r = Number(e.result);
+    if (!isFinite(pn) || !isFinite(r)) return null;
+    var dateObj = e.date ? parseLocalDateString(e.date) : null;
+    if (cutoff && dateObj && daysBetween(cutoff, dateObj) <= 0) return null;
+    return Object.assign({}, e, { puzzle_num: pn, result: r, dateObj });
+  }).filter(Boolean).sort((a, b) => a.puzzle_num - b.puzzle_num);
+
+  var guessSum = 0;
+  entries.forEach(function(e) {
+    if (e.result >= 1 && e.result <= 6) {
+      stats.guesses[e.result]++;
+      stats.gamesWon++;
+      guessSum += e.result;
+    } else {
+      stats.guesses.fail++;
+    }
+    stats.gamesPlayed++;
+  });
+
+  stats.winPercentage = stats.gamesPlayed ? Math.round(stats.gamesWon / stats.gamesPlayed * 100) : 0;
+  stats.averageGuesses = stats.gamesWon ? Math.round(guessSum / stats.gamesWon * 100) / 100 : 0;
+
+  var streak = 0, maxStreak = 0, lastPuzzle = null, lastWin = false;
+  entries.forEach(function(e) {
+    var win = e.result >= 1 && e.result <= 6;
+    if (!win) { streak = 0; lastWin = false; lastPuzzle = e.puzzle_num; return; }
+    streak = (lastWin && lastPuzzle !== null && e.puzzle_num === lastPuzzle + 1) ? streak + 1 : 1;
+    maxStreak = Math.max(maxStreak, streak);
+    lastWin = true; lastPuzzle = e.puzzle_num;
+  });
+
+  var startWinStreak = 0;
+  for (var i = 0; i < entries.length; i++) {
+    if (!(entries[i].result >= 1 && entries[i].result <= 6)) break;
+    if (i > 0 && entries[i].puzzle_num !== entries[i - 1].puzzle_num + 1) break;
+    startWinStreak++;
+  }
+
+  return { stats, guessSum, currentStreak: streak, maxStreak, startWinStreak,
+           firstEntry: entries[0] || null, entries };
+}
+
+// ── Legacy guesses normalizer (mirrors HistoryManager.normalizeLegacyGuesses) ─
+
+function normalizeLegacyGuesses(legacy) {
+  var g = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, fail: 0 };
+  if (!legacy || !legacy.guesses) return g;
+  for (var i = 1; i <= 6; i++) g[i] = parseInt(legacy.guesses[i], 10) || 0;
+  g.fail = parseInt(legacy.guesses[7], 10) || parseInt(legacy.guesses.fail, 10) || 0;
+  return g;
+}
+
+// ── Full recompute (mirrors StatisticsEngine.computeStatisticsFromHistoryAndLegacy) ─
+
+function computeStatsFromHistoryAndLegacy(store) {
+  var history = store['history'] || {};
+  var legacy  = store['legacy_stats'] || {};
+
+  var hs = computeHistoryStats(history, legacy.cutoff_date || null);
+  var stats = hs.stats;
+  var lg = normalizeLegacyGuesses(legacy);
+  var lgSum = 0;
+  for (var i = 1; i <= 6; i++) lgSum += i * (lg[i] || 0);
+
+  var lgWon = isFinite(Number(legacy.gamesWon)) ? Number(legacy.gamesWon)
+    : (lg[1]+lg[2]+lg[3]+lg[4]+lg[5]+lg[6]);
+  var lgPlayed = isFinite(Number(legacy.gamesPlayed)) ? Number(legacy.gamesPlayed)
+    : lgWon + lg.fail;
+
+  stats.gamesPlayed += lgPlayed;
+  stats.gamesWon    += lgWon;
+  stats.guesses.fail += lg.fail;
+  for (var j = 1; j <= 6; j++) stats.guesses[j] += lg[j];
+
+  var totalSum = hs.guessSum + lgSum;
+  stats.winPercentage  = stats.gamesPlayed ? Math.round(stats.gamesWon / stats.gamesPlayed * 100) : 0;
+  stats.averageGuesses = stats.gamesWon ? Math.round(totalSum / stats.gamesWon * 100) / 100 : 0;
+  stats.maxStreak      = Math.max(hs.maxStreak, Number(legacy.maxStreak) || 0);
+
+  var legCur     = parseInt(legacy.current_streak_length, 10) || 0;
+  var legEndDate = legacy.current_streak_end_date;
+
+  if (!hs.firstEntry) {
+    stats.currentStreak = legCur;
+  } else {
+    stats.currentStreak = hs.currentStreak;
+    if (legCur > 0 && legEndDate && hs.startWinStreak > 0) {
+      var firstDate = hs.firstEntry.dateObj;
+      var legEnd    = parseLocalDateString(legEndDate);
+      if (legEnd && firstDate && daysBetween(legEnd, firstDate) === 1
+          && hs.currentStreak === hs.startWinStreak) {
+        stats.currentStreak = legCur + hs.currentStreak;
+      }
+    }
+  }
+
+  return stats;
+}
+
+// ── Migration runner ──────────────────────────────────────────────────────────
+
+const FLAT_PREF_KEYS = ['darkTheme', 'colorBlindTheme', 'shareFormat', 'shareTextAdditions'];
+
+function runMigration(fixture) {
+  var before  = JSON.parse(JSON.stringify(fixture));
+  var store   = JSON.parse(JSON.stringify(fixture));
+  var report  = [];
+  var changed = new Set();   // keys added or modified in "after"
+  var removed = new Set();   // keys deleted
+
+  // Step 1 — Preferences: migrate flat legacy keys → preferences{}
+  if ('preferences' in store) {
+    report.push({ type: 'skip', text: 'Preferences already namespaced',
+                  detail: 'preferences{} key present — no flat-key migration needed' });
+  } else {
+    var flatFound = FLAT_PREF_KEYS.filter(k => k in store);
+    if (flatFound.length > 0) {
+      var prefs = {};
+      flatFound.forEach(k => { prefs[k] = store[k]; delete store[k]; removed.add(k); });
+      store['preferences'] = prefs;
+      changed.add('preferences');
+      report.push({ type: 'ok', text: 'Legacy preference keys migrated',
+                    detail: flatFound.join(', ') + '  →  preferences{}' });
+    } else {
+      report.push({ type: 'skip', text: 'No flat preference keys found',
+                    detail: 'preferences{} will be created with defaults on first read' });
+    }
+  }
+
+  // Step 2 — Statistics: auto-stamp (migrateIfNeeded)
+  var storedStats = store['statistics'] || {};
+  if ((storedStats.versionNumber || 0) >= 2) {
+    report.push({ type: 'skip', text: 'Statistics already at versionNumber 2',
+                  detail: 'migratedBy: ' + (storedStats.migratedBy || '?') });
+  } else {
+    report.push({ type: 'ok', text: 'Statistics version stamp needed',
+                  detail: 'versionNumber will be set to 2 after recompute' });
+  }
+
+  // Step 3 — Full recompute from history + legacy_stats
+  var beforeStats = JSON.parse(JSON.stringify(store['statistics'] || {}));
+  var recomputed  = computeStatsFromHistoryAndLegacy(store);
+  recomputed.versionNumber = 2;
+  recomputed.migratedBy    = 'migration-test-harness';
+
+  var hasHistory = Object.keys(store['history'] || {}).length > 0;
+  var hasLegacy  = !!store['legacy_stats'];
+  var sources    = hasHistory && hasLegacy ? 'history + legacy_stats'
+                 : hasHistory ? 'history only'
+                 : hasLegacy  ? 'legacy_stats only'
+                 : 'no source data — all zeroes';
+
+  store['statistics'] = recomputed;
+  changed.add('statistics');
+
+  var streakBefore = beforeStats.currentStreak || 0;
+  var streakAfter  = recomputed.currentStreak  || 0;
+  var playedBefore = beforeStats.gamesPlayed   || 0;
+  var playedAfter  = recomputed.gamesPlayed    || 0;
+
+  report.push({ type: 'ok', text: 'Statistics recomputed',
+                detail: 'Source: ' + sources + '  |  '
+                      + 'Played: ' + playedBefore + ' → ' + playedAfter + '  |  '
+                      + 'Streak: ' + streakBefore + ' → ' + streakAfter });
+
+  // Streak delta note
+  if (streakAfter !== streakBefore) {
+    var delta = streakAfter - streakBefore;
+    report.push({
+      type: delta > 0 ? 'ok' : 'warn',
+      text: 'Current streak ' + (delta > 0 ? 'increased' : 'decreased'),
+      detail: streakBefore + ' → ' + streakAfter
+              + (delta < 0 ? '  (history may not reflect full streak — check legacy_stats)' : ''),
+    });
+  }
+
+  // Game state note
+  var gs = store['gameState'] || {};
+  if (gs.gameStatus === 'IN_PROGRESS') {
+    report.push({ type: 'warn', text: 'Mid-game state detected',
+                  detail: 'Puzzle #' + (gs.puzzleNum || '?') + ' is IN_PROGRESS — migration will not interrupt it' });
+  }
+
+  return { before, after: store, report, changed, removed, beforeStats, afterStats: recomputed };
+}
+
+// ── JSON renderer with diff highlights ───────────────────────────────────────
+
+function syntaxHighlight(str) {
+  return str
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/("[\w@._\- ]+")\s*:/g, '<span class="jk">$1</span>:')
+    .replace(/:\s*("(?:[^"\\]|\\.)*")/g, (m, s) => ': <span class="js">' + s + '</span>')
+    .replace(/:\s*(\d+\.?\d*)/g, ': <span class="jn">$1</span>')
+    .replace(/:\s*(true|false)/g, ': <span class="jb">$1</span>')
+    .replace(/:\s*(null)/g, ': <span class="jx">$1</span>');
+}
+
+function renderJsonWithDiff(obj, changedKeys, removedKeys) {
+  var raw = JSON.stringify(obj, null, 2);
+  var lines = raw.split('\n');
+  var result = lines.map(function(line) {
+    var trimmed = line.trimStart();
+    var keyMatch = trimmed.match(/^"([\w@._\- ]+)"\s*:/);
+    if (keyMatch) {
+      var key = keyMatch[1];
+      if (changedKeys && changedKeys.has(key)) return '<span class="added">' + syntaxHighlight(line) + '</span>';
+    }
+    return syntaxHighlight(line);
+  });
+  return result.join('\n');
+}
+
+// ── Stats modal renderer ──────────────────────────────────────────────────────
+
+function renderStats(stats, beforeStats) {
+  var tilesEl = document.getElementById('stat-tiles');
+  var distEl  = document.getElementById('distribution');
+  var cmpEl   = document.getElementById('stats-compare');
+  tilesEl.innerHTML = '';
+  distEl.innerHTML  = '';
+  cmpEl.innerHTML   = '';
+
+  if (!stats) {
+    distEl.innerHTML = '<div class="no-data">No stats</div>';
+    return;
+  }
+
+  var TILES = [
+    { key: 'gamesPlayed',   label: 'Played'   },
+    { key: 'winPercentage', label: 'Win %'     },
+    { key: 'currentStreak', label: 'Streak'    },
+    { key: 'maxStreak',     label: 'Max'       },
+    { key: 'averageGuesses',label: 'Av. Guess' },
+  ];
+
+  TILES.forEach(function(t) {
+    var val = stats[t.key];
+    if (t.key === 'averageGuesses') val = (Number(val) || 0).toFixed(2);
+    var tile = document.createElement('div');
+    tile.className = 'stat-tile';
+    tile.innerHTML = '<div class="val">' + val + '</div><div class="lbl">' + t.label + '</div>';
+    tilesEl.appendChild(tile);
+  });
+
+  var g = stats.guesses || {};
+  var vals = [1,2,3,4,5,6].map(k => g[k] || 0);
+  var maxV = Math.max(...vals, 1);
+  var allZero = vals.every(v => v === 0);
+
+  if (allZero) {
+    distEl.innerHTML = '<div class="no-data">No Data</div>';
+  } else {
+    [1,2,3,4,5,6].forEach(function(i) {
+      var count = g[i] || 0;
+      var pct   = Math.max(7, Math.round(count / maxV * 100));
+      var row   = document.createElement('div');
+      row.className = 'bar-row';
+      row.innerHTML = '<span class="bar-num">' + i + '</span>'
+        + '<div class="bar-track"><div class="bar" style="width:' + pct + '%">' + count + '</div></div>';
+      distEl.appendChild(row);
+    });
+  }
+
+  // Before vs after streak comparison
+  if (beforeStats && (beforeStats.currentStreak !== undefined)) {
+    cmpEl.innerHTML =
+      'streak before: <span class="before-val">' + (beforeStats.currentStreak || 0) + '</span>'
+      + '&nbsp;&nbsp;after: <span class="after-val">' + (stats.currentStreak || 0) + '</span>'
+      + '&nbsp;&nbsp;played before: <span class="before-val">' + (beforeStats.gamesPlayed || 0) + '</span>'
+      + '&nbsp;&nbsp;after: <span class="after-val">' + (stats.gamesPlayed || 0) + '</span>';
+  }
+}
+
+// ── Migration report renderer ─────────────────────────────────────────────────
+
+function renderReport(report) {
+  var list = document.getElementById('summary-list');
+  list.innerHTML = '';
+
+  if (!report.length) {
+    list.innerHTML = '<li class="s-item"><span class="s-text" style="color:var(--muted)">Nothing to do</span></li>';
+    return;
+  }
+
+  report.forEach(function(item) {
+    var li = document.createElement('li');
+    li.className = 's-item';
+    var icon = item.type === 'ok' ? '✓' : item.type === 'warn' ? '!' : '–';
+    li.innerHTML =
+      '<span class="s-icon ' + (item.type === 'skip' ? 'skip' : item.type === 'warn' ? 'warn' : 'ok') + '">' + icon + '</span>'
+      + '<div class="s-text">' + item.text
+      + (item.detail ? '<div class="s-detail">' + item.detail + '</div>' : '')
+      + '</div>';
+    list.appendChild(li);
+  });
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+
+var listEl = document.getElementById('fixture-list');
+FIXTURES.forEach(function(f) {
+  var li = document.createElement('li');
+  li.innerHTML = '<span class="num">' + f.id + '</span><span class="label">' + f.name + '</span>';
+  li.addEventListener('click', function() {
+    document.querySelectorAll('#fixture-list li').forEach(el => el.classList.remove('active'));
+    li.classList.add('active');
+    loadFixture(f);
+  });
+  listEl.appendChild(li);
+});
+
+// ── Load & run ────────────────────────────────────────────────────────────────
+
+function loadFixture(f) {
+  fetch('./fixtures/local_storage/' + f.file)
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(fixture) {
+      var result = runMigration(fixture);
+
+      document.getElementById('placeholder').classList.add('hidden');
+      document.getElementById('results').classList.remove('hidden');
+      document.getElementById('fixture-title').textContent = f.id + ' — ' + f.name;
+
+      document.getElementById('before-json').innerHTML =
+        renderJsonWithDiff(result.before, null, null);
+
+      document.getElementById('after-json').innerHTML =
+        renderJsonWithDiff(result.after, result.changed, result.removed);
+
+      renderStats(result.afterStats, result.beforeStats);
+      renderReport(result.report);
+    })
+    .catch(function(err) {
+      alert(
+        'Could not load ' + f.file + ':\n' + err.message
+        + '\n\nServe this directory first:\n  cd ~/repos/jswright61/left_wordle/client\n  npx serve tmp'
+      );
+    });
+}
+</script>
+</body>
+</html>

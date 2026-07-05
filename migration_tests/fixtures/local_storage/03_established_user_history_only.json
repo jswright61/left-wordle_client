@@ -1,0 +1,95 @@
+{
+  "device_id": "c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f",
+  "statistics": {
+    "currentStreak": 7,
+    "maxStreak": 23,
+    "guesses": { "1": 1, "2": 18, "3": 52, "4": 61, "5": 12, "6": 6, "fail": 30 },
+    "winPercentage": 83,
+    "gamesPlayed": 180,
+    "gamesWon": 150,
+    "averageGuesses": 3.74
+  },
+  "history": {
+    "1832": {
+      "puzzle_num": 1832, "date": "2026-06-25", "result": 3,
+      "answer": "grout", "mode": "regular", "starter": "crane",
+      "completed_at": 1750852800000, "updated_at": 1750852800000,
+      "device_id": "c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f"
+    },
+    "1833": {
+      "puzzle_num": 1833, "date": "2026-06-26", "result": 4,
+      "answer": "skimp", "mode": "regular", "starter": "crane",
+      "completed_at": 1750939200000, "updated_at": 1750939200000,
+      "device_id": "c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f"
+    },
+    "1834": {
+      "puzzle_num": 1834, "date": "2026-06-27", "result": 5,
+      "answer": "proxy", "mode": "regular", "starter": "crane",
+      "completed_at": 1751025600000, "updated_at": 1751025600000,
+      "device_id": "c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f"
+    },
+    "1835": {
+      "puzzle_num": 1835, "date": "2026-06-28", "result": 2,
+      "answer": "trout", "mode": "regular", "starter": "crane",
+      "completed_at": 1751112000000, "updated_at": 1751112000000,
+      "device_id": "c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f"
+    },
+    "1836": {
+      "puzzle_num": 1836, "date": "2026-06-29", "result": 7,
+      "answer": "fjord", "mode": "regular", "starter": "crane",
+      "completed_at": 1751198400000, "updated_at": 1751198400000,
+      "device_id": "c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f"
+    },
+    "1837": {
+      "puzzle_num": 1837, "date": "2026-06-30", "result": 3,
+      "answer": "brisk", "mode": "regular", "starter": "crane",
+      "completed_at": 1751284800000, "updated_at": 1751284800000,
+      "device_id": "c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f"
+    },
+    "1838": {
+      "puzzle_num": 1838, "date": "2026-07-01", "result": 4,
+      "answer": "cleft", "mode": "regular", "starter": "crane",
+      "completed_at": 1751371200000, "updated_at": 1751371200000,
+      "device_id": "c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f"
+    },
+    "1839": {
+      "puzzle_num": 1839, "date": "2026-07-02", "result": 3,
+      "answer": "zesty", "mode": "regular", "starter": "crane",
+      "completed_at": 1751457600000, "updated_at": 1751457600000,
+      "device_id": "c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f"
+    },
+    "1840": {
+      "puzzle_num": 1840, "date": "2026-07-03", "result": 4,
+      "answer": "plumb", "mode": "regular", "starter": "crane",
+      "completed_at": 1751544000000, "updated_at": 1751544000000,
+      "device_id": "c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f"
+    },
+    "1841": {
+      "puzzle_num": 1841, "date": "2026-07-04", "result": 4,
+      "answer": "denim", "mode": "regular", "starter": "crane",
+      "completed_at": 1751630400000, "updated_at": 1751630400000,
+      "device_id": "c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f"
+    }
+  },
+  "gameState": {
+    "puzzleNum": 1841,
+    "date": "2026-07-04",
+    "rowIndex": 4,
+    "boardState": ["crane", "irate", "demon", "denim", null, null],
+    "evaluations": [
+      ["absent", "absent", "present", "absent", "absent"],
+      ["absent", "absent", "absent", "absent", "absent"],
+      ["correct", "present", "present", "absent", "absent"],
+      ["correct", "correct", "correct", "correct", "correct"],
+      null,
+      null
+    ],
+    "solution": "denim",
+    "gameStatus": "WIN",
+    "hardMode": false,
+    "lastPlayedTs": 1751630400000,
+    "lastCompletedTs": 1751630400000,
+    "updatedAt": 1751630400000,
+    "restoringFromLocalStorage": null
+  }
+}

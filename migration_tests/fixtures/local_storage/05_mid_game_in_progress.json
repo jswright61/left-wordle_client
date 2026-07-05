@@ -1,0 +1,59 @@
+{
+  "device_id": "e9f8a7b6-c5d4-4e3f-2a1b-0c9d8e7f6a5b",
+  "statistics": {
+    "currentStreak": 5,
+    "maxStreak": 18,
+    "guesses": { "1": 0, "2": 8, "3": 28, "4": 35, "5": 12, "6": 4, "fail": 8 },
+    "winPercentage": 92,
+    "gamesPlayed": 95,
+    "gamesWon": 87,
+    "averageGuesses": 3.68
+  },
+  "history": {
+    "1838": {
+      "puzzle_num": 1838, "date": "2026-07-01", "result": 4,
+      "answer": "blitz", "mode": "regular", "starter": "crane",
+      "completed_at": 1751371200000, "updated_at": 1751371200000,
+      "device_id": "e9f8a7b6-c5d4-4e3f-2a1b-0c9d8e7f6a5b"
+    },
+    "1839": {
+      "puzzle_num": 1839, "date": "2026-07-02", "result": 3,
+      "answer": "plumb", "mode": "regular", "starter": "crane",
+      "completed_at": 1751457600000, "updated_at": 1751457600000,
+      "device_id": "e9f8a7b6-c5d4-4e3f-2a1b-0c9d8e7f6a5b"
+    },
+    "1840": {
+      "puzzle_num": 1840, "date": "2026-07-03", "result": 3,
+      "answer": "grout", "mode": "regular", "starter": "crane",
+      "completed_at": 1751544000000, "updated_at": 1751544000000,
+      "device_id": "e9f8a7b6-c5d4-4e3f-2a1b-0c9d8e7f6a5b"
+    },
+    "1841": {
+      "puzzle_num": 1841, "date": "2026-07-04", "result": 2,
+      "answer": "trout", "mode": "regular", "starter": "crane",
+      "completed_at": 1751630400000, "updated_at": 1751630400000,
+      "device_id": "e9f8a7b6-c5d4-4e3f-2a1b-0c9d8e7f6a5b"
+    }
+  },
+  "gameState": {
+    "puzzleNum": 1842,
+    "date": "2026-07-05",
+    "rowIndex": 3,
+    "boardState": ["crane", "irate", "stomp", null, null, null],
+    "evaluations": [
+      ["absent", "absent", "absent", "absent", "absent"],
+      ["absent", "present", "absent", "absent", "absent"],
+      ["absent", "absent", "absent", "absent", "absent"],
+      null,
+      null,
+      null
+    ],
+    "solution": null,
+    "gameStatus": "IN_PROGRESS",
+    "hardMode": false,
+    "lastPlayedTs": 1751716800000,
+    "lastCompletedTs": 1751630400000,
+    "updatedAt": 1751716800000,
+    "restoringFromLocalStorage": null
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "device_id": "b3f2a1d0-1c2b-4e5f-9a8b-7c6d5e4f3a2b",
+  "statistics": {
+    "currentStreak": 3,
+    "maxStreak": 5,
+    "guesses": { "1": 0, "2": 1, "3": 2, "4": 3, "5": 1, "6": 0, "fail": 1 },
+    "winPercentage": 88,
+    "gamesPlayed": 8,
+    "gamesWon": 7,
+    "averageGuesses": 3.57
+  },
+  "gameState": {
+    "puzzleNum": 1841,
+    "date": "2026-07-04",
+    "rowIndex": 4,
+    "boardState": ["crane", "irate", "stomp", "bland", null, null],
+    "evaluations": [
+      ["absent", "present", "absent", "present", "absent"],
+      ["absent", "present", "absent", "absent", "absent"],
+      ["absent", "absent", "absent", "absent", "absent"],
+      ["correct", "correct", "correct", "correct", "correct"],
+      null,
+      null
+    ],
+    "solution": "bland",
+    "gameStatus": "WIN",
+    "hardMode": false,
+    "lastPlayedTs": 1751630400000,
+    "lastCompletedTs": 1751630400000,
+    "updatedAt": 1751630400000,
+    "restoringFromLocalStorage": null
+  }
+}

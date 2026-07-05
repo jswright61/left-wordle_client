@@ -1,0 +1,116 @@
+{
+  "device_id": "b7c8d9e0-f1a2-4b3c-4d5e-6f7a8b9c0d1e",
+  "version": "v1.4.2",
+  "preferences": {
+    "darkTheme": true,
+    "colorBlindTheme": false,
+    "shareFormat": "grid",
+    "shareTextAdditions": {
+      "preHeader": "",
+      "header": "(Left Wordle)",
+      "afterGrid": ""
+    },
+    "hideDateInShareHeader": false,
+    "suppressLoginPrompt": false,
+    "remainingAnswersMode": "neither",
+    "showRemainingInShareText": false,
+    "goofProtectionMode": true,
+    "hardMode": false,
+    "insaneMode": false
+  },
+  "statistics": {
+    "currentStreak": 9,
+    "maxStreak": 31,
+    "terminatedStreak": null,
+    "guesses": { "1": 1, "2": 14, "3": 48, "4": 65, "5": 22, "6": 8, "fail": 17 },
+    "winPercentage": 90,
+    "gamesPlayed": 175,
+    "gamesWon": 158,
+    "averageGuesses": 3.78,
+    "versionNumber": 2,
+    "migratedBy": "v1.4.2"
+  },
+  "history": {
+    "1833": {
+      "puzzle_num": 1833, "date": "2026-06-26", "result": 4,
+      "answer": "bland", "mode": "regular", "starter": "crane",
+      "completed_at": 1750939200000, "updated_at": 1750939200000,
+      "device_id": "b7c8d9e0-f1a2-4b3c-4d5e-6f7a8b9c0d1e"
+    },
+    "1834": {
+      "puzzle_num": 1834, "date": "2026-06-27", "result": 3,
+      "answer": "skimp", "mode": "regular", "starter": "crane",
+      "completed_at": 1751025600000, "updated_at": 1751025600000,
+      "device_id": "b7c8d9e0-f1a2-4b3c-4d5e-6f7a8b9c0d1e"
+    },
+    "1835": {
+      "puzzle_num": 1835, "date": "2026-06-28", "result": 4,
+      "answer": "trout", "mode": "regular", "starter": "crane",
+      "completed_at": 1751112000000, "updated_at": 1751112000000,
+      "device_id": "b7c8d9e0-f1a2-4b3c-4d5e-6f7a8b9c0d1e"
+    },
+    "1836": {
+      "puzzle_num": 1836, "date": "2026-06-29", "result": 5,
+      "answer": "plumb", "mode": "regular", "starter": "crane",
+      "completed_at": 1751198400000, "updated_at": 1751198400000,
+      "device_id": "b7c8d9e0-f1a2-4b3c-4d5e-6f7a8b9c0d1e"
+    },
+    "1837": {
+      "puzzle_num": 1837, "date": "2026-06-30", "result": 3,
+      "answer": "crimp", "mode": "regular", "starter": "crane",
+      "completed_at": 1751284800000, "updated_at": 1751284800000,
+      "device_id": "b7c8d9e0-f1a2-4b3c-4d5e-6f7a8b9c0d1e"
+    },
+    "1838": {
+      "puzzle_num": 1838, "date": "2026-07-01", "result": 2,
+      "answer": "yacht", "mode": "regular", "starter": "crane",
+      "completed_at": 1751371200000, "updated_at": 1751371200000,
+      "device_id": "b7c8d9e0-f1a2-4b3c-4d5e-6f7a8b9c0d1e"
+    },
+    "1839": {
+      "puzzle_num": 1839, "date": "2026-07-02", "result": 4,
+      "answer": "zesty", "mode": "regular", "starter": "crane",
+      "completed_at": 1751457600000, "updated_at": 1751457600000,
+      "device_id": "b7c8d9e0-f1a2-4b3c-4d5e-6f7a8b9c0d1e"
+    },
+    "1840": {
+      "puzzle_num": 1840, "date": "2026-07-03", "result": 3,
+      "answer": "fjord", "mode": "regular", "starter": "crane",
+      "completed_at": 1751544000000, "updated_at": 1751544000000,
+      "device_id": "b7c8d9e0-f1a2-4b3c-4d5e-6f7a8b9c0d1e"
+    },
+    "1841": {
+      "puzzle_num": 1841, "date": "2026-07-04", "result": 3,
+      "answer": "proxy", "mode": "regular", "starter": "crane",
+      "completed_at": 1751630400000, "updated_at": 1751630400000,
+      "device_id": "b7c8d9e0-f1a2-4b3c-4d5e-6f7a8b9c0d1e"
+    }
+  },
+  "gameState": {
+    "puzzleNum": 1841,
+    "date": "2026-07-04",
+    "rowIndex": 3,
+    "boardState": ["crane", "irate", "proxy", null, null, null],
+    "evaluations": [
+      ["absent", "present", "absent", "absent", "absent"],
+      ["absent", "present", "absent", "absent", "absent"],
+      ["correct", "correct", "correct", "correct", "correct"],
+      null,
+      null,
+      null
+    ],
+    "solution": null,
+    "encryptedAnswer": "ceibk",
+    "gameStatus": "WIN",
+    "hardMode": false,
+    "insaneMode": false,
+    "goofProtectionMode": true,
+    "completedInHardMode": false,
+    "completedInInsaneMode": false,
+    "answersRemaining": null,
+    "lastPlayedTs": 1751630400000,
+    "lastCompletedTs": 1751630400000,
+    "updatedAt": 1751630400000,
+    "restoringFromLocalStorage": null
+  }
+}
