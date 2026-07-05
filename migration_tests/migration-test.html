@@ -264,6 +264,9 @@
 </head>
 <body>
 
+<!-- Stub element required by wordle.js IIFE (gameAppTemplate reads its innerHTML at load time) -->
+<div id="header-container" style="display:none"></div>
+
 <aside id="sidebar">
   <div id="sidebar-header">
     <h1>Migration Harness</h1>
@@ -318,6 +321,8 @@
   </div>
 </main>
 
+<script src="../src/storage-controller.js"></script>
+<script src="../src/wordle.js"></script>
 <script>
 "use strict";
 
@@ -334,158 +339,133 @@ const FIXTURES = [
   { id: '08', name: 'Already Migrated to Paula',     file: '08_already_migrated_to_paula.json' },
 ];
 
-// ── Date utilities (mirrors DateUtils in wordle.js) ───────────────────────────
+// ── Mock localStorage ────────────────────────────────────────────────────────
+// Lets the real StorageController + StatisticsEngine run against fixture data
+// without touching the browser's actual localStorage.
 
-function parseLocalDateString(str) {
-  if (!str || typeof str !== 'string') return null;
-  var parts = str.split('-');
-  if (parts.length !== 3) return null;
-  var y = parseInt(parts[0], 10), m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d);
-}
+// Keys stored as plain strings (not JSON-encoded) by the real app.
+const SCALAR_KEYS = new Set(['device_id', 'version']);
 
-function daysBetween(start, end) {
-  var s = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
-  var e = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
-  return Math.round((e - s) / 86400000);
-}
+// Canonical key display order for the After panel.
+const CANONICAL_KEYS = ['version', 'device_id', 'statistics', 'gameState', 'history',
+                        'legacy_stats', 'preferences', 'settingsBackup'];
 
-// ── History stats computation (mirrors StatisticsEngine.computeHistoryStats) ──
-
-const DEFAULT_STATS = () => ({
-  currentStreak: 0, maxStreak: 0,
-  guesses: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, fail: 0 },
-  winPercentage: 0, gamesPlayed: 0, gamesWon: 0, averageGuesses: 0,
-});
-
-function computeHistoryStats(history, cutoffDateStr) {
-  var stats = DEFAULT_STATS();
-  var cutoff = parseLocalDateString(cutoffDateStr);
-
-  var entries = Object.values(history || {}).map(function(e) {
-    if (!e) return null;
-    var pn = Number(e.puzzle_num), r = Number(e.result);
-    if (!isFinite(pn) || !isFinite(r)) return null;
-    var dateObj = e.date ? parseLocalDateString(e.date) : null;
-    if (cutoff && dateObj && daysBetween(cutoff, dateObj) <= 0) return null;
-    return Object.assign({}, e, { puzzle_num: pn, result: r, dateObj });
-  }).filter(Boolean).sort((a, b) => a.puzzle_num - b.puzzle_num);
-
-  var guessSum = 0;
-  entries.forEach(function(e) {
-    if (e.result >= 1 && e.result <= 6) {
-      stats.guesses[e.result]++;
-      stats.gamesWon++;
-      guessSum += e.result;
-    } else {
-      stats.guesses.fail++;
-    }
-    stats.gamesPlayed++;
+function buildMockLocalStorage(fixture) {
+  var store = {};
+  Object.keys(fixture).forEach(function(key) {
+    store[key] = SCALAR_KEYS.has(key) ? fixture[key] : JSON.stringify(fixture[key]);
   });
+  return {
+    _store: store,
+    getItem:    function(k)    { return Object.prototype.hasOwnProperty.call(this._store, k) ? this._store[k] : null; },
+    setItem:    function(k, v) { this._store[k] = String(v); },
+    removeItem: function(k)    { delete this._store[k]; },
+    get length()               { return Object.keys(this._store).length; },
+    key:        function(i)    { return Object.keys(this._store)[i] || null; },
+    clear:      function()     { this._store = {}; },
+  };
+}
 
-  stats.winPercentage = stats.gamesPlayed ? Math.round(stats.gamesWon / stats.gamesPlayed * 100) : 0;
-  stats.averageGuesses = stats.gamesWon ? Math.round(guessSum / stats.gamesWon * 100) / 100 : 0;
-
-  var streak = 0, maxStreak = 0, lastPuzzle = null, lastWin = false;
-  entries.forEach(function(e) {
-    var win = e.result >= 1 && e.result <= 6;
-    if (!win) { streak = 0; lastWin = false; lastPuzzle = e.puzzle_num; return; }
-    streak = (lastWin && lastPuzzle !== null && e.puzzle_num === lastPuzzle + 1) ? streak + 1 : 1;
-    maxStreak = Math.max(maxStreak, streak);
-    lastWin = true; lastPuzzle = e.puzzle_num;
+function mockToStore(mock) {
+  var out = {};
+  Object.keys(mock._store).forEach(function(key) {
+    var raw = mock._store[key];
+    if (SCALAR_KEYS.has(key)) { out[key] = raw; return; }
+    try { out[key] = JSON.parse(raw); } catch(e) { out[key] = raw; }
   });
-
-  var startWinStreak = 0;
-  for (var i = 0; i < entries.length; i++) {
-    if (!(entries[i].result >= 1 && entries[i].result <= 6)) break;
-    if (i > 0 && entries[i].puzzle_num !== entries[i - 1].puzzle_num + 1) break;
-    startWinStreak++;
-  }
-
-  return { stats, guessSum, currentStreak: streak, maxStreak, startWinStreak,
-           firstEntry: entries[0] || null, entries };
-}
-
-// ── Legacy guesses normalizer (mirrors HistoryManager.normalizeLegacyGuesses) ─
-
-function normalizeLegacyGuesses(legacy) {
-  var g = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, fail: 0 };
-  if (!legacy || !legacy.guesses) return g;
-  for (var i = 1; i <= 6; i++) g[i] = parseInt(legacy.guesses[i], 10) || 0;
-  g.fail = parseInt(legacy.guesses[7], 10) || parseInt(legacy.guesses.fail, 10) || 0;
-  return g;
-}
-
-// ── Full recompute (mirrors StatisticsEngine.computeStatisticsFromHistoryAndLegacy) ─
-
-function computeStatsFromHistoryAndLegacy(store) {
-  var history = store['history'] || {};
-  var legacy  = store['legacy_stats'] || {};
-
-  var hs = computeHistoryStats(history, legacy.cutoff_date || null);
-  var stats = hs.stats;
-  var lg = normalizeLegacyGuesses(legacy);
-  var lgSum = 0;
-  for (var i = 1; i <= 6; i++) lgSum += i * (lg[i] || 0);
-
-  var lgWon = isFinite(Number(legacy.gamesWon)) ? Number(legacy.gamesWon)
-    : (lg[1]+lg[2]+lg[3]+lg[4]+lg[5]+lg[6]);
-  var lgPlayed = isFinite(Number(legacy.gamesPlayed)) ? Number(legacy.gamesPlayed)
-    : lgWon + lg.fail;
-
-  stats.gamesPlayed += lgPlayed;
-  stats.gamesWon    += lgWon;
-  stats.guesses.fail += lg.fail;
-  for (var j = 1; j <= 6; j++) stats.guesses[j] += lg[j];
-
-  var totalSum = hs.guessSum + lgSum;
-  stats.winPercentage  = stats.gamesPlayed ? Math.round(stats.gamesWon / stats.gamesPlayed * 100) : 0;
-  stats.averageGuesses = stats.gamesWon ? Math.round(totalSum / stats.gamesWon * 100) / 100 : 0;
-  stats.maxStreak      = Math.max(hs.maxStreak, Number(legacy.maxStreak) || 0);
-
-  var legCur     = parseInt(legacy.current_streak_length, 10) || 0;
-  var legEndDate = legacy.current_streak_end_date;
-
-  if (!hs.firstEntry) {
-    stats.currentStreak = legCur;
-  } else {
-    stats.currentStreak = hs.currentStreak;
-    if (legCur > 0 && legEndDate && hs.startWinStreak > 0) {
-      var firstDate = hs.firstEntry.dateObj;
-      var legEnd    = parseLocalDateString(legEndDate);
-      if (legEnd && firstDate && daysBetween(legEnd, firstDate) === 1
-          && hs.currentStreak === hs.startWinStreak) {
-        stats.currentStreak = legCur + hs.currentStreak;
-      }
-    }
-  }
-
-  return stats;
+  return out;
 }
 
 // ── Migration runner ──────────────────────────────────────────────────────────
+// Drives real production code (StorageController + StatisticsEngine) via a
+// swapped window.localStorage, then observes the result.
 
 const FLAT_PREF_KEYS = ['darkTheme', 'colorBlindTheme', 'shareFormat', 'shareTextAdditions'];
 
 function runMigration(fixture) {
-  var before  = JSON.parse(JSON.stringify(fixture));
-  var store   = JSON.parse(JSON.stringify(fixture));
-  var report  = [];
-  var changed = new Set();   // keys added or modified in "after"
-  var removed = new Set();   // keys deleted
+  var before = JSON.parse(JSON.stringify(fixture));
+  var mock   = buildMockLocalStorage(fixture);
+  var beforeStats, afterStats, afterPrefs, afterRaw, after;
+  var changed = new Set();
+  var removed = new Set();
 
-  // Step 1 — Preferences: migrate flat legacy keys → preferences{}
-  if ('preferences' in store) {
+  // window.localStorage is a getter-only property; direct assignment throws in strict mode.
+  // Shadow it on window itself via defineProperty, then restore via the saved descriptor.
+  var ownDesc = Object.getOwnPropertyDescriptor(window, 'localStorage');
+  Object.defineProperty(window, 'localStorage', { value: mock, configurable: true, writable: true });
+
+  try {
+    var defaultStats = window.wordleTestExports.DEFAULT_STATISTICS;
+    var defaultPrefs = window.wordleTestExports.DEFAULT_PREFERENCES;
+
+    function mergeStats(stored) {
+      var merged = Object.assign(JSON.parse(JSON.stringify(defaultStats)), stored || {});
+      merged.guesses = Object.assign({}, defaultStats.guesses, (stored || {}).guesses || {});
+      return merged;
+    }
+
+    beforeStats = mergeStats(window.StorageController.statistics.getAll());
+
+    // Step 0 — Settings backup (mirrors index.html, runs before game load)
+    window.StorageController.settingsBackup.maybeBackup('harness');
+
+    // Step 1+2 — Statistics migration (mirrors GameApp.connectedCallback ~line 1842)
+    window.wordleTestExports.preservePreHistoryStats();
+    window.wordleTestExports.migrateIfNeeded();
+
+    // Step 3 — Preference migration (PreferencesStorage._read auto-migrates flat keys)
+    window.StorageController.preferences.getAll();
+
+    afterStats = mergeStats(window.StorageController.statistics.getAll());
+    // Preferences: stored values merged onto defaults so all keys are always visible
+    afterPrefs = Object.assign(JSON.parse(JSON.stringify(defaultPrefs)),
+                               window.StorageController.preferences.getAll());
+
+    afterRaw = mockToStore(mock);  // accurate stored state — used for diff computation
+
+    // Compute diff from raw stored state (before display augmentation)
+    var allKeys = new Set(Object.keys(before).concat(Object.keys(afterRaw)));
+    allKeys.forEach(function(key) {
+      if (!(key in afterRaw)) removed.add(key);
+      else if (JSON.stringify(before[key]) !== JSON.stringify(afterRaw[key])) changed.add(key);
+    });
+
+    // Build display version in canonical key order.
+    // Start with before keys (unchanged keys stay visible), overlay afterRaw,
+    // drop removed keys, then apply display augmentations.
+    after = Object.assign(JSON.parse(JSON.stringify(before)), JSON.parse(JSON.stringify(afterRaw)));
+    removed.forEach(function(key) { delete after[key]; });
+    after['statistics'] = afterStats;
+    after['preferences'] = afterPrefs;
+
+    // Ensure all canonical keys appear (null if absent)
+    CANONICAL_KEYS.forEach(function(key) {
+      if (!(key in after)) after[key] = null;
+    });
+
+    // Re-order so canonical keys come first, remaining keys after
+    var ordered = {};
+    CANONICAL_KEYS.forEach(function(key) { ordered[key] = after[key]; });
+    Object.keys(after).forEach(function(key) { if (!(key in ordered)) ordered[key] = after[key]; });
+    after = ordered;
+  } finally {
+    if (ownDesc) {
+      Object.defineProperty(window, 'localStorage', ownDesc);
+    } else {
+      delete window.localStorage;
+    }
+  }
+
+
+  // Generate human-readable report by observing what changed
+  var report = [];
+
+  if ('preferences' in before) {
     report.push({ type: 'skip', text: 'Preferences already namespaced',
                   detail: 'preferences{} key present — no flat-key migration needed' });
   } else {
-    var flatFound = FLAT_PREF_KEYS.filter(k => k in store);
+    var flatFound = FLAT_PREF_KEYS.filter(function(k) { return k in before; });
     if (flatFound.length > 0) {
-      var prefs = {};
-      flatFound.forEach(k => { prefs[k] = store[k]; delete store[k]; removed.add(k); });
-      store['preferences'] = prefs;
-      changed.add('preferences');
       report.push({ type: 'ok', text: 'Legacy preference keys migrated',
                     detail: flatFound.join(', ') + '  →  preferences{}' });
     } else {
@@ -494,61 +474,45 @@ function runMigration(fixture) {
     }
   }
 
-  // Step 2 — Statistics: auto-stamp (migrateIfNeeded)
-  var storedStats = store['statistics'] || {};
-  if ((storedStats.versionNumber || 0) >= 2) {
+  if ((beforeStats.versionNumber || 0) >= 2) {
     report.push({ type: 'skip', text: 'Statistics already at versionNumber 2',
-                  detail: 'migratedBy: ' + (storedStats.migratedBy || '?') });
+                  detail: 'migratedBy: ' + (beforeStats.migratedBy || '?') });
   } else {
-    report.push({ type: 'ok', text: 'Statistics version stamp needed',
-                  detail: 'versionNumber will be set to 2 after recompute' });
+    var hasHistory = Object.keys(before['history'] || {}).length > 0;
+    var hasLegacy  = !!before['legacy_stats'];
+    var sources    = hasHistory && hasLegacy ? 'history + legacy_stats'
+                   : hasHistory ? 'history only'
+                   : hasLegacy  ? 'legacy_stats only'
+                   : 'existing statistics preserved (no history or legacy_stats)';
+    var streakBefore = beforeStats.currentStreak || 0;
+    var streakAfter  = afterStats.currentStreak  || 0;
+    var playedBefore = beforeStats.gamesPlayed   || 0;
+    var playedAfter  = afterStats.gamesPlayed    || 0;
+
+    report.push({ type: 'ok',
+                  text: (hasHistory || hasLegacy) ? 'Statistics recomputed' : 'Statistics version-stamped',
+                  detail: 'Source: ' + sources + '  |  '
+                        + 'Played: ' + playedBefore + ' → ' + playedAfter + '  |  '
+                        + 'Streak: ' + streakBefore + ' → ' + streakAfter });
+
+    if (streakAfter !== streakBefore) {
+      var delta = streakAfter - streakBefore;
+      report.push({
+        type: delta > 0 ? 'ok' : 'warn',
+        text: 'Current streak ' + (delta > 0 ? 'increased' : 'decreased'),
+        detail: streakBefore + ' → ' + streakAfter
+                + (delta < 0 ? '  (history may not reflect full streak — check legacy_stats)' : ''),
+      });
+    }
   }
 
-  // Step 3 — Full recompute from history + legacy_stats
-  var beforeStats = JSON.parse(JSON.stringify(store['statistics'] || {}));
-  var recomputed  = computeStatsFromHistoryAndLegacy(store);
-  recomputed.versionNumber = 2;
-  recomputed.migratedBy    = 'migration-test-harness';
-
-  var hasHistory = Object.keys(store['history'] || {}).length > 0;
-  var hasLegacy  = !!store['legacy_stats'];
-  var sources    = hasHistory && hasLegacy ? 'history + legacy_stats'
-                 : hasHistory ? 'history only'
-                 : hasLegacy  ? 'legacy_stats only'
-                 : 'no source data — all zeroes';
-
-  store['statistics'] = recomputed;
-  changed.add('statistics');
-
-  var streakBefore = beforeStats.currentStreak || 0;
-  var streakAfter  = recomputed.currentStreak  || 0;
-  var playedBefore = beforeStats.gamesPlayed   || 0;
-  var playedAfter  = recomputed.gamesPlayed    || 0;
-
-  report.push({ type: 'ok', text: 'Statistics recomputed',
-                detail: 'Source: ' + sources + '  |  '
-                      + 'Played: ' + playedBefore + ' → ' + playedAfter + '  |  '
-                      + 'Streak: ' + streakBefore + ' → ' + streakAfter });
-
-  // Streak delta note
-  if (streakAfter !== streakBefore) {
-    var delta = streakAfter - streakBefore;
-    report.push({
-      type: delta > 0 ? 'ok' : 'warn',
-      text: 'Current streak ' + (delta > 0 ? 'increased' : 'decreased'),
-      detail: streakBefore + ' → ' + streakAfter
-              + (delta < 0 ? '  (history may not reflect full streak — check legacy_stats)' : ''),
-    });
-  }
-
-  // Game state note
-  var gs = store['gameState'] || {};
+  var gs = before['gameState'] || {};
   if (gs.gameStatus === 'IN_PROGRESS') {
     report.push({ type: 'warn', text: 'Mid-game state detected',
                   detail: 'Puzzle #' + (gs.puzzleNum || '?') + ' is IN_PROGRESS — migration will not interrupt it' });
   }
 
-  return { before, after: store, report, changed, removed, beforeStats, afterStats: recomputed };
+  return { before, after, report, changed, removed, beforeStats, afterStats };
 }
 
 // ── JSON renderer with diff highlights ───────────────────────────────────────
@@ -602,7 +566,7 @@ function renderStats(stats, beforeStats) {
   ];
 
   TILES.forEach(function(t) {
-    var val = stats[t.key];
+    var val = stats[t.key] !== undefined ? stats[t.key] : 0;
     if (t.key === 'averageGuesses') val = (Number(val) || 0).toFixed(2);
     var tile = document.createElement('div');
     tile.className = 'stat-tile';
@@ -683,7 +647,16 @@ function loadFixture(f) {
   fetch('./fixtures/local_storage/' + f.file)
     .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function(fixture) {
-      var result = runMigration(fixture);
+      var result;
+      try {
+        result = runMigration(fixture);
+      } catch(e) {
+        alert('Migration failed for ' + f.file + ':\n' + e.message
+          + (window.StorageController === undefined
+              ? '\n\nStorageController not loaded — serve from client root:\n  npx serve . -p 3001\n  # open http://localhost:3001/migration_tests/migration-test.html'
+              : ''));
+        return;
+      }
 
       document.getElementById('placeholder').classList.add('hidden');
       document.getElementById('results').classList.remove('hidden');
@@ -701,7 +674,7 @@ function loadFixture(f) {
     .catch(function(err) {
       alert(
         'Could not load ' + f.file + ':\n' + err.message
-        + '\n\nServe this directory first:\n  cd ~/repos/jswright61/left_wordle/client\n  npx serve tmp'
+        + '\n\nServe from the client root:\n  cd ~/repos/jswright61/left_wordle/client\n  npx serve . -p 3001\n  # then open http://localhost:3001/migration_tests/migration-test.html'
       );
     });
 }
