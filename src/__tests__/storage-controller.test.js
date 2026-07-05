@@ -14,6 +14,87 @@ function loadController(setup) {
 }
 
 describe('StorageController', () => {
+    describe('schema versioning', () => {
+        test('writes schema_version on fresh install', () => {
+            const dom = loadController();
+            expect(dom.window.localStorage.getItem('schema_version')).toBe('1');
+        });
+
+        test('does not overwrite an existing matching schema_version', () => {
+            const dom = loadController((storage) => {
+                storage.setItem('schema_version', '1');
+            });
+            expect(dom.window.localStorage.getItem('schema_version')).toBe('1');
+        });
+
+        test('warns on schema version mismatch', () => {
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+            loadController((storage) => {
+                storage.setItem('schema_version', '0');
+            });
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('schema version mismatch'));
+            warnSpy.mockRestore();
+        });
+
+        test('exposes schemaVersion on StorageController', () => {
+            const dom = loadController();
+            expect(dom.window.StorageController.schemaVersion).toBe(1);
+        });
+    });
+
+    describe('value type validation', () => {
+        test('rejects a string stored in a boolean field', () => {
+            const dom = loadController();
+            expect(() => dom.window.StorageController.preferences.set('darkTheme', 'yes'))
+                .toThrow('expected boolean, got string');
+        });
+
+        test('rejects a string stored in a number field', () => {
+            const dom = loadController();
+            expect(() => dom.window.StorageController.gameState.set('rowIndex', '2'))
+                .toThrow('expected number, got string');
+        });
+
+        test('rejects a plain object stored in an array field', () => {
+            const dom = loadController();
+            expect(() => dom.window.StorageController.gameState.set('boardState', {}))
+                .toThrow('expected array, got object');
+        });
+
+        test('rejects an array stored in an object field', () => {
+            const dom = loadController();
+            expect(() => dom.window.StorageController.statistics.set('guesses', []))
+                .toThrow('expected object, got array');
+        });
+
+        test('allows null for any typed field', () => {
+            const dom = loadController();
+            expect(() => dom.window.StorageController.preferences.set('darkTheme', null)).not.toThrow();
+            expect(() => dom.window.StorageController.gameState.set('boardState', null)).not.toThrow();
+            expect(() => dom.window.StorageController.statistics.set('terminatedStreak', null)).not.toThrow();
+        });
+
+        test('accepts correctly typed values', () => {
+            const dom = loadController();
+            expect(() => dom.window.StorageController.preferences.set('darkTheme', true)).not.toThrow();
+            expect(() => dom.window.StorageController.gameState.set('rowIndex', 3)).not.toThrow();
+            expect(() => dom.window.StorageController.gameState.set('boardState', ['a', 'b'])).not.toThrow();
+            expect(() => dom.window.StorageController.statistics.set('guesses', { 1: 0, fail: 0 })).not.toThrow();
+        });
+
+        test('rejects wrong types in merge', () => {
+            const dom = loadController();
+            expect(() => dom.window.StorageController.gameState.merge({ rowIndex: 'three' }))
+                .toThrow('expected number, got string');
+        });
+
+        test('rejects wrong types in replace', () => {
+            const dom = loadController();
+            expect(() => dom.window.StorageController.statistics.replace({ gamesPlayed: 'ten' }))
+                .toThrow('expected number, got string');
+        });
+    });
+
     test('migrates legacy preference keys into the preferences namespace', () => {
         const dom = loadController((storage) => {
             storage.setItem('darkTheme', 'true');

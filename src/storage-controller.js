@@ -2,15 +2,79 @@
 
 // Single source of truth for Left Wordle's application-owned localStorage.
 
+var SCHEMA_VERSION = 1;
+
+// Canonical schema for each NamespacedStorage. Values use JS typeof strings,
+// plus "array" (detected via Array.isArray). null is always a valid value.
+var SCHEMA = {
+    preferences: {
+        darkTheme:              "boolean",
+        colorBlindTheme:        "boolean",
+        shareFormat:            "string",
+        shareTextAdditions:     "object",
+        hideDateInShareHeader:  "boolean",
+        suppressLoginPrompt:    "boolean",
+        remainingAnswersMode:   "string",
+        showRemainingInShareText: "boolean",
+        goofProtectionMode:     "boolean",
+        hardMode:               "boolean",
+        insaneMode:             "boolean"
+    },
+    gameState: {
+        puzzleNum:                  "number",
+        date:                       "string",
+        rowIndex:                   "number",
+        boardState:                 "array",
+        evaluations:                "array",
+        gameStatus:                 "string",
+        hardMode:                   "boolean",
+        insaneMode:                 "boolean",
+        goofProtectionMode:         "boolean",
+        completedInHardMode:        "boolean",
+        completedInInsaneMode:      "boolean",
+        solution:                   "string",
+        lastPlayedTs:               "number",
+        lastCompletedTs:            "number",
+        updatedAt:                  "string",
+        restoringFromLocalStorage:  "boolean",
+        answersRemaining:           "number",
+        encryptedAnswer:            "string"
+    },
+    statistics: {
+        currentStreak:      "number",
+        maxStreak:          "number",
+        terminatedStreak:   "number",
+        guesses:            "object",
+        winPercentage:      "number",
+        gamesPlayed:        "number",
+        gamesWon:           "number",
+        averageGuesses:     "number",
+        versionNumber:      "number",
+        migratedBy:         "string"
+    }
+};
+
 class NamespacedStorage {
-    constructor(storageKey, validKeys) {
+    constructor(storageKey, schema) {
         this._storageKey = storageKey;
-        this._validKeys = validKeys;
+        this._schema = schema;
+        this._validKeys = new Set(Object.keys(schema));
     }
 
     _assertKey(key) {
         if (!this._validKeys.has(key)) {
             var msg = 'StorageController.' + this._storageKey + ': unknown key "' + key + '"';
+            console.error(msg);
+            throw new Error(msg);
+        }
+    }
+
+    _assertValue(key, value) {
+        if (value === null || value === undefined) return;
+        var expected = this._schema[key];
+        var actual = Array.isArray(value) ? "array" : typeof value;
+        if (actual !== expected) {
+            var msg = 'StorageController.' + this._storageKey + '["' + key + '"]: expected ' + expected + ', got ' + actual;
             console.error(msg);
             throw new Error(msg);
         }
@@ -48,7 +112,10 @@ class NamespacedStorage {
     merge(obj) {
         var self = this;
         if (obj && typeof obj === "object") {
-            Object.keys(obj).forEach(function(key) { self._assertKey(key); });
+            Object.keys(obj).forEach(function(key) {
+                self._assertKey(key);
+                self._assertValue(key, obj[key]);
+            });
         }
         var stored = this._read();
         Object.assign(stored, obj);
@@ -65,13 +132,17 @@ class NamespacedStorage {
     replace(obj) {
         var self = this;
         if (obj && typeof obj === "object") {
-            Object.keys(obj).forEach(function(key) { self._assertKey(key); });
+            Object.keys(obj).forEach(function(key) {
+                self._assertKey(key);
+                self._assertValue(key, obj[key]);
+            });
         }
         this._write(obj || {});
     }
 
     set(key, value) {
         this._assertKey(key);
+        this._assertValue(key, value);
         var stored = this._read();
         stored[key] = value;
         this._write(stored);
@@ -80,19 +151,7 @@ class NamespacedStorage {
 
 class PreferencesStorage extends NamespacedStorage {
     constructor() {
-        super("preferences", new Set([
-            "darkTheme",
-            "colorBlindTheme",
-            "shareFormat",
-            "shareTextAdditions",
-            "hideDateInShareHeader",
-            "suppressLoginPrompt",
-            "remainingAnswersMode",
-            "showRemainingInShareText",
-            "goofProtectionMode",
-            "hardMode",
-            "insaneMode"
-        ]));
+        super("preferences", SCHEMA.preferences);
         this._legacyKeys = ["darkTheme", "colorBlindTheme", "shareFormat", "shareTextAdditions"];
     }
 
@@ -312,20 +371,45 @@ class SettingsBackupStorage {
     }
 }
 
+class SchemaVersionStorage {
+    constructor() {
+        this._storageKey = "schema_version";
+    }
+
+    read() {
+        try {
+            var raw = window.localStorage.getItem(this._storageKey);
+            return raw === null ? null : parseInt(raw, 10);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    write(version) {
+        try { window.localStorage.setItem(this._storageKey, String(version)); } catch (e) {}
+    }
+}
+
 window.StorageController = {
+    schemaVersion: SCHEMA_VERSION,
     preferences: new PreferencesStorage(),
-    gameState: new NamespacedStorage("gameState", new Set([
-        "puzzleNum", "date", "rowIndex", "boardState", "evaluations",
-        "gameStatus", "hardMode", "insaneMode", "goofProtectionMode", "completedInHardMode", "completedInInsaneMode", "solution",
-        "lastPlayedTs", "lastCompletedTs", "updatedAt", "restoringFromLocalStorage",
-        "answersRemaining", "encryptedAnswer"
-    ])),
+    gameState: new NamespacedStorage("gameState", SCHEMA.gameState),
     history: new HistoryStorage("history"),
     legacyStats: new BlobStorage("legacy_stats"),
-    statistics: new NamespacedStorage("statistics", new Set([
-        "currentStreak", "maxStreak", "terminatedStreak", "guesses", "winPercentage",
-        "gamesPlayed", "gamesWon", "averageGuesses", "versionNumber", "migratedBy"
-    ])),
+    statistics: new NamespacedStorage("statistics", SCHEMA.statistics),
     deviceId: new ScalarStorage("device_id"),
     settingsBackup: new SettingsBackupStorage()
 };
+
+(function() {
+    var sv = new SchemaVersionStorage();
+    var stored = sv.read();
+    if (stored === null) {
+        sv.write(SCHEMA_VERSION);
+    } else if (stored !== SCHEMA_VERSION) {
+        console.warn(
+            "StorageController: schema version mismatch — stored=" + stored +
+            ", current=" + SCHEMA_VERSION
+        );
+    }
+})();

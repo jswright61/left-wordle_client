@@ -1,0 +1,89 @@
+{
+  "device_id": "e1f2a3b4-1134-4c5d-ae7f-8a9b0c1d2e3f",
+  "preferences": {
+    "darkTheme": false,
+    "colorBlindTheme": false,
+    "shareFormat": "grid",
+    "shareTextAdditions": null,
+    "hideDateInShareHeader": false,
+    "suppressLoginPrompt": false,
+    "remainingAnswersMode": "neither",
+    "showRemainingInShareText": false,
+    "goofProtectionMode": true,
+    "hardMode": false,
+    "insaneMode": true
+  },
+  "statistics": {
+    "currentStreak": 6,
+    "maxStreak": 14,
+    "guesses": { "1": 0, "2": 1, "3": 4, "4": 10, "5": 8, "6": 4, "fail": 5 },
+    "winPercentage": 84,
+    "gamesPlayed": 32,
+    "gamesWon": 27,
+    "averageGuesses": 4.22
+  },
+  "history": {
+    "1836": {
+      "puzzle_num": 1836, "date": "2026-06-29", "result": 4,
+      "answer": "fjord", "mode": "insane", "starter": "crane",
+      "completed_at": 1751198400000, "updated_at": 1751198400000,
+      "device_id": "e1f2a3b4-1134-4c5d-ae7f-8a9b0c1d2e3f"
+    },
+    "1837": {
+      "puzzle_num": 1837, "date": "2026-06-30", "result": 5,
+      "answer": "quirk", "mode": "insane", "starter": "crane",
+      "completed_at": 1751284800000, "updated_at": 1751284800000,
+      "device_id": "e1f2a3b4-1134-4c5d-ae7f-8a9b0c1d2e3f"
+    },
+    "1838": {
+      "puzzle_num": 1838, "date": "2026-07-01", "result": 6,
+      "answer": "swamp", "mode": "insane", "starter": "crane",
+      "completed_at": 1751371200000, "updated_at": 1751371200000,
+      "device_id": "e1f2a3b4-1134-4c5d-ae7f-8a9b0c1d2e3f"
+    },
+    "1839": {
+      "puzzle_num": 1839, "date": "2026-07-02", "result": 4,
+      "answer": "knelt", "mode": "insane", "starter": "crane",
+      "completed_at": 1751457600000, "updated_at": 1751457600000,
+      "device_id": "e1f2a3b4-1134-4c5d-ae7f-8a9b0c1d2e3f"
+    },
+    "1840": {
+      "puzzle_num": 1840, "date": "2026-07-03", "result": 5,
+      "answer": "zesty", "mode": "insane", "starter": "crane",
+      "completed_at": 1751544000000, "updated_at": 1751544000000,
+      "device_id": "e1f2a3b4-1134-4c5d-ae7f-8a9b0c1d2e3f"
+    },
+    "1841": {
+      "puzzle_num": 1841, "date": "2026-07-04", "result": 4,
+      "answer": "bland", "mode": "insane", "starter": "crane",
+      "completed_at": 1751630400000, "updated_at": 1751630400000,
+      "device_id": "e1f2a3b4-1134-4c5d-ae7f-8a9b0c1d2e3f"
+    }
+  },
+  "gameState": {
+    "puzzleNum": 1841,
+    "date": "2026-07-04",
+    "rowIndex": 4,
+    "boardState": ["crane", "stomp", "abled", "bland", null, null],
+    "evaluations": [
+      ["absent", "absent", "absent", "absent", "present"],
+      ["absent", "absent", "absent", "absent", "present"],
+      ["absent", "correct", "correct", "correct", "correct"],
+      ["correct", "correct", "correct", "correct", "correct"],
+      null, null
+    ],
+    "solution": null,
+    "encryptedAnswer": "ce1mk",
+    "gameStatus": "WIN",
+    "hardMode": false,
+    "insaneMode": true,
+    "goofProtectionMode": true,
+    "completedInHardMode": false,
+    "completedInInsaneMode": true,
+    "answersRemaining": null,
+    "lastPlayedTs": 1751630400000,
+    "lastCompletedTs": 1751630400000,
+    "updatedAt": 1751630400000,
+    "restoringFromLocalStorage": null
+  }
+}

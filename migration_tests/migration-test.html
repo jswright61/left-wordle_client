@@ -150,15 +150,46 @@
     .badge.green { background: var(--correct); }
     .badge.yellow { background: var(--present); }
 
-    pre.json-view {
-      padding: 11px 13px;
+    .json-view {
       font-family: var(--mono);
       font-size: 11px;
       line-height: 1.55;
-      overflow: auto;
+      overflow-y: auto;
       max-height: 380px;
-      tab-size: 2;
     }
+
+    details.key-block {
+      border-bottom: 1px solid var(--border);
+    }
+    details.key-block:last-child { border-bottom: none; }
+
+    summary.key-summary {
+      padding: 5px 13px 5px 9px;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      user-select: none;
+    }
+    summary.key-summary::-webkit-details-marker { display: none; }
+
+    .key-toggle { font-size: 8px; color: var(--muted); width: 10px; flex-shrink: 0; }
+    summary.key-summary > .key-toggle::before { content: '▶'; }
+    details[open] > summary.key-summary > .key-toggle::before { content: '▼'; }
+
+    .key-scalar { padding: 5px 13px 5px 23px; }
+
+    pre.key-value {
+      margin: 0;
+      padding: 0 13px 8px 23px;
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+
+    details.key-block.added > summary.key-summary,
+    details.key-block.added > pre.key-value { background: var(--added-bg); }
+    .key-scalar.added { background: var(--added-bg); }
 
     /* JSON syntax colours */
     .jk { color: #905; }
@@ -166,9 +197,6 @@
     .jn { color: #0086b3; }
     .jb { color: #ae81ff; }
     .jx { color: #999; }
-    /* diff markers */
-    .added   { background: var(--added-bg); }
-    .changed { background: var(--changed-bg); }
 
     /* ── Bottom row: stats + summary ── */
     .bottom-grid {
@@ -287,14 +315,14 @@
           <h3>Before</h3>
           <span class="badge">prod-gary localStorage</span>
         </div>
-        <pre class="json-view" id="before-json"></pre>
+        <div class="json-view" id="before-json"></div>
       </div>
       <div class="panel">
         <div class="panel-head">
           <h3>After</h3>
           <span class="badge green" id="after-badge">after migration</span>
         </div>
-        <pre class="json-view" id="after-json"></pre>
+        <div class="json-view" id="after-json"></div>
       </div>
     </div>
 
@@ -337,6 +365,9 @@ const FIXTURES = [
   { id: '06', name: 'Legacy Flat Preferences',       file: '06_legacy_flat_preferences.json' },
   { id: '07', name: 'Hard Mode, Long Streak',        file: '07_hard_mode_long_streak.json' },
   { id: '08', name: 'Already Migrated to Paula',     file: '08_already_migrated_to_paula.json' },
+  { id: '09', name: 'Legacy History Array Format',   file: '09_legacy_history_array.json' },
+  { id: '10', name: 'Pre-History All Wins',          file: '10_prehistory_all_wins.json' },
+  { id: '11', name: 'Insane Mode',                   file: '11_insane_mode.json' },
 ];
 
 // ── Mock localStorage ────────────────────────────────────────────────────────
@@ -347,8 +378,8 @@ const FIXTURES = [
 const SCALAR_KEYS = new Set(['device_id', 'version']);
 
 // Canonical key display order for the After panel.
-const CANONICAL_KEYS = ['version', 'device_id', 'statistics', 'gameState', 'history',
-                        'legacy_stats', 'preferences', 'settingsBackup'];
+const CANONICAL_KEYS = ['version', 'schema_version', 'device_id', 'statistics', 'gameState',
+                        'history', 'legacy_stats', 'preferences', 'settingsBackup'];
 
 function buildMockLocalStorage(fixture) {
   var store = {};
@@ -474,6 +505,18 @@ function runMigration(fixture) {
     }
   }
 
+  // preservePreHistoryStats: runs when versionNumber is set + no legacy_stats + stored > history
+  var hadLegacyBefore = !!before['legacy_stats'];
+  var hasLegacyAfter  = !!afterRaw['legacy_stats'];
+  if (!hadLegacyBefore && hasLegacyAfter) {
+    var synth = afterRaw['legacy_stats'] || {};
+    var streakNote = synth.current_streak_length != null
+      ? '  |  streak bridge: ' + synth.current_streak_length + ' pre-history wins ending ' + synth.current_streak_end_date
+      : '';
+    report.push({ type: 'ok', text: 'Synthetic legacy_stats created (preservePreHistoryStats)',
+                  detail: 'pre-history games: ' + (synth.gamesPlayed || 0) + streakNote });
+  }
+
   if ((beforeStats.versionNumber || 0) >= 2) {
     report.push({ type: 'skip', text: 'Statistics already at versionNumber 2',
                   detail: 'migratedBy: ' + (beforeStats.migratedBy || '?') });
@@ -527,19 +570,31 @@ function syntaxHighlight(str) {
     .replace(/:\s*(null)/g, ': <span class="jx">$1</span>');
 }
 
-function renderJsonWithDiff(obj, changedKeys, removedKeys) {
-  var raw = JSON.stringify(obj, null, 2);
-  var lines = raw.split('\n');
-  var result = lines.map(function(line) {
-    var trimmed = line.trimStart();
-    var keyMatch = trimmed.match(/^"([\w@._\- ]+)"\s*:/);
-    if (keyMatch) {
-      var key = keyMatch[1];
-      if (changedKeys && changedKeys.has(key)) return '<span class="added">' + syntaxHighlight(line) + '</span>';
-    }
-    return syntaxHighlight(line);
-  });
-  return result.join('\n');
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderKeyBlock(key, value, cssClass) {
+  var keyHtml = '<span class="jk">"' + escHtml(key) + '"</span>';
+  var cls = 'key-block' + (cssClass ? ' ' + cssClass : '');
+
+  if (value !== null && typeof value === 'object') {
+    var hint = '<span class="jx">' + (Array.isArray(value) ? '[…]' : '{…}') + '</span>';
+    var body = syntaxHighlight(JSON.stringify(value, null, 2));
+    return '<details class="' + cls + '" open>'
+      + '<summary class="key-summary"><span class="key-toggle"></span>' + keyHtml + ': ' + hint + '</summary>'
+      + '<pre class="key-value">' + body + '</pre>'
+      + '</details>';
+  }
+
+  var scalar = syntaxHighlight(JSON.stringify(value));
+  return '<div class="' + cls + ' key-scalar">' + keyHtml + ': ' + scalar + '</div>';
+}
+
+function renderJsonWithDiff(obj, changedKeys) {
+  return Object.keys(obj).map(function(key) {
+    return renderKeyBlock(key, obj[key], changedKeys && changedKeys.has(key) ? 'added' : '');
+  }).join('');
 }
 
 // ── Stats modal renderer ──────────────────────────────────────────────────────
