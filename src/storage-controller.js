@@ -35,7 +35,7 @@ var SCHEMA = {
         solution:                   "string",
         lastPlayedTs:               "number",
         lastCompletedTs:            "number",
-        updatedAt:                  "string",
+        updatedAt:                  "number",
         restoringFromLocalStorage:  "boolean",
         answersRemaining:           "number",
         encryptedAnswer:            "string"
