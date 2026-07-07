@@ -1630,6 +1630,24 @@ game-icon {
     font-size: 12px;
 }
 
+#tools .send-settings-contact-label {
+    display: block;
+    font-size: 13px;
+    margin-top: 10px;
+    margin-bottom: 4px;
+}
+
+#tools .send-settings-contact-input {
+    width: 100%;
+    font-size: 14px;
+    padding: 6px;
+    box-sizing: border-box;
+    border: 1px solid var(--color-tone-4);
+    border-radius: 4px;
+    background: var(--color-background);
+    color: var(--color-tone-1);
+}
+
 #tools .flagged-table-scroll {
     max-height: 200px;
     overflow-y: auto;

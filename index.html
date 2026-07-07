@@ -133,6 +133,18 @@
       <div id="tools-status" class="tools-status-message"></div>
     </section>
   </div>
+  <div id="send-settings-contact-modal" class="tools-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="send-settings-contact-title">
+    <div class="tools-inline-modal-card">
+      <h3 id="send-settings-contact-title">Send Settings to Developers</h3>
+      <p>Your settings will be sent for troubleshooting. Optionally include your email or social media handle so developers can follow up if they have questions.</p>
+      <label for="send-settings-contact-input" class="send-settings-contact-label">Email or social handle (optional)</label>
+      <input id="send-settings-contact-input" type="text" class="send-settings-contact-input" placeholder="e.g. user@example.com or @handle" autocomplete="off">
+      <div class="tools-inline-modal-actions">
+        <button id="send-settings-contact-send" type="button">Send</button>
+        <button id="send-settings-contact-cancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
   <div id="history-import-summary-modal" class="tools-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="history-import-summary-title">
     <div class="tools-inline-modal-card">
       <h3 id="history-import-summary-title">Import Complete</h3>

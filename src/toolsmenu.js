@@ -955,6 +955,10 @@ class ToolsMenu {
         var self = this;
         var downloadButton = document.getElementById("downloadAllSettingsButton");
         var sendButton = document.getElementById("sendSettingsToDevelopersButton");
+        var contactModal = document.getElementById("send-settings-contact-modal");
+        var contactInput = document.getElementById("send-settings-contact-input");
+        var contactSendButton = document.getElementById("send-settings-contact-send");
+        var contactCancelButton = document.getElementById("send-settings-contact-cancel");
 
         if (downloadButton) {
             downloadButton.addEventListener("click", function() {
@@ -966,25 +970,48 @@ class ToolsMenu {
             });
         }
 
-        if (sendButton) {
+        function doSendSettings() {
+            if (contactModal) contactModal.classList.add("hidden");
+            sendButton.disabled = true;
+            ToolsMenu.showStatus(statusElement, "Sending settings...", false);
+            var settings = self.collectAllSettings();
+            var contactValue = contactInput ? contactInput.value.trim() : "";
+            var data = contactValue
+                ? Object.assign({ optional_id: contactValue }, settings)
+                : settings;
+            window.LeftWordleApi.client.submitDiagnostics(data)
+                .then(function() {
+                    ToolsMenu.showStatus(statusElement, "Settings sent to developers", false);
+                })
+                .catch(function(err) {
+                    var msg = (err && err.status === 503)
+                        ? "Unable to send — please use Download All Settings instead"
+                        : "Failed to send — please try again or use Download All Settings";
+                    ToolsMenu.showStatus(statusElement, msg, true);
+                })
+                .finally(function() {
+                    sendButton.disabled = false;
+                });
+        }
+
+        if (sendButton && contactModal) {
             sendButton.addEventListener("click", function() {
                 ToolsMenu.flashElement(sendButton);
-                sendButton.disabled = true;
-                ToolsMenu.showStatus(statusElement, "Sending settings...", false);
-                var data = self.collectAllSettings();
-                window.LeftWordleApi.client.submitDiagnostics(data)
-                    .then(function() {
-                        ToolsMenu.showStatus(statusElement, "Settings sent to developers", false);
-                    })
-                    .catch(function(err) {
-                        var msg = (err && err.status === 503)
-                            ? "Unable to send — please use Download All Settings instead"
-                            : "Failed to send — please try again or use Download All Settings";
-                        ToolsMenu.showStatus(statusElement, msg, true);
-                    })
-                    .finally(function() {
-                        sendButton.disabled = false;
-                    });
+                if (contactInput) contactInput.value = "";
+                contactModal.classList.remove("hidden");
+                if (contactInput) contactInput.focus();
+            });
+        }
+
+        if (contactSendButton) {
+            contactSendButton.addEventListener("click", function() {
+                doSendSettings();
+            });
+        }
+
+        if (contactCancelButton) {
+            contactCancelButton.addEventListener("click", function() {
+                if (contactModal) contactModal.classList.add("hidden");
             });
         }
     }
