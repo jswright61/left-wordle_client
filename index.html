@@ -194,22 +194,29 @@
     <template id="settings-template">
       <div class="sections">
         <section>
-          <div class="setting mode-setting">
-            <div class="text">
-              <div class="title">Mode</div>
-            </div>
+          <div class="mode-setting">
+            <div class="title">Mode</div>
             <div class="mode-options">
               <label class="mode-option" title="Standard play — any legal word may be guessed at any time.">
                 <input type="radio" name="gameplay-mode" value="regular">
-                <span>Regular</span>
+                <div class="mode-option-text">
+                  <span class="mode-option-name">Regular</span>
+                  <span class="mode-option-description">Standard play — any legal word may be guessed at any time.</span>
+                </div>
               </label>
-              <label class="mode-option" title="Previous clues must be honored. Green (Correct) letters must stay in their position. Yellow (Present) letters must appear somewhere in subsequent guesses, including in the same position they were revealed.">
+              <label class="mode-option" title="Previous clues must be honored. Green letters must stay in position. Yellow letters must appear somewhere in subsequent guesses.">
                 <input type="radio" name="gameplay-mode" value="hard">
-                <span>Hard</span>
+                <div class="mode-option-text">
+                  <span class="mode-option-name">Hard</span>
+                  <span class="mode-option-description">Previous clues must be honored. Green letters must stay in position. Yellow letters must appear somewhere in subsequent guesses.</span>
+                </div>
               </label>
-              <label class="mode-option" title="Hard Mode rules apply, plus: yellow (Present) letters may not be placed in any position where they were previously revealed as yellow, and gray (Absent) letters may not appear anywhere in subsequent guesses. (A word may contain repeated letters; these constraints apply only to what has been revealed.)">
+              <label class="mode-option" title="Hard Mode rules plus: yellow letters can't be placed where they were revealed yellow, and gray letters can't appear anywhere in subsequent guesses.">
                 <input type="radio" name="gameplay-mode" value="insane">
-                <span>Insane</span>
+                <div class="mode-option-text">
+                  <span class="mode-option-name">Insane</span>
+                  <span class="mode-option-description">Hard Mode rules plus: yellow letters can't be placed where they were revealed yellow, and gray letters can't appear anywhere in subsequent guesses.</span>
+                </div>
               </label>
             </div>
           </div>
@@ -240,6 +247,7 @@
             </div>
           </div>
           <h3 class="section-heading">Show Remaining Answers</h3>
+          <p class="section-description">Shows how many valid words could still be the answer given your current clues.</p>
           <div class="remaining-answers-setting">
             <label class="remaining-answers-option">
               <input type="radio" name="remaining-answers-mode" value="neither">
@@ -283,16 +291,16 @@
           </div>
           <h3 class="section-heading">Share Text Additions</h3>
           <div class="share-text-field">
-            <label for="share-pre-header">Pre Header Line Text</label>
+            <label for="share-pre-header">Before result line</label>
             <input type="text" id="share-pre-header" name="share-pre-header">
           </div>
           <div class="share-text-row">
             <div class="share-text-field">
-              <label for="share-header-append">Post Header Line</label>
+              <label for="share-header-append">After result line</label>
               <textarea id="share-header-append" name="share-header-append" rows="3"></textarea>
             </div>
             <div class="share-text-field">
-              <label for="share-after-grid">After Grid</label>
+              <label for="share-after-grid">After grid</label>
               <textarea id="share-after-grid" name="share-after-grid" rows="3"></textarea>
             </div>
           </div>

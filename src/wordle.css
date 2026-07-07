@@ -1023,6 +1023,8 @@ game-settings #copyright {
 
 @media (max-width: 480px) {
     game-settings .section-heading,
+    game-settings .section-description,
+    game-settings .mode-setting,
     game-settings .remaining-answers-setting,
     game-settings .share-format-setting,
     game-settings .share-text-row,
@@ -1053,6 +1055,13 @@ game-settings .section-heading {
     text-align: center;
 }
 
+game-settings .section-description {
+    font-size: 12px;
+    color: var(--color-tone-2);
+    text-align: center;
+    margin: -4px 0 8px;
+}
+
 game-settings .share-format-setting,
 game-settings .remaining-answers-setting {
     display: flex;
@@ -1077,22 +1086,45 @@ game-settings .remaining-answers-option input[type="radio"] {
 }
 
 
+game-settings .mode-setting {
+    border-bottom: 1px solid var(--color-tone-4);
+    padding: 16px 0;
+}
+
 game-settings .mode-options {
     display: flex;
-    gap: 16px;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
 }
 
 game-settings .mode-option {
     display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 14px;
+    align-items: flex-start;
+    gap: 8px;
     cursor: pointer;
 }
 
 game-settings .mode-option input[type="radio"] {
     cursor: pointer;
     accent-color: var(--color-correct);
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+game-settings .mode-option-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+game-settings .mode-option-name {
+    font-size: 14px;
+}
+
+game-settings .mode-option-description {
+    font-size: 12px;
+    color: var(--color-tone-2);
 }
 
 game-settings .share-text-row {
