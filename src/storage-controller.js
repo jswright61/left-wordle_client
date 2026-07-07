@@ -152,7 +152,7 @@ class NamespacedStorage {
 class PreferencesStorage extends NamespacedStorage {
     constructor() {
         super("preferences", SCHEMA.preferences);
-        this._legacyKeys = ["darkTheme", "colorBlindTheme", "shareFormat", "shareTextAdditions"];
+        this._legacyKeys = ["darkTheme", "colorBlindTheme", "shareFormat", "shareTextAdditions", "hardMode"];
     }
 
     _read() {

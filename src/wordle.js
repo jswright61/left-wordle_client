@@ -1842,6 +1842,7 @@
             var isNewUser = GameStateManager.isNewUser();
             StatisticsEngine.preservePreHistoryStats();
             StatisticsEngine.migrateIfNeeded();
+            migrateHardModeFromGameState();
             this.appendChild(gameAppTemplate.content.cloneNode(true));
             this.$game = this.querySelector("#game");
             this.$board = this.querySelector("#board");
@@ -2792,6 +2793,14 @@
     };
 
     // Export pure functions for testing
+    function migrateHardModeFromGameState() {
+        if (StorageController.preferences.get("hardMode") !== null) return;
+        var state = GameStateManager.getGameState();
+        if (state && state.hardMode) {
+            StorageController.preferences.set("hardMode", true);
+        }
+    }
+
     window.wordleTestExports = {
         PRESENT: GameEvaluator.PRESENT,
         CORRECT: GameEvaluator.CORRECT,
@@ -2829,6 +2838,7 @@
         recomputeAndPersistStatistics: StatisticsEngine.recomputeAndPersistStatistics,
         preservePreHistoryStats: StatisticsEngine.preservePreHistoryStats,
         migrateIfNeeded: StatisticsEngine.migrateIfNeeded,
+        migrateHardModeFromGameState: migrateHardModeFromGameState,
         getMigratedByVersion: StatisticsEngine.getMigratedByVersion,
         evaluateGuess: GameEvaluator.evaluateGuess,
         validateHardMode: GameEvaluator.validateHardMode,

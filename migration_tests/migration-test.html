@@ -357,20 +357,21 @@
 // ── Fixture manifest ──────────────────────────────────────────────────────────
 
 const FIXTURES = [
-  { id: '01', name: 'Fresh User',                   file: '01_fresh_user.json' },
-  { id: '02', name: 'New User, Stats Only',          file: '02_new_user_stats_only.json' },
-  { id: '03', name: 'Established, History Only',     file: '03_established_user_history_only.json' },
-  { id: '04', name: 'Legacy Stats + History',        file: '04_user_with_legacy_and_history.json' },
-  { id: '05', name: 'Mid-Game In Progress',          file: '05_mid_game_in_progress.json' },
-  { id: '06', name: 'Legacy Flat Preferences',       file: '06_legacy_flat_preferences.json' },
-  { id: '07', name: 'Hard Mode, Long Streak',        file: '07_hard_mode_long_streak.json' },
-  { id: '08', name: 'Already Migrated to Paula',     file: '08_already_migrated_to_paula.json' },
-  { id: '09', name: 'Legacy History Array Format',   file: '09_legacy_history_array.json' },
-  { id: '10', name: 'Pre-History All Wins',          file: '10_prehistory_all_wins.json' },
-  { id: '11', name: 'Insane Mode',                   file: '11_insane_mode.json' },
-  { id: '12', name: 'Hard Mode Legacy',              file: '12_hard_mode_legacy.json' },
-  { id: '13', name: 'Hard Mode Legacy 2',            file: '13_hard_mode_legacy2.json' },
-  { id: '14', name: 'Hard Mode Legacy 3',            file: '14_hard_mode_legacy3.json' },
+  { id: '01', name: 'Fresh User',                     file: '01_fresh_user.json' },
+  { id: '02', name: 'New User, Stats Only',           file: '02_new_user_stats_only.json' },
+  { id: '03', name: 'Established, History Only',      file: '03_established_user_history_only.json' },
+  { id: '04', name: 'Legacy Stats + History',         file: '04_user_with_legacy_and_history.json' },
+  { id: '05', name: 'Mid-Game In Progress',           file: '05_mid_game_in_progress.json' },
+  { id: '06', name: 'Legacy Flat Preferences',        file: '06_legacy_flat_preferences.json' },
+  { id: '07', name: 'Hard Mode, Long Streak',         file: '07_hard_mode_long_streak.json' },
+  { id: '08', name: 'Already Migrated to Paula',      file: '08_already_migrated_to_paula.json' },
+  { id: '09', name: 'Legacy History Array Format',    file: '09_legacy_history_array.json' },
+  { id: '10', name: 'Pre-History All Wins',           file: '10_prehistory_all_wins.json' },
+  { id: '11', name: 'Insane Mode',                    file: '11_insane_mode.json' },
+  { id: '12', name: 'Hard Mode Legacy Stand Alone',   file: '12_hard_mode_legacy_standalone.json' },
+  { id: '13', name: 'Hard Mode Legacy No Game State', file: '13_hard_mode_legacy_no_game_state.json' },
+  { id: '14', name: 'Hard Mode In Prefs',             file: '14_hard_mode_in_prefs.json' },
+  { id: '15', name: 'Hard Mode Just Last Game',       file: '15_hard_mode_legacy_just_last_game.json' },
 ];
 
 // ── Mock localStorage ────────────────────────────────────────────────────────
@@ -414,7 +415,7 @@ function mockToStore(mock) {
 // Drives real production code (StorageController + StatisticsEngine) via a
 // swapped window.localStorage, then observes the result.
 
-const FLAT_PREF_KEYS = ['darkTheme', 'colorBlindTheme', 'shareFormat', 'shareTextAdditions'];
+const FLAT_PREF_KEYS = ['darkTheme', 'colorBlindTheme', 'shareFormat', 'shareTextAdditions', 'hardMode'];
 
 function runMigration(fixture) {
   var before = JSON.parse(JSON.stringify(fixture));
@@ -449,6 +450,9 @@ function runMigration(fixture) {
 
     // Step 3 — Preference migration (PreferencesStorage._read auto-migrates flat keys)
     window.StorageController.preferences.getAll();
+
+    // Step 4 — Hard mode inference from gameState when no pref or flat key existed
+    window.wordleTestExports.migrateHardModeFromGameState();
 
     afterStats = mergeStats(window.StorageController.statistics.getAll());
     // Preferences: stored values merged onto defaults so all keys are always visible
@@ -505,6 +509,15 @@ function runMigration(fixture) {
     } else {
       report.push({ type: 'skip', text: 'No flat preference keys found',
                     detail: 'preferences{} will be created with defaults on first read' });
+    }
+  }
+
+  // hardMode inferred from gameState when no flat key or preferences.hardMode existed
+  if (!('preferences' in before) && !('hardMode' in before)) {
+    var gsHard = (before['gameState'] || {}).hardMode;
+    if (gsHard) {
+      report.push({ type: 'ok', text: 'Hard mode inferred from gameState',
+                    detail: 'No hardMode flat key or preferences — gameState.hardMode: true  →  preferences.hardMode: true' });
     }
   }
 
