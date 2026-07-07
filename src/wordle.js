@@ -722,8 +722,11 @@
 
         static getStatistics() {
             var stored = StorageController.statistics.getAll();
-            if (!stored || !Object.keys(stored).length) return JSON.parse(JSON.stringify(StatisticsEngine.DEFAULT_STATISTICS));
-            return stored;
+            var defaults = JSON.parse(JSON.stringify(StatisticsEngine.DEFAULT_STATISTICS));
+            if (!stored || !Object.keys(stored).length) return defaults;
+            var result = Object.assign(defaults, stored);
+            result.guesses = Object.assign({}, StatisticsEngine.DEFAULT_STATISTICS.guesses, stored.guesses || {});
+            return result;
         }
 
         static isCurrentStreakAdjustmentActive(entries, streakAdjustment) {
@@ -1952,7 +1955,8 @@
                             this.addToast(WIN_COMMENTS[this.rowIndex - 1], 2000);
                             var _remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
                             if (_remainingAnswersMode === "gameplay" || _remainingAnswersMode === "both") {
-                                this.updateRowCount(this.rowIndex - 1, 0);
+                                var _winRowIdx = this.rowIndex - 1;
+                                setTimeout(() => { this.updateRowCount(_winRowIdx, 0); }, 1000);
                             }
                         }
                         if (this.gameStatus === GAME_STATUS_FAIL) {
