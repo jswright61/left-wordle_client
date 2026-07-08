@@ -258,6 +258,15 @@
               <game-switch id="color-blind-theme" name="color-blind-theme"></game-switch>
             </div>
           </div>
+          <div class="setting">
+            <div class="text">
+              <div class="title">Hide Average Guesses</div>
+              <div class="description">Removes Average Guesses from the Statistics screen</div>
+            </div>
+            <div class="control">
+              <game-switch id="hide-average-guesses" name="hide-average-guesses"></game-switch>
+            </div>
+          </div>
           <h3 class="section-heading">Show Remaining Answers</h3>
           <p class="section-description">Shows how many valid words could still be the answer given your current clues.</p>
           <div class="remaining-answers-setting">
@@ -343,6 +352,7 @@
     <template id="stats-container-template">
       <div class="stats-container">
         <h1>Statistics</h1>
+        <div id="win-rate-line"></div>
         <div id="statistics"></div>
         <h1>Guess Distribution</h1>
         <div id="guess-distribution"></div>

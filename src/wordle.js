@@ -424,6 +424,15 @@
             hideDateInShareHeader
                 ? this.querySelector("#hide-date-in-share-header").setAttribute("checked", "")
                 : this.querySelector("#hide-date-in-share-header").removeAttribute("checked");
+            // Hide average guesses preference (default off; normalize null to false)
+            var hideAverageGuesses = StorageController.preferences.get("hideAverageGuesses");
+            if (hideAverageGuesses === null) {
+                hideAverageGuesses = false;
+                StorageController.preferences.set("hideAverageGuesses", false);
+            }
+            hideAverageGuesses
+                ? this.querySelector("#hide-average-guesses").setAttribute("checked", "")
+                : this.querySelector("#hide-average-guesses").removeAttribute("checked");
             // Remaining answers mode preference (default "neither")
             var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
             var remainingModeRadio = this.querySelector('input[name="remaining-answers-mode"][value="' + remainingAnswersMode + '"]');
@@ -2019,6 +2028,9 @@
                 case "hide-date-in-share-header":
                     StorageController.preferences.set("hideDateInShareHeader", checked);
                     return;
+                case "hide-average-guesses":
+                    StorageController.preferences.set("hideAverageGuesses", checked);
+                    return;
                 }
             });
             this.querySelector("#settings-button").addEventListener("click", () => {
@@ -2530,7 +2542,6 @@
     var STATISTIC_LABELS = {
         currentStreak: "Current Streak",
         maxStreak: "Max Streak",
-        winPercentage: "Win %",
         gamesPlayed: "Played",
         gamesWon: "Won",
         averageGuesses: "Average Guesses"
@@ -2572,17 +2583,19 @@
                     }
                     distributionEl.appendChild(barFragment);
                 }
-            ["gamesPlayed", "winPercentage", "currentStreak", "maxStreak", "averageGuesses"].forEach((statKey) => {
-                if (statKey === "averageGuesses") {
-                    var spacer = document.createElement("div");
-                    spacer.classList.add("statistic-spacer");
-                    statisticsEl.appendChild(spacer);
-                }
+            this.querySelector("#win-rate-line").textContent = "Win Rate: " + this.stats.winPercentage + "%";
+            var hideAverageGuesses = StorageController.preferences.get("hideAverageGuesses");
+            var statKeys = ["gamesPlayed", "currentStreak", "maxStreak"];
+            if (!hideAverageGuesses) statKeys.push("averageGuesses");
+            statKeys.forEach((statKey) => {
                 var label = STATISTIC_LABELS[statKey],
                     value = this.stats[statKey],
                     itemFragment = statisticItemTemplate.content.cloneNode(true);
                 itemFragment.querySelector(".label").textContent = label;
                 itemFragment.querySelector(".statistic").textContent = statKey === "averageGuesses" ? Number(value).toFixed(2) : value;
+                if (statKey === "averageGuesses") {
+                    itemFragment.querySelector(".statistic-container").classList.add("statistic-average-guesses");
+                }
                 statisticsEl.appendChild(itemFragment);
             });
             if (this.gameApp.gameStatus !== GAME_STATUS_IN_PROGRESS) {

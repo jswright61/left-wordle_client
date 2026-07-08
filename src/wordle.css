@@ -1221,18 +1221,20 @@ game-stats h1 {
     margin-bottom: 10px;
 }
 
+game-stats #win-rate-line {
+    font-size: 14px;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
 game-stats #statistics {
     display: flex;
+    column-gap: 8px;
     margin-bottom: 10px;
 }
 
 game-stats .statistic-container {
     flex: 1;
-}
-
-game-stats .statistic-spacer {
-    width: 16px;
-    flex: none;
 }
 
 game-stats .statistic-container .statistic {
@@ -1304,6 +1306,17 @@ game-stats .graph-container .graph .num-guesses {
 game-stats #statistics,
 game-stats #guess-distribution {
     padding-bottom: 10px;
+}
+
+@media (max-width: 480px) {
+    game-stats #statistics {
+        flex-wrap: wrap;
+    }
+
+    game-stats .statistic-container.statistic-average-guesses {
+        flex: 0 0 100%;
+        margin-top: 10px;
+    }
 }
 
 game-stats .stats-footer {

@@ -13,6 +13,7 @@ var SCHEMA = {
         shareFormat:            "string",
         shareTextAdditions:     "object",
         hideDateInShareHeader:  "boolean",
+        hideAverageGuesses:     "boolean",
         suppressLoginPrompt:    "boolean",
         remainingAnswersMode:   "string",
         showRemainingInShareText: "boolean",
