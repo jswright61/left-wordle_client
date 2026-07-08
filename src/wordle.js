@@ -1386,7 +1386,7 @@
                 this.insaneMode = state.insaneMode;
                 this.goofProtection = state.goofProtectionMode != null ? state.goofProtectionMode : true;
                 this.answersRemaining = state.answersRemaining || new Array(6).fill(null);
-                if (this.gameStatus === GAME_STATUS_WIN) {
+                if (this.gameStatus === GAME_STATUS_WIN && this.answersRemaining[0] !== null) {
                     this.answersRemaining[this.rowIndex - 1] = 0;
                 }
                 this.encryptedAnswer = state.encryptedAnswer || null;
@@ -1916,7 +1916,7 @@
             this.positionRowCounts();
             if (this.restoringFromLocalStorage) {
                 var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
-                if (remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") {
+                if ((remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") && this.answersRemaining[0] !== null) {
                     for (var j = 0; j < this.rowIndex; j++) {
                         if (typeof this.answersRemaining[j] === "number") {
                             this.updateRowCount(j, this.answersRemaining[j]);
@@ -1963,7 +1963,7 @@
                             lastRow.setAttribute("win", "");
                             this.addToast(WIN_COMMENTS[this.rowIndex - 1], 2000);
                             var _remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
-                            if (_remainingAnswersMode === "gameplay" || _remainingAnswersMode === "both") {
+                            if ((_remainingAnswersMode === "gameplay" || _remainingAnswersMode === "both") && this.answersRemaining[0] !== null) {
                                 var _winRowIdx = this.rowIndex - 1;
                                 setTimeout(() => { this.updateRowCount(_winRowIdx, 0); }, 1000);
                             }
@@ -2176,7 +2176,7 @@
             Promise.all([request, minDelay]).then(([result]) => {
                 if (typeof result.answersRemaining === "number") {
                     var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
-                    if (remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") {
+                    if ((remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") && this.answersRemaining[0] !== null) {
                         this.updateRowCount(rowIndex, result.answersRemaining);
                     }
                 }
