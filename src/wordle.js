@@ -2075,6 +2075,21 @@
                     this._pendingQueryGuesses.some(Boolean) && this.answer) {
                 setTimeout(() => this._submitNextQueryStringGuess(), 0);
             }
+            var GAME_BANNER_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+            var gameBanner = document.createElement("div");
+            gameBanner.id = "game-banner";
+            var gameBannerText = document.createElement("span");
+            var gameBannerDateLabel = this.today.getDate() + " " + GAME_BANNER_MONTHS[this.today.getMonth()] + ", " + this.today.getFullYear();
+            gameBannerText.textContent = "Game " + this.dayOffset.toLocaleString() + " for " + gameBannerDateLabel;
+            var gameBannerDismiss = document.createElement("button");
+            gameBannerDismiss.id = "game-banner-dismiss";
+            gameBannerDismiss.setAttribute("aria-label", "Dismiss");
+            gameBannerDismiss.textContent = "✕";
+            gameBannerDismiss.addEventListener("click", () => gameBanner.remove());
+            gameBanner.appendChild(gameBannerText);
+            gameBanner.appendChild(gameBannerDismiss);
+            this.$game.insertBefore(gameBanner, this.$game.querySelector("#board-container"));
+
             var envLabel = getEnvironmentLabel(window.location.hostname);
             if (envLabel) {
                 var envBanner = document.createElement("div");
