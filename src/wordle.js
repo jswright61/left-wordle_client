@@ -246,12 +246,38 @@
             StorageController.gameState.replace(merged);
         }
 
+        static generateUuidV7() {
+            var bytes = new Uint8Array(16);
+            if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+                crypto.getRandomValues(bytes);
+            } else {
+                for (var i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+            }
+
+            // 48-bit big-endian ms-since-epoch. Division + masking (not bit-shifts) because
+            // JS bitwise ops coerce to 32-bit signed ints and would truncate a 48-bit value.
+            var ts = Date.now();
+            bytes[0] = (ts / Math.pow(2, 40)) & 0xff;
+            bytes[1] = (ts / Math.pow(2, 32)) & 0xff;
+            bytes[2] = (ts / Math.pow(2, 24)) & 0xff;
+            bytes[3] = (ts / Math.pow(2, 16)) & 0xff;
+            bytes[4] = (ts / Math.pow(2, 8)) & 0xff;
+            bytes[5] = ts & 0xff;
+            bytes[6] = (bytes[6] & 0x0f) | 0x70; // version 7
+            bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+
+            var hex = Array.prototype.map.call(bytes, function(b) {
+                return b.toString(16).padStart(2, "0");
+            }).join("");
+
+            return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" +
+                hex.slice(16, 20) + "-" + hex.slice(20, 32);
+        }
+
         static getDeviceId() {
             var existing = StorageController.deviceId.get();
-            if (existing) return existing;
-            var generated = (typeof crypto !== "undefined" && crypto.randomUUID) ?
-                crypto.randomUUID() :
-                Math.random().toString(36).slice(2) + Date.now().toString(36);
+            if (existing) return existing; // never regenerate — preserves correlation for existing users
+            var generated = GameStateManager.generateUuidV7();
             StorageController.deviceId.set(generated);
             return generated;
         }
@@ -1558,6 +1584,10 @@
             if (remainingAnswersMode !== "neither" && gameStatus !== GAME_STATUS_WIN) {
                 this._fireRemainingCountRequest(evaluatedRowIndex, guess, mode, prevGuesses);
             }
+
+            if (gameStatus !== GAME_STATUS_IN_PROGRESS) {
+                this._fireCompletionReport(evaluatedRowIndex, mode, gameStatus);
+            }
         }
 
 
@@ -1852,6 +1882,7 @@
 
         connectedCallback() {
             var isNewUser = GameStateManager.isNewUser();
+            GameStateManager.getDeviceId(); // ensure a device id is persisted before any request fires below
             StatisticsEngine.preservePreHistoryStats();
             StatisticsEngine.migrateIfNeeded();
             migrateHardModeFromGameState();
@@ -2196,6 +2227,17 @@
                     }
                 }
             }).catch(() => {});
+        }
+
+        _fireCompletionReport(finalRowIndex, mode, gameStatus) {
+            var allGuesses = this.buildPrevGuesses(finalRowIndex + 1);
+            window.LeftWordleApi.client.reportCompletion(
+                DateUtils.formatLocalDate(this.today),
+                this.dayOffset,
+                mode,
+                gameStatus,
+                allGuesses
+            ).catch(() => {});
         }
 
         debugTools() {
@@ -2872,6 +2914,8 @@
         migrateIfNeeded: StatisticsEngine.migrateIfNeeded,
         migrateHardModeFromGameState: migrateHardModeFromGameState,
         getMigratedByVersion: StatisticsEngine.getMigratedByVersion,
+        generateUuidV7: GameStateManager.generateUuidV7,
+        getDeviceId: GameStateManager.getDeviceId,
         evaluateGuess: GameEvaluator.evaluateGuess,
         validateHardMode: GameEvaluator.validateHardMode,
         validateInsaneMode: GameEvaluator.validateInsaneMode,

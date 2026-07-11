@@ -70,6 +70,18 @@
             return this.request("/api/v1/game/remaining_counts", options);
         }
 
+        async reportCompletion(date, puzzleNum, mode, gameStatus, guesses, options) {
+            var body = {
+                date: date,
+                puzzle_num: puzzleNum,
+                mode: mode,
+                game_status: gameStatus,
+                guesses: guesses
+            };
+            options = Object.assign({}, options, { body: body, method: "POST" });
+            return this.request("/api/v1/game/complete", options);
+        }
+
         async request(path, options) {
             options = options || {};
             var controller = new AbortController();
@@ -88,6 +100,10 @@
 
             try {
                 var headers = { Accept: "application/json" };
+                if (window.StorageController && window.StorageController.deviceId) {
+                    var deviceId = window.StorageController.deviceId.get();
+                    if (deviceId) headers["X-Device-Id"] = deviceId;
+                }
                 var body;
                 if (options.body !== undefined) {
                     headers["Content-Type"] = "application/json";

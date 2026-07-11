@@ -97,6 +97,8 @@ const validateInsaneMode = testExports.validateInsaneMode;
 const decryptAnswer = testExports.decryptAnswer;
 const buildShareText = testExports.buildShareText;          // IIFE -> buildShareText
 const buildAccessibleRows = testExports.buildAccessibleRows; // ShareUtils.buildAccessibleRows
+const generateUuidV7 = testExports.generateUuidV7;
+const getDeviceId = testExports.getDeviceId;
 
 // ============================================================================
 // TESTS
@@ -844,5 +846,49 @@ describe('encodeWord (previously Wa)', () => {
     test('encodes all letters to letters', () => {
         const encoded = encodeWord('abcdefghijklmnopqrstuvwxyz');
         expect(encoded).toMatch(/^[a-z]+$/);
+    });
+});
+
+describe('generateUuidV7', () => {
+    test('produces RFC-9562-shaped output (version nibble 7, variant bits 10)', () => {
+        const id = generateUuidV7();
+        expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    });
+
+    test('encodes the current timestamp in the first 48 bits, sortable by creation time', () => {
+        const before = Date.now();
+        const id = generateUuidV7();
+        const after = Date.now();
+
+        const timestampHex = id.slice(0, 8) + id.slice(9, 13);
+        const timestampMs = parseInt(timestampHex, 16);
+
+        expect(timestampMs).toBeGreaterThanOrEqual(before);
+        expect(timestampMs).toBeLessThanOrEqual(after);
+    });
+
+    test('generates distinct ids across calls', () => {
+        const id1 = generateUuidV7();
+        const id2 = generateUuidV7();
+        expect(id1).not.toBe(id2);
+    });
+});
+
+describe('getDeviceId', () => {
+    beforeEach(() => {
+        dom.window.localStorage.clear();
+    });
+
+    test('generates and persists a v7-shaped id when none is stored', () => {
+        const id = getDeviceId();
+        expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+        expect(getDeviceId()).toBe(id);
+    });
+
+    test('does not regenerate an existing stored (v4-shaped) id', () => {
+        const existingV4 = 'e5f0c1a2-1234-4abc-8def-0123456789ab';
+        dom.window.localStorage.setItem('device_id', existingV4);
+
+        expect(getDeviceId()).toBe(existingV4);
     });
 });

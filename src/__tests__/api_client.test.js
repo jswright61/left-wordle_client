@@ -209,4 +209,57 @@ describe('LeftWordleApi', () => {
 
         await expect(request).rejects.toMatchObject({ code: 'cancelled' });
     });
+
+    test('includes an X-Device-Id header when a device id is stored', async () => {
+        const fetchImpl = jest.fn().mockResolvedValue(response({ body: '{"status":"ok"}' }));
+        const dom = loadClient(fetchImpl);
+        dom.window.StorageController = { deviceId: { get: () => 'a-device-id' } };
+
+        await dom.window.LeftWordleApi.client.health();
+
+        expect(fetchImpl).toHaveBeenCalledWith(
+            'http://localhost:9292/api/v1/health',
+            expect.objectContaining({
+                headers: { Accept: 'application/json', 'X-Device-Id': 'a-device-id' }
+            })
+        );
+    });
+
+    test('omits the X-Device-Id header when no device id is stored', async () => {
+        const fetchImpl = jest.fn().mockResolvedValue(response({ body: '{"status":"ok"}' }));
+        const dom = loadClient(fetchImpl);
+        dom.window.StorageController = { deviceId: { get: () => null } };
+
+        await dom.window.LeftWordleApi.client.health();
+
+        expect(fetchImpl).toHaveBeenCalledWith(
+            'http://localhost:9292/api/v1/health',
+            expect.objectContaining({ headers: { Accept: 'application/json' } })
+        );
+    });
+
+    test('posts a game completion report', async () => {
+        const fetchImpl = jest.fn().mockResolvedValue(response({ body: '{"status":"recorded"}' }));
+        const dom = loadClient(fetchImpl);
+        const guesses = [['crane', '01200'], ['slate', '22222']];
+
+        const result = await dom.window.LeftWordleApi.client.reportCompletion(
+            '2021-06-19', 0, 'regular', 'WIN', guesses
+        );
+
+        expect(fetchImpl).toHaveBeenCalledWith(
+            'http://localhost:9292/api/v1/game/complete',
+            expect.objectContaining({
+                body: JSON.stringify({
+                    date: '2021-06-19',
+                    puzzle_num: 0,
+                    mode: 'regular',
+                    game_status: 'WIN',
+                    guesses: guesses
+                }),
+                method: 'POST'
+            })
+        );
+        expect(result).toEqual({ status: 'recorded' });
+    });
 });
