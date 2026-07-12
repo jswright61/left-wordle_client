@@ -1625,7 +1625,7 @@ game-icon {
     min-height: 20px;
 }
 
-#tools .tools-inline-modal, #login .tools-inline-modal {
+.tools-inline-modal {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.45);
@@ -1636,11 +1636,11 @@ game-icon {
     z-index: 2200;
 }
 
-#tools .tools-inline-modal.hidden, #login .tools-inline-modal.hidden {
+.tools-inline-modal.hidden {
     display: none;
 }
 
-#tools .tools-inline-modal-card, #login .tools-inline-modal-card {
+.tools-inline-modal-card {
     width: min(540px, 100%);
     max-height: 90vh;
     overflow-y: auto;
@@ -1650,23 +1650,23 @@ game-icon {
     padding: 16px;
 }
 
-#tools .tools-inline-modal-card h3, #login .tools-inline-modal-card h3 {
+.tools-inline-modal-card h3 {
     margin: 0 0 8px 0;
     font-size: 18px;
 }
 
-#tools .tools-inline-modal-card p, #login .tools-inline-modal-card p {
+.tools-inline-modal-card p {
     margin: 6px 0;
 }
 
-#tools .tools-inline-modal-actions, #login .tools-inline-modal-actions {
+.tools-inline-modal-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 12px;
 }
 
-#tools .tools-inline-modal-actions button, #login .tools-inline-modal-actions button {
+.tools-inline-modal-actions button {
     background: var(--green);
     color: var(--color-tone-5);
     border: none;
