@@ -82,6 +82,81 @@
             return this.request("/api/v1/game/complete", options);
         }
 
+        // -- Passkey auth / server sync (/api/v2) --------------------------
+
+        async registerBegin(payload, options) {
+            options = Object.assign({}, options, { body: payload || {}, method: "POST" });
+            return this.request("/api/v2/auth/register/begin", options);
+        }
+
+        async registerFinish(payload, options) {
+            options = Object.assign({}, options, { body: payload, method: "POST" });
+            return this.request("/api/v2/auth/register/finish", options);
+        }
+
+        async loginBegin(options) {
+            options = Object.assign({}, options, { body: {}, method: "POST" });
+            return this.request("/api/v2/auth/login/begin", options);
+        }
+
+        async loginFinish(payload, options) {
+            options = Object.assign({}, options, { body: payload, method: "POST" });
+            return this.request("/api/v2/auth/login/finish", options);
+        }
+
+        async logout(options) {
+            options = Object.assign({}, options, { method: "POST" });
+            return this.request("/api/v2/auth/logout", options);
+        }
+
+        async deviceLink(delivery, options) {
+            options = Object.assign({}, options, { body: { delivery: delivery }, method: "POST" });
+            return this.request("/api/v2/auth/device_link", options);
+        }
+
+        async patchEmail(email, options) {
+            options = Object.assign({}, options, { body: { email: email }, method: "PATCH" });
+            return this.request("/api/v2/account/email", options);
+        }
+
+        async importLocalData(payload, options) {
+            options = Object.assign({}, options, { body: payload, method: "POST" });
+            return this.request("/api/v2/import/local_data", options);
+        }
+
+        async getProfile(options) {
+            return this.request("/api/v2/profile", options);
+        }
+
+        async putPreferences(preferences, options) {
+            options = Object.assign({}, options, { body: preferences, method: "PUT" });
+            return this.request("/api/v2/profile/preferences", options);
+        }
+
+        async putGameState(gameState, options) {
+            options = Object.assign({}, options, { body: gameState, method: "PUT" });
+            return this.request("/api/v2/profile/game_state", options);
+        }
+
+        async putStatistics(statistics, options) {
+            options = Object.assign({}, options, { body: statistics, method: "PUT" });
+            return this.request("/api/v2/profile/statistics", options);
+        }
+
+        async getHistory(options) {
+            return this.request("/api/v2/history", options);
+        }
+
+        async importHistory(historyEntries, options) {
+            options = Object.assign({}, options, { body: { history: historyEntries }, method: "POST" });
+            return this.request("/api/v2/history/import", options);
+        }
+
+        async adjustStats(statistics, options) {
+            options = Object.assign({}, options, { body: statistics, method: "POST" });
+            return this.request("/api/v2/stats/adjust", options);
+        }
+
         async request(path, options) {
             options = options || {};
             var controller = new AbortController();
@@ -103,6 +178,9 @@
                 if (window.StorageController && window.StorageController.deviceId) {
                     var deviceId = window.StorageController.deviceId.get();
                     if (deviceId) headers["X-Device-Id"] = deviceId;
+                }
+                if (window.LeftWordleAuth && window.LeftWordleAuth.csrfToken) {
+                    headers["X-CSRF-Token"] = window.LeftWordleAuth.csrfToken;
                 }
                 var body;
                 if (options.body !== undefined) {

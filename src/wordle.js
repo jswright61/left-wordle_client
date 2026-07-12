@@ -459,6 +459,14 @@
             hideAverageGuesses
                 ? this.querySelector("#hide-average-guesses").setAttribute("checked", "")
                 : this.querySelector("#hide-average-guesses").removeAttribute("checked");
+            // Suppress login prompt preference (only meaningful once passkey login exists)
+            var suppressLoginPromptRow = this.querySelector("#suppress-login-prompt-setting");
+            if (suppressLoginPromptRow) {
+                suppressLoginPromptRow.classList.toggle("hidden", !window.LEFT_WORDLE_CONFIG || !window.LEFT_WORDLE_CONFIG.passkeyAuthEnabled);
+            }
+            StorageController.preferences.get("suppressLoginPrompt")
+                ? this.querySelector("#suppress-login-prompt").setAttribute("checked", "")
+                : this.querySelector("#suppress-login-prompt").removeAttribute("checked");
             // Remaining answers mode preference (default "neither")
             var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
             var remainingModeRadio = this.querySelector('input[name="remaining-answers-mode"][value="' + remainingAnswersMode + '"]');
@@ -2140,6 +2148,9 @@
                 case "hide-average-guesses":
                     StorageController.preferences.set("hideAverageGuesses", checked);
                     return;
+                case "suppress-login-prompt":
+                    StorageController.preferences.set("suppressLoginPrompt", checked);
+                    return;
                 }
             });
             this.querySelector("#settings-button").addEventListener("click", () => {
@@ -2213,6 +2224,10 @@
                 envBanner.appendChild(bannerText);
                 envBanner.appendChild(dismissBtn);
                 this.$game.insertBefore(envBanner, this.$game.querySelector("#board-container"));
+            }
+
+            if (window.leftWordleLoginUI && typeof window.leftWordleLoginUI.maybePromptLogin === "function") {
+                setTimeout(() => { window.leftWordleLoginUI.maybePromptLogin(); }, 1500);
             }
         }
 
@@ -2862,7 +2877,8 @@
         close: "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
         share: "M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92zM18 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM6 13c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm12 7.02c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z",
         statistics: "M16,11V3H8v6H2v12h20V11H16z M10,5h4v14h-4V5z M4,11h4v8H4V11z M20,19h-4v-6h4V19z",
-        tools: "M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"
+        tools: "M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z",
+        key: "M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"
     };
 
     class GameIcon extends HTMLElement {

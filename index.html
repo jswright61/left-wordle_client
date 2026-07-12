@@ -71,6 +71,9 @@
                         Left Wordle
                     </div>
                     <div class="menu">
+                        <button id="login-button" class="icon hidden" aria-label="account" title="Account">
+                            <game-icon icon="key"></game-icon>
+                        </button>
                         <button id="tools-button" class="icon" aria-label="tools" title="Tools">
                             <game-icon icon="tools"></game-icon>
                         </button>
@@ -203,6 +206,109 @@
       </div>
     </div>
   </div>
+  <div id="login" class="hidden">
+    <div class="overlay">
+      <div class="content">
+        <header>
+          <h1>Account</h1>
+          <game-icon id="login-close" icon="close"></game-icon>
+        </header>
+        <div class="content-container">
+          <slot name="content">
+            <div class="sections">
+              <section id="login-logged-out-section">
+                <h2 class="tools-section-heading">Save Your Stats Across Devices</h2>
+                <p class="description">Create a passkey to save your history, stats, preferences, and current game to an account. No email required — you can add one later to make it easier to add new devices.</p>
+                <label class="field-label" for="login-email-input">Email (optional)</label>
+                <input id="login-email-input" type="text" class="field-input" placeholder="e.g. user@example.com" autocomplete="email">
+                <div class="tools-row">
+                  <button class="tools-item-left tools-action-button" id="login-register-button" type="button">Create Passkey</button>
+                  <button class="tools-item-right tools-action-button" id="login-signin-button" type="button">Log In</button>
+                </div>
+                <button class="suppress-login-prompt-link" id="login-suppress-link" type="button">Don't ask me to log in</button>
+                <div id="login-status" class="tools-status-message"></div>
+                <hr class="tools-divider">
+              </section>
+              <section id="login-logged-in-section" class="hidden">
+                <h2 class="tools-section-heading">Your Account</h2>
+                <p class="description" id="login-account-email">No email on file</p>
+                <div class="tools-row">
+                  <button class="tools-item-left tools-action-button" id="login-add-device-link-button" type="button">Add a Device (Link)</button>
+                  <button class="tools-item-right tools-action-button" id="login-add-device-email-button" type="button">Email Me a Link</button>
+                </div>
+                <div class="tools-row">
+                  <button class="tools-item-left tools-action-button" id="login-set-email-button" type="button">Set Email</button>
+                  <button class="tools-item-right tools-action-button" id="login-logout-button" type="button">Log Out</button>
+                </div>
+                <div id="login-account-status" class="tools-status-message"></div>
+                <hr class="tools-divider">
+              </section>
+            </div>
+          </slot>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="login-set-email-modal" class="tools-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="login-set-email-title">
+    <div class="tools-inline-modal-card">
+      <h3 id="login-set-email-title">Set Account Email</h3>
+      <p>Adding an email lets you request a one-time link by email to add a new device, instead of only scanning a QR code.</p>
+      <label class="field-label" for="login-set-email-input">Email</label>
+      <input id="login-set-email-input" type="text" class="field-input" placeholder="e.g. user@example.com" autocomplete="email">
+      <div class="tools-inline-modal-actions">
+        <button id="login-set-email-save" type="button">Save</button>
+        <button id="login-set-email-cancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="login-device-link-modal" class="tools-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="login-device-link-title">
+    <div class="tools-inline-modal-card">
+      <h3 id="login-device-link-title">Add a Device</h3>
+      <p id="login-device-link-instructions">Open this link on the device you want to add. It expires soon and can only be used once.</p>
+      <input id="login-device-link-url" type="text" class="field-input" readonly>
+      <p id="login-device-link-status"></p>
+      <div class="tools-inline-modal-actions">
+        <button id="login-device-link-copy" type="button">Copy Link</button>
+        <button id="login-device-link-close" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="login-import-modal" class="tools-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="login-import-title">
+    <div class="tools-inline-modal-card">
+      <h3 id="login-import-title">Save This Device's History?</h3>
+      <p>You can copy this device's history, stats, and preferences to your new account now. This only happens once.</p>
+      <p>If another device has more complete history or stats, you can instead log in from that device and skip this step here.</p>
+      <div class="tools-inline-modal-actions">
+        <button id="login-import-accept" type="button">Yes, Import</button>
+        <button id="login-import-decline" type="button">Not Now</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="login-link-landing" class="hidden">
+    <div class="overlay">
+      <div class="content">
+        <header>
+          <h1>Add This Device</h1>
+        </header>
+        <div class="content-container">
+          <div class="sections">
+            <section>
+              <p class="description">Complete passkey setup to add this device to your account. Your history and stats on this device will be replaced with your account's.</p>
+              <div class="tools-row">
+                <button class="tools-item-center tools-action-button" id="login-link-landing-button" type="button">Set Up Passkey</button>
+              </div>
+              <div id="login-link-landing-status" class="tools-status-message"></div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
     <template id="settings-template">
       <div class="sections">
         <section>
@@ -265,6 +371,15 @@
             </div>
             <div class="control">
               <game-switch id="hide-average-guesses" name="hide-average-guesses"></game-switch>
+            </div>
+          </div>
+          <div class="setting" id="suppress-login-prompt-setting">
+            <div class="text">
+              <div class="title">Suppress Login Prompt</div>
+              <div class="description">Don't ask me to log in with a passkey</div>
+            </div>
+            <div class="control">
+              <game-switch id="suppress-login-prompt" name="suppress-login-prompt"></game-switch>
             </div>
           </div>
           <h3 class="section-heading">Show Remaining Answers</h3>
@@ -460,6 +575,9 @@
     <script src="src/storage-controller.js"></script>
     <script src="src/api_client.js"></script>
     <script src="src/api_gameplay.js"></script>
+    <script src="src/webauthn_helpers.js"></script>
+    <script src="src/auth.js"></script>
+    <script src="src/login_ui.js"></script>
     <script src="src/wordle.js"></script>
     <script src="src/toolsmenu.js"></script>
     <script src="src/downloads.js"></script>

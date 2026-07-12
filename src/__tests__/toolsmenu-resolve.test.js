@@ -291,26 +291,26 @@ describe('ToolsMenu#collectAllSettings', () => {
         saveMenu = new ToolsMenu(new HistoryManager(resolver));
     });
 
-    test('includes a diagnostics key with server and version', () => {
-        var data = saveMenu.collectAllSettings();
+    test('includes a diagnostics key with server and version', async () => {
+        var data = await saveMenu.collectAllSettings();
         expect(data.diagnostics).toBeDefined();
         expect(Object.keys(data.diagnostics)).toContain('server');
         expect(Object.keys(data.diagnostics)).toContain('version');
     });
 
-    test('sets server to the current hostname', () => {
-        var data = saveMenu.collectAllSettings();
+    test('sets server to the current hostname', async () => {
+        var data = await saveMenu.collectAllSettings();
         expect(data.diagnostics.server).toBe('localhost');
     });
 
-    test('sets version to APP_VERSION when available', () => {
+    test('sets version to APP_VERSION when available', async () => {
         dom.window.APP_VERSION = '1.2.3';
-        var data = saveMenu.collectAllSettings();
+        var data = await saveMenu.collectAllSettings();
         expect(data.diagnostics.version).toBe('1.2.3');
     });
 
-    test('sets version to null when APP_VERSION is not defined', () => {
-        var data = saveMenu.collectAllSettings();
+    test('sets version to null when APP_VERSION is not defined', async () => {
+        var data = await saveMenu.collectAllSettings();
         expect(data.diagnostics.version).toBeNull();
     });
 });

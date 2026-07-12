@@ -460,17 +460,24 @@ class HistoryManager {
 
     exportAsJson() {
         var history = this.getHistoryObject();
-        var entries = Object.values(history).filter(Boolean).sort(function(a, b) {
+        return this.exportEntriesAsJson(Object.values(history).filter(Boolean), "");
+    }
+
+    // Factored out of exportAsJson so ToolsMenu can build the same export
+    // shape from server-fetched history entries when the user is logged in
+    // (see ToolsMenu#exportHistory) without duplicating the row-shaping logic.
+    exportEntriesAsJson(entries, filenameSuffix) {
+        var sorted = entries.slice().sort(function(a, b) {
             return (Number(a.puzzle_num) || 0) - (Number(b.puzzle_num) || 0);
         });
-        var fields = this.getHistoryExportShape(entries);
+        var fields = this.getHistoryExportShape(sorted);
         var self = this;
-        var rows = entries.map(function(entry) {
+        var rows = sorted.map(function(entry) {
             return self.normalizeEntryForExport(entry, fields);
         });
 
         return {
-            filename: "wordle_history_" + this.resolver.formatLocalDate(new Date()) + ".json",
+            filename: "wordle_history_" + this.resolver.formatLocalDate(new Date()) + (filenameSuffix || "") + ".json",
             content: JSON.stringify(rows, null, 2),
             mimeType: "application/json"
         };
@@ -478,16 +485,20 @@ class HistoryManager {
 
     exportAsCsv() {
         var history = this.getHistoryObject();
-        var entries = Object.values(history).filter(Boolean).sort(function(a, b) {
+        return this.exportEntriesAsCsv(Object.values(history).filter(Boolean), "");
+    }
+
+    exportEntriesAsCsv(entries, filenameSuffix) {
+        var sorted = entries.slice().sort(function(a, b) {
             return (Number(a.puzzle_num) || 0) - (Number(b.puzzle_num) || 0);
         });
-        var fields = this.getHistoryExportShape(entries);
+        var fields = this.getHistoryExportShape(sorted);
         var self = this;
 
         var lines = [];
         lines.push(fields.join(","));
 
-        entries.forEach(function(entry) {
+        sorted.forEach(function(entry) {
             var normalized = self.normalizeEntryForExport(entry, fields);
             var row = fields.map(function(field) {
                 return self.resolver.escapeCsvValue(normalized[field]);
@@ -496,7 +507,7 @@ class HistoryManager {
         });
 
         return {
-            filename: "wordle_history_" + this.resolver.formatLocalDate(new Date()) + ".csv",
+            filename: "wordle_history_" + this.resolver.formatLocalDate(new Date()) + (filenameSuffix || "") + ".csv",
             content: lines.join("\n"),
             mimeType: "text/csv"
         };
@@ -707,6 +718,11 @@ class ToolsMenu {
                 return;
             }
 
+            if (this.isLoggedIn()) {
+                await this.importHistoryToServer(rawRecords, statusElement);
+                return;
+            }
+
             var result = this.historyManager.importRecords(rawRecords);
 
             if (!result.changedPuzzleNums.length) {
@@ -749,7 +765,7 @@ class ToolsMenu {
         }
     }
 
-    openAdjustStatsModal(statusElement) {
+    async openAdjustStatsModal(statusElement) {
         var modal = document.getElementById("adjust-stats-modal");
         if (!modal) return;
 
@@ -772,7 +788,21 @@ class ToolsMenu {
         };
         var errorEl = document.getElementById("adjust-stats-error");
 
-        var stats = this.historyManager.getCurrentStatsForAdjustment();
+        var stats;
+        if (this.isLoggedIn()) {
+            try {
+                var profile = await window.LeftWordleApi.client.getProfile();
+                stats = (profile && Object.keys(profile.statistics || {}).length)
+                    ? profile.statistics
+                    : this.historyManager.getCurrentStatsForAdjustment();
+            } catch (err) {
+                ToolsMenu.showStatus(statusElement, "Couldn't load account stats — showing local stats instead", true);
+                stats = this.historyManager.getCurrentStatsForAdjustment();
+            }
+        } else {
+            stats = this.historyManager.getCurrentStatsForAdjustment();
+        }
+
         inputs.gamesPlayed.value = stats.gamesPlayed || 0;
         inputs.gamesWon.value = stats.gamesWon || 0;
         inputs.currentStreak.value = stats.currentStreak || 0;
@@ -880,7 +910,7 @@ class ToolsMenu {
         }
 
         if (applyButton) {
-            applyButton.addEventListener("click", function() {
+            applyButton.addEventListener("click", async function() {
                 var targetTotals = self.getAdjustTotalsFromInputs(inputs);
                 var validationError = self.historyManager.validateAdjustTotals(targetTotals);
                 if (validationError) {
@@ -892,10 +922,25 @@ class ToolsMenu {
                 targetTotals.winPercentage = derived.winPercentage;
                 targetTotals.averageGuesses = derived.averageGuesses;
                 targetTotals.versionNumber = 1;
+
+                if (self.isLoggedIn()) {
+                    try {
+                        // Server keeps a before/after audit snapshot of every
+                        // manual adjustment (see api/app.rb stats_adjust_response).
+                        await window.LeftWordleApi.client.adjustStats(targetTotals);
+                    } catch (err) {
+                        setError("Failed to save to your account: " + (err && err.message ? err.message : "unknown error"));
+                        return;
+                    }
+                }
+                // Keep the local cache in step too, so the stats screen
+                // shown immediately after doesn't look like a no-op --
+                // drift vs. the server is expected over time, not right
+                // after the device that made the edit applies it.
                 StorageController.statistics.replace(targetTotals);
 
                 self.closeAdjustStatsModal();
-                ToolsMenu.showStatus(statusElement, "Stats adjustment applied", false);
+                ToolsMenu.showStatus(statusElement, "Stats adjustment applied" + (self.isLoggedIn() ? " to your account" : ""), false);
                 self.openStatsModalFromSaveMenu();
             });
         }
@@ -911,18 +956,14 @@ class ToolsMenu {
         if (exportJsonButton) {
             exportJsonButton.addEventListener("click", function() {
                 ToolsMenu.flashElement(exportJsonButton);
-                var exportData = self.historyManager.exportAsJson();
-                ToolsMenu.createDownload(exportData.filename, exportData.content, exportData.mimeType);
-                ToolsMenu.showStatus(statusElement, "History exported (JSON)", false);
+                self.exportHistory("json", statusElement);
             });
         }
 
         if (exportCsvButton) {
             exportCsvButton.addEventListener("click", function() {
                 ToolsMenu.flashElement(exportCsvButton);
-                var exportData = self.historyManager.exportAsCsv();
-                ToolsMenu.createDownload(exportData.filename, exportData.content, exportData.mimeType);
-                ToolsMenu.showStatus(statusElement, "History exported (CSV)", false);
+                self.exportHistory("csv", statusElement);
             });
         }
 
@@ -937,7 +978,110 @@ class ToolsMenu {
         }
     }
 
-    collectAllSettings() {
+    // True whenever the Tools modal should read/write server data instead
+    // of (or in addition to) localStorage -- see api/app.rb's /api/v2/*
+    // endpoints and client/src/auth.js.
+    isLoggedIn() {
+        return !!(window.LeftWordleAuth && window.LeftWordleAuth.isLoggedIn());
+    }
+
+    // Translates server played_games rows (see GET /api/v2/history) into
+    // the same export-entry shape local history entries use, so
+    // HistoryManager's existing field-shaping logic can be reused as-is.
+    // The server doesn't store `answer`/`starter` directly -- `answer` is
+    // re-derived from puzzle_num (deterministic), `starter` from the first
+    // recorded guess when available.
+    serverHistoryToExportEntries(serverHistory) {
+        var resolver = this.resolver;
+        return Object.values(serverHistory || {}).filter(Boolean).map(function(entry) {
+            var guesses = Array.isArray(entry.guesses) ? entry.guesses : [];
+            var result = entry.game_status === "WIN" ? (guesses.length || null)
+                : (entry.game_status === "FAIL" ? 7 : null);
+            return {
+                puzzle_num: entry.puzzle_num,
+                date: entry.date,
+                result: result,
+                answer: resolver.puzzleNumToAnswer(entry.puzzle_num),
+                mode: entry.mode || null,
+                starter: guesses.length ? guesses[0][0] : null,
+                completed_at: entry.completed_at || null,
+                updated_at: null,
+                device_id: null,
+                origin: "server"
+            };
+        });
+    }
+
+    async exportHistory(format, statusElement) {
+        try {
+            var loggedIn = this.isLoggedIn();
+            var exportData;
+            if (loggedIn) {
+                var serverHistory = await window.LeftWordleApi.client.getHistory();
+                var entries = this.serverHistoryToExportEntries(serverHistory);
+                exportData = (format === "csv")
+                    ? this.historyManager.exportEntriesAsCsv(entries, "_account")
+                    : this.historyManager.exportEntriesAsJson(entries, "_account");
+            } else {
+                exportData = (format === "csv") ? this.historyManager.exportAsCsv() : this.historyManager.exportAsJson();
+            }
+            ToolsMenu.createDownload(exportData.filename, exportData.content, exportData.mimeType);
+            ToolsMenu.showStatus(statusElement, "History exported (" + format.toUpperCase() + ")" + (loggedIn ? " from your account" : ""), false);
+        } catch (err) {
+            ToolsMenu.showStatus(statusElement, "Export failed: " + (err && err.message ? err.message : "unknown error"), true);
+        }
+    }
+
+    // Repeatable "Tools > Import Games" while logged in -- distinct from
+    // the one-time new-account import in auth.js#importLocalData. Format
+    // validation happens client-side (same resolver used for local
+    // imports); duplicate-vs-new detection is left entirely to the server
+    // (POST /api/v2/history/import), which is the authoritative view of
+    // this account's history.
+    async importHistoryToServer(rawRecords, statusElement) {
+        var self = this;
+        var flaggedRows = [];
+        var entries = [];
+
+        rawRecords.forEach(function(raw, index) {
+            var resolved = self.resolver.resolveAndValidateEntry(raw, index);
+            if (resolved.flag) {
+                flaggedRows.push({ row: index + 1, raw: raw, reason: resolved.flag });
+                return;
+            }
+            var entry = resolved.entry;
+            entries.push({
+                puzzle_num: entry.puzzle_num,
+                date: entry.date,
+                mode: entry.mode || "regular",
+                game_status: (entry.result >= 1 && entry.result <= 6) ? "WIN" : "FAIL",
+                completed_at: entry.completed_at || null
+            });
+        });
+
+        if (!entries.length) {
+            var noneMessage = "Import complete: no valid rows found";
+            if (flaggedRows.length) noneMessage += " (" + flaggedRows.length + " flagged rows skipped)";
+            ToolsMenu.showStatus(statusElement, noneMessage, false);
+            if (flaggedRows.length) {
+                this.openHistoryImportSummaryModal({ processed: rawRecords.length, newGames: 0, flaggedRows: flaggedRows });
+            }
+            return;
+        }
+
+        var result = await window.LeftWordleApi.client.importHistory(entries);
+        var statusMessage = "Import complete: " + result.imported + " new game(s) added to your account";
+        if (result.skipped) statusMessage += ", " + result.skipped + " already recorded";
+        if (flaggedRows.length) statusMessage += ", " + flaggedRows.length + " flagged";
+        ToolsMenu.showStatus(statusElement, statusMessage, false);
+
+        this.openHistoryImportSummaryModal({ processed: rawRecords.length, newGames: result.imported, flaggedRows: flaggedRows });
+    }
+
+    // Server data is additive here, never a replacement for the local dump
+    // -- diagnosing local/server drift (expected once an account exists,
+    // see auth.js) benefits from seeing both sides at once.
+    async collectAllSettings() {
         var data = {};
         for (var i = 0; i < window.localStorage.length; i++) {
             var key = window.localStorage.key(i);
@@ -948,6 +1092,23 @@ class ToolsMenu {
             server: window.location.hostname,
             version: window.APP_VERSION || null
         };
+
+        if (this.isLoggedIn()) {
+            try {
+                var profile = await window.LeftWordleApi.client.getProfile();
+                var history = await window.LeftWordleApi.client.getHistory();
+                data.server = {
+                    email: profile.email,
+                    preferences: profile.preferences,
+                    game_state: profile.game_state,
+                    statistics: profile.statistics,
+                    history: history
+                };
+            } catch (err) {
+                data.server = { error: err && err.message ? err.message : "failed to load account data" };
+            }
+        }
+
         return data;
     }
 
@@ -961,20 +1122,20 @@ class ToolsMenu {
         var contactCancelButton = document.getElementById("send-settings-contact-cancel");
 
         if (downloadButton) {
-            downloadButton.addEventListener("click", function() {
+            downloadButton.addEventListener("click", async function() {
                 ToolsMenu.flashElement(downloadButton);
-                var data = self.collectAllSettings();
+                var data = await self.collectAllSettings();
                 var filename = "left_wordle_settings_" + self.resolver.formatLocalDate(new Date()) + ".json";
                 ToolsMenu.createDownload(filename, JSON.stringify(data, null, 2), "application/json");
                 ToolsMenu.showStatus(statusElement, "Settings downloaded", false);
             });
         }
 
-        function doSendSettings() {
+        async function doSendSettings() {
             if (contactModal) contactModal.classList.add("hidden");
             sendButton.disabled = true;
             ToolsMenu.showStatus(statusElement, "Sending settings...", false);
-            var settings = self.collectAllSettings();
+            var settings = await self.collectAllSettings();
             var contactValue = contactInput ? contactInput.value.trim() : "";
             var data = contactValue
                 ? Object.assign({ optional_id: contactValue }, settings)

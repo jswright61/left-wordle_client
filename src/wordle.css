@@ -1442,7 +1442,7 @@ game-icon {
     transition: opacity 0.2s;
 }
 
-#tools .overlay {
+#tools .overlay, #login .overlay {
     position: absolute;
     width: 100%;
     height: 100%;
@@ -1458,7 +1458,7 @@ game-icon {
     display: flex;
 }
 
-#tools .content {
+#tools .content, #login .content {
     position: relative;
     color: var(--color-tone-1);
     padding: 0 32px;
@@ -1470,22 +1470,22 @@ game-icon {
     flex-direction: column;
 }
 
-#tools .content-container {
+#tools .content-container, #login .content-container {
     height: 100%;
 }
 
-#tools .overlay.closing {
+#tools .overlay.closing, #login .overlay.closing {
     animation: SlideOut 150ms linear;
 }
 
-#tools header {
+#tools header, #login header {
     display: flex;
     justify-content: center;
     align-items: center;
     position: relative;
 }
 
-#tools h1 {
+#tools h1, #login h1 {
     font-weight: 700;
     font-size: 16px;
     letter-spacing: 0.5px;
@@ -1495,17 +1495,17 @@ game-icon {
 }
 
 @media only screen and (min-device-width:320px) and (max-device-width:480px) {
-    #tools .content {
+    #tools .content, #login .content {
         max-width: 100%;
         padding: 0;
     }
 
-    #tools game-icon {
+    #tools game-icon, #login game-icon {
         padding: 0 16px;
     }
 }
 
-#tools .setting {
+#tools .setting, #login .setting {
     transition: background-color 0.25s;
     display: flex;
     justify-content: space-between;
@@ -1514,25 +1514,25 @@ game-icon {
     padding: 16px 0;
 }
 
-#tools a, #tools a:visited {
+#tools a, #tools a:visited, #login a, #login a:visited {
     color: var(--color-tone-2);
 }
 
-#tools .title {
+#tools .title, #login .title {
     font-size: 18px;
 }
 
-#tools .text {
+#tools .text, #login .text {
     padding-right: 8px;
 }
 
-#tools .description {
+#tools .description, #login .description {
     font-size: 12px;
     color: var(--color-tone-2);
 }
 
 @media only screen and (min-device-width: 320px) and (max-device-width: 480px) {
-    #tools .setting {
+    #tools .setting, #login .setting {
         padding: 16px;
     }
 }
@@ -1542,7 +1542,7 @@ game-icon {
     transition: background-color 0.1s ease-out;
 }
 
-#tools .tools-section-heading {
+#tools .tools-section-heading, #login .tools-section-heading {
     margin: 20px 0 4px 0;
     font-size: 18px;
     font-weight: 700;
@@ -1558,13 +1558,13 @@ game-icon {
     user-select: none;
 }
 
-#tools .tools-divider {
+#tools .tools-divider, #login .tools-divider {
     border: none;
     border-top: 1px solid var(--color-tone-4);
     margin: 0;
 }
 
-#tools .tools-row {
+#tools .tools-row, #login .tools-row {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     gap: 8px;
@@ -1572,22 +1572,22 @@ game-icon {
     align-items: center;
 }
 
-#tools .tools-item-left {
+#tools .tools-item-left, #login .tools-item-left {
     grid-column: 1;
     justify-self: start;
 }
 
-#tools .tools-item-center {
+#tools .tools-item-center, #login .tools-item-center {
     grid-column: 2;
     justify-self: center;
 }
 
-#tools .tools-item-right {
+#tools .tools-item-right, #login .tools-item-right {
     grid-column: 3;
     justify-self: end;
 }
 
-#tools .tools-action-button {
+#tools .tools-action-button, #login .tools-action-button {
     background: var(--green);
     color: var(--color-tone-5);
     border: none;
@@ -1604,11 +1604,11 @@ game-icon {
     white-space: nowrap;
 }
 
-#tools .tools-action-button:hover:not(:disabled) {
+#tools .tools-action-button:hover:not(:disabled), #login .tools-action-button:hover:not(:disabled) {
     opacity: 0.85;
 }
 
-#tools .tools-action-button:disabled {
+#tools .tools-action-button:disabled, #login .tools-action-button:disabled {
     background: var(--color-tone-4);
     color: var(--color-tone-3);
     cursor: not-allowed;
@@ -1618,14 +1618,14 @@ game-icon {
     display: none;
 }
 
-#tools .tools-status-message {
+#tools .tools-status-message, #login .tools-status-message {
     font-size: 13px;
     color: var(--color-tone-2);
     padding: 12px 0 4px;
     min-height: 20px;
 }
 
-#tools .tools-inline-modal {
+#tools .tools-inline-modal, #login .tools-inline-modal {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.45);
@@ -1636,11 +1636,11 @@ game-icon {
     z-index: 2200;
 }
 
-#tools .tools-inline-modal.hidden {
+#tools .tools-inline-modal.hidden, #login .tools-inline-modal.hidden {
     display: none;
 }
 
-#tools .tools-inline-modal-card {
+#tools .tools-inline-modal-card, #login .tools-inline-modal-card {
     width: min(540px, 100%);
     max-height: 90vh;
     overflow-y: auto;
@@ -1650,23 +1650,23 @@ game-icon {
     padding: 16px;
 }
 
-#tools .tools-inline-modal-card h3 {
+#tools .tools-inline-modal-card h3, #login .tools-inline-modal-card h3 {
     margin: 0 0 8px 0;
     font-size: 18px;
 }
 
-#tools .tools-inline-modal-card p {
+#tools .tools-inline-modal-card p, #login .tools-inline-modal-card p {
     margin: 6px 0;
 }
 
-#tools .tools-inline-modal-actions {
+#tools .tools-inline-modal-actions, #login .tools-inline-modal-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 12px;
 }
 
-#tools .tools-inline-modal-actions button {
+#tools .tools-inline-modal-actions button, #login .tools-inline-modal-actions button {
     background: var(--green);
     color: var(--color-tone-5);
     border: none;
@@ -1674,6 +1674,34 @@ game-icon {
     cursor: pointer;
     padding: 8px 10px;
     font-size: 12px;
+}
+
+#login .field-label {
+    display: block;
+    font-size: 13px;
+    margin-top: 10px;
+    margin-bottom: 4px;
+}
+
+#login .field-input {
+    width: 100%;
+    font-size: 14px;
+    padding: 6px;
+    box-sizing: border-box;
+    border: 1px solid var(--color-tone-4);
+    border-radius: 4px;
+    background: var(--color-background);
+    color: var(--color-tone-1);
+}
+
+#login .suppress-login-prompt-link {
+    background: none;
+    border: none;
+    color: var(--color-tone-2);
+    font-size: 12px;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 8px 0 0;
 }
 
 #tools .send-settings-contact-label {
