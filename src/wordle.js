@@ -1772,6 +1772,93 @@
             modal.setAttribute("open", "");
         }
 
+        _getModeLabel(mode) {
+            return mode === "insane" ? "Insane" : mode === "hard" ? "Hard" : "Regular";
+        }
+
+        // Replays each guess after the first against the target mode's validator, using the
+        // actual (mode-agnostic) evaluation history -- this is what makes downgrades always
+        // legal: a guess sequence that satisfied a stricter mode necessarily satisfies a looser one.
+        _isBoardLegalUnderMode(newMode) {
+            if (newMode === "regular") return true;
+            var validator = newMode === "insane" ? GameEvaluator.validateInsaneMode : GameEvaluator.validateHardMode;
+            for (var i = 1; i < this.rowIndex; i++) {
+                if (validator(this.boardState[i], this.buildPrevGuesses(i))) return false;
+            }
+            return true;
+        }
+
+        _refreshOpenSettingsPanel() {
+            var settings = this.$game.querySelector("game-settings");
+            if (settings) settings.render();
+        }
+
+        _applyGameplayMode(newMode, options) {
+            var isHard = newMode === "hard";
+            var isInsane = newMode === "insane";
+            if (options.updatePreference) {
+                StorageController.preferences.set("hardMode", isHard);
+                StorageController.preferences.set("insaneMode", isInsane);
+            }
+            if (options.updateGameState) {
+                this.hardMode = isHard;
+                this.insaneMode = isInsane;
+                if (!this.isHistoryPlay) {
+                    GameStateManager.saveGameState({
+                        hardMode: isHard,
+                        insaneMode: isInsane,
+                        puzzleNum: this.dayOffset,
+                        date: DateUtils.formatLocalDate(this.today)
+                    });
+                }
+            }
+            this._refreshOpenSettingsPanel();
+        }
+
+        _showModeChangeConfirmModal(newMode) {
+            var modeLabel = this._getModeLabel(newMode);
+            var modal = this.$game.querySelector("game-modal");
+            var container = document.createElement("div");
+            container.className = "erase-confirm-modal";
+            container.innerHTML =
+                "<h2>Switch to " + modeLabel + " Mode?</h2>" +
+                "<p>Your guesses so far are legal under " + modeLabel + " Mode.</p>" +
+                "<div class='erase-confirm-buttons'>" +
+                    "<button class='erase-confirm-cancel' data-action='this-game'>Just This Game</button>" +
+                    "<button class='erase-confirm-erase' data-action='permanent'>Permanent</button>" +
+                "</div>";
+            container.querySelector('[data-action="this-game"]').addEventListener("click", () => {
+                this._applyGameplayMode(newMode, { updatePreference: false, updateGameState: true });
+            });
+            container.querySelector('[data-action="permanent"]').addEventListener("click", () => {
+                this._applyGameplayMode(newMode, { updatePreference: true, updateGameState: true });
+            });
+            modal.appendChild(container);
+            modal.setAttribute("open", "");
+            setTimeout(() => container.querySelector('[data-action="this-game"]').focus(), 50);
+        }
+
+        _showModeChangeBlockedModal(newMode) {
+            var modeLabel = this._getModeLabel(newMode);
+            var modal = this.$game.querySelector("game-modal");
+            var container = document.createElement("div");
+            container.className = "erase-confirm-modal";
+            container.innerHTML =
+                "<h2>Mode Change Not Allowed</h2>" +
+                "<p>Your current guesses aren’t legal under " + modeLabel + " Mode, so this change can’t apply to the game in progress.</p>" +
+                "<div class='erase-confirm-buttons'>" +
+                    "<button class='erase-confirm-cancel' data-action='cancel'>Not Now</button>" +
+                    "<button class='erase-confirm-erase' data-action='next-game'>Change Next Game</button>" +
+                "</div>";
+            container.querySelector('[data-action="next-game"]').addEventListener("click", () => {
+                this._applyGameplayMode(newMode, { updatePreference: true, updateGameState: false });
+                this.addToast("Mode change will take effect with the next game", 2000, true);
+            });
+            modal.appendChild(container);
+            modal.setAttribute("open", "");
+            setTimeout(() => container.querySelector('[data-action="cancel"]').focus(), 50);
+        }
+
         eraseGame() {
             var todayCompletion = HistoryManager.getHistoryCompletionForPuzzle(this.dayOffset);
             HistoryManager.deleteHistoryEntry(this.dayOffset);
@@ -2019,34 +2106,25 @@
                 var name = detail.name;
                 var checked = detail.checked;
                 var value = detail.value;
-                var gameLocked = this.rowIndex > 0;
                 switch (name) {
                 case "gameplay-mode":
-                    var isHard = value === "hard";
-                    var isInsane = value === "insane";
-                    StorageController.preferences.set("hardMode", isHard);
-                    StorageController.preferences.set("insaneMode", isInsane);
-                    if (gameLocked) {
-                        this.addToast("Mode change will take effect with the next game", 2000, true);
+                    var newMode = value;
+                    var currentMode = this.insaneMode ? "insane" : this.hardMode ? "hard" : "regular";
+                    if (newMode === currentMode) return;
+                    var gameInProgress = this.gameStatus === GAME_STATUS_IN_PROGRESS && this.rowIndex > 0;
+                    if (!gameInProgress) {
+                        this._applyGameplayMode(newMode, { updatePreference: true, updateGameState: true });
                         return;
                     }
-                    this.hardMode = isHard;
-                    this.insaneMode = isInsane;
-                    if (!this.isHistoryPlay) {
-                        GameStateManager.saveGameState({
-                            hardMode: isHard,
-                            insaneMode: isInsane,
-                            puzzleNum: this.dayOffset,
-                            date: DateUtils.formatLocalDate(this.today)
-                        });
+                    if (this._isBoardLegalUnderMode(newMode)) {
+                        this._showModeChangeConfirmModal(newMode);
+                    } else {
+                        this._showModeChangeBlockedModal(newMode);
                     }
                     return;
                 case "goof-protection-mode":
+                    // Goof Protection may be toggled at any time, mid-game or not -- it never affects board legality.
                     StorageController.preferences.set("goofProtectionMode", checked);
-                    if (gameLocked) {
-                        this.addToast("Mode change will take effect with the next game", 2000, true);
-                        return;
-                    }
                     this.goofProtection = checked;
                     if (!this.isHistoryPlay) {
                         GameStateManager.saveGameState({
