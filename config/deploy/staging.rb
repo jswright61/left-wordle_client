@@ -4,6 +4,7 @@ set :branch, "staging"
 set :deploy_to, "/home/deploy/staging.left-wordle.com"
 set :caddy_host, "https://staging.left-wordle.com"
 set :api_base_url, "https://staging.left-wordle.com"
+set :passkey_auth_enabled, true
 
 server "paula-poundstone",
   user: "deploy",

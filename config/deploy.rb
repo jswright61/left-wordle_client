@@ -6,3 +6,4 @@ set :application, "left_wordle"
 set :repo_url, "deploy@paula-poundstone:/home/deploy/git/left_wordle_client.git"
 
 set :keep_releases, 5
+set :passkey_auth_enabled, false

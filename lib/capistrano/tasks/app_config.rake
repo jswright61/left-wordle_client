@@ -6,6 +6,7 @@ namespace :deploy do
   task :write_app_config do
     api_base_url = fetch(:api_base_url)
     version_tag = fetch(:release_version_tag)
+    passkey_auth_enabled = fetch(:passkey_auth_enabled, false)
 
     config_js = <<~JS
       (function() {
@@ -15,10 +16,10 @@ namespace :deploy do
           var isLocal = host === "localhost" || host === "127.0.0.1" || host === "::1";
           var defaults = {
               apiBaseUrl: isLocal ? "http://localhost:9292" : "#{api_base_url}",
-              apiCredentials: "omit",
+              apiCredentials: "same-origin",
               apiRequestTimeoutMs: 3000,
-              passkeyAuthEnabled: false,
-              serverSyncEnabled: false
+              passkeyAuthEnabled: #{passkey_auth_enabled},
+              serverSyncEnabled: #{passkey_auth_enabled}
           };
 
           window.LEFT_WORDLE_CONFIG = Object.freeze(Object.assign(
