@@ -237,18 +237,46 @@
 
         // ── Parsing ──────────────────────────────────────────────────────────
 
+        // Trims whitespace from object keys at every nesting level (arrays are
+        // walked but not otherwise altered). Guards against stray whitespace
+        // artifacts (hand-edited files, copy-paste) silently producing keys
+        // that don't match what the app actually reads/writes.
+        function trimKeysDeep(value) {
+            if (Array.isArray(value)) return value.map(trimKeysDeep);
+            if (value && typeof value === "object") {
+                var result = {};
+                Object.keys(value).forEach(function (k) {
+                    result[k.trim()] = trimKeysDeep(value[k]);
+                });
+                return result;
+            }
+            return value;
+        }
+
         function toStorageString(val) {
-            if (typeof val === "string") return val;
+            if (typeof val === "string") {
+                // Some sources hand this a pre-stringified hash (e.g. a JSON
+                // string for "preferences"); if so, trim its keys too before
+                // re-serializing. Anything that isn't itself JSON-object-shaped
+                // (a plain UUID, a bare version string, etc.) passes through
+                // unchanged.
+                try {
+                    var parsed = JSON.parse(val);
+                    if (parsed && typeof parsed === "object") return JSON.stringify(trimKeysDeep(parsed));
+                } catch (e) {}
+                return val;
+            }
             if (val === null || val === undefined) return null;
-            return JSON.stringify(val);
+            return JSON.stringify(trimKeysDeep(val));
         }
 
         function buildPayload(obj) {
             var payload = {};
             Object.keys(obj).forEach(function (k) {
-                if (EXCLUDE_KEYS.indexOf(k) >= 0) return;
+                var trimmedKey = k.trim();
+                if (EXCLUDE_KEYS.indexOf(trimmedKey) >= 0) return;
                 var str = toStorageString(obj[k]);
-                if (str !== null) payload[k] = str;
+                if (str !== null) payload[trimmedKey] = str;
             });
             return payload;
         }
