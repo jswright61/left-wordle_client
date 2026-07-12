@@ -34,6 +34,6 @@ describe('LEFT_WORDLE_CONFIG', () => {
 
         expect(config.apiBaseUrl).toBe('https://api-staging.left-wordle.com');
         expect(config.apiRequestTimeoutMs).toBe(5000);
-        expect(config.serverSyncEnabled).toBe(false);
+        expect(config.serverSyncEnabled).toBe(true);
     });
 });
