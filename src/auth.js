@@ -131,7 +131,12 @@
             history: historyEntriesForUpload(),
             preferences: StorageController.preferences.getAll(),
             game_state: StorageController.gameState.getAll(),
-            statistics: StorageController.statistics.getAll()
+            statistics: StorageController.statistics.getAll(),
+            // Not restored into any account column server-side -- along for
+            // the ride into the storage_snapshots audit row only, as an
+            // extra safety net during the login-backend rollout (see
+            // api/app.rb import_local_data_response).
+            settings_backup: StorageController.settingsBackup.get() || {}
         });
     };
 
