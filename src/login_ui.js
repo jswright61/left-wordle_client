@@ -47,6 +47,10 @@
             } else {
                 loggedOutSection.classList.remove("hidden");
                 loggedInSection.classList.add("hidden");
+                var deviceNameInput = $("login-device-name-input");
+                if (deviceNameInput && !deviceNameInput.value && window.LeftWordleAuth.guessDeviceNickname) {
+                    deviceNameInput.value = window.LeftWordleAuth.guessDeviceNickname();
+                }
             }
 
             var headerButton = $("login-button");
@@ -59,9 +63,11 @@
             var statusEl = $("login-status");
             var emailInput = $("login-email-input");
             var email = emailInput ? emailInput.value.trim() : "";
+            var deviceNameInput = $("login-device-name-input");
+            var nickname = deviceNameInput ? deviceNameInput.value.trim() : "";
             setStatus(statusEl, "Creating passkey...", false);
             try {
-                var result = await window.LeftWordleAuth.register({ email: email || undefined });
+                var result = await window.LeftWordleAuth.register({ email: email || undefined, nickname: nickname || undefined });
                 this.render();
                 setStatus(statusEl, "Passkey created.", false);
                 if (!result.joined_existing_account && hasAnyLocalData()) {
@@ -188,6 +194,97 @@
             }
         }
 
+        openRecoverModal() {
+            var modal = $("login-recover-modal");
+            var input = $("login-recover-email-input");
+            if (input) input.value = "";
+            setStatus($("login-recover-status"), "", false);
+            if (modal) modal.classList.remove("hidden");
+        }
+
+        closeRecoverModal() {
+            var modal = $("login-recover-modal");
+            if (modal) modal.classList.add("hidden");
+        }
+
+        async handleRequestRecovery() {
+            var input = $("login-recover-email-input");
+            var statusEl = $("login-recover-status");
+            var email = input ? input.value.trim() : "";
+            if (!email) return;
+            setStatus(statusEl, "Sending...", false);
+            try {
+                await window.LeftWordleAuth.requestRecovery(email);
+            } catch (error) {
+                // Even on error, don't reveal whether the email matched an
+                // account -- show the same generic message either way.
+            }
+            setStatus(statusEl, "If an account with that email exists, you'll receive an email with a link to recover it.", false);
+        }
+
+        async openPasskeysModal() {
+            var modal = $("login-passkeys-modal");
+            if (modal) modal.classList.remove("hidden");
+            await this.renderPasskeysList();
+        }
+
+        closePasskeysModal() {
+            var modal = $("login-passkeys-modal");
+            if (modal) modal.classList.add("hidden");
+        }
+
+        async renderPasskeysList() {
+            var self = this;
+            var list = $("login-passkeys-list");
+            var statusEl = $("login-passkeys-status");
+            if (!list) return;
+            setStatus(statusEl, "", false);
+            list.innerHTML = "";
+            try {
+                var passkeys = await window.LeftWordleAuth.listPasskeys();
+                passkeys.forEach(function(passkey) {
+                    var row = document.createElement("div");
+                    row.className = "setting";
+
+                    var text = document.createElement("div");
+                    text.className = "text";
+                    var title = document.createElement("div");
+                    title.className = "title";
+                    title.textContent = passkey.nickname || "Unnamed device";
+                    var subtitle = document.createElement("div");
+                    subtitle.className = "description";
+                    subtitle.textContent = "Added " + formatPasskeyDate(passkey.created_at) +
+                        " · Last used " + (passkey.last_used_at ? formatPasskeyDate(passkey.last_used_at) : "Never");
+                    text.appendChild(title);
+                    text.appendChild(subtitle);
+
+                    var control = document.createElement("div");
+                    control.className = "control";
+                    var disableButton = document.createElement("button");
+                    disableButton.type = "button";
+                    disableButton.textContent = "Disable";
+                    disableButton.addEventListener("click", function() { self.handleRevokePasskey(passkey.id); });
+                    control.appendChild(disableButton);
+
+                    row.appendChild(text);
+                    row.appendChild(control);
+                    list.appendChild(row);
+                });
+            } catch (error) {
+                setStatus(statusEl, errorMessage(error), true);
+            }
+        }
+
+        async handleRevokePasskey(id) {
+            var statusEl = $("login-passkeys-status");
+            try {
+                await window.LeftWordleAuth.revokePasskey(id);
+                await this.renderPasskeysList();
+            } catch (error) {
+                setStatus(statusEl, errorMessage(error), true);
+            }
+        }
+
         // Auto-prompt shown once per app load for a logged-out device,
         // unless the user has asked not to be asked. Reuses the same
         // overlay the header button opens.
@@ -209,16 +306,21 @@
             var landing = $("login-link-landing");
             var button = $("login-link-landing-button");
             var statusEl = $("login-link-landing-status");
+            var deviceNameInput = $("login-link-landing-device-name-input");
             if (!landing || !button) return;
 
             landing.classList.remove("hidden");
             var headerContainer = $("header-container");
             if (headerContainer) headerContainer.style.display = "none";
+            if (deviceNameInput && !deviceNameInput.value && window.LeftWordleAuth.guessDeviceNickname) {
+                deviceNameInput.value = window.LeftWordleAuth.guessDeviceNickname();
+            }
 
             button.addEventListener("click", async function() {
                 setStatus(statusEl, "Completing passkey setup...", false);
                 try {
-                    await window.LeftWordleAuth.registerViaDeviceLink(linkToken);
+                    var nickname = deviceNameInput ? deviceNameInput.value.trim() : "";
+                    await window.LeftWordleAuth.registerViaDeviceLink(linkToken, nickname);
                     await window.leftWordleLoginUI.syncAndAnnounce();
                     setStatus(statusEl, "Device added. Reloading...", false);
                     var url = new URL(window.location.href);
@@ -293,6 +395,18 @@
             var setEmailCancel = $("login-set-email-cancel");
             if (setEmailCancel) setEmailCancel.addEventListener("click", function() { self.closeSetEmailModal(); });
 
+            var recoverButton = $("login-recover-button");
+            if (recoverButton) recoverButton.addEventListener("click", function() { self.openRecoverModal(); });
+            var recoverSend = $("login-recover-send");
+            if (recoverSend) recoverSend.addEventListener("click", function() { self.handleRequestRecovery(); });
+            var recoverCancel = $("login-recover-cancel");
+            if (recoverCancel) recoverCancel.addEventListener("click", function() { self.closeRecoverModal(); });
+
+            var managePasskeysButton = $("login-manage-passkeys-button");
+            if (managePasskeysButton) managePasskeysButton.addEventListener("click", function() { self.openPasskeysModal(); });
+            var passkeysClose = $("login-passkeys-close");
+            if (passkeysClose) passkeysClose.addEventListener("click", function() { self.closePasskeysModal(); });
+
             this.maybeHandleDeviceLinkLanding();
 
             var config = window.LEFT_WORDLE_CONFIG || {};
@@ -308,6 +422,12 @@
         return !!(Object.keys(StorageController.history.getAll()).length ||
             Object.keys(StorageController.gameState.getAll()).length ||
             Object.keys(StorageController.statistics.getAll()).length);
+    }
+
+    function formatPasskeyDate(isoString) {
+        var parsed = new Date(isoString);
+        if (isNaN(parsed.getTime())) return isoString;
+        return parsed.toLocaleDateString();
     }
 
     var loginUI = new LoginUI();

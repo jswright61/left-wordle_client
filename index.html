@@ -223,12 +223,18 @@
                   No email required — you can add one later to make it easier to add new devices or recover a lost Passkey.</p>
                 <label class="field-label" for="login-email-input">Email (optional)</label>
                 <input id="login-email-input" type="text" class="field-input" placeholder="e.g. user@example.com" autocomplete="email">
+                <label class="field-label" for="login-device-name-input">Device Name</label>
+                <input id="login-device-name-input" type="text" class="field-input" placeholder="e.g. My Phone" maxlength="60">
                 <div class="tools-row">
                   <button class="tools-item-left tools-action-button" id="login-register-button" type="button">Create Passkey</button>
                   <button class="tools-item-right tools-action-button" id="login-signin-button" type="button">Log In</button>
                 </div>
                 <button class="suppress-login-prompt-link" id="login-suppress-link" type="button">Don't ask me to log in</button>
                 <div id="login-status" class="tools-status-message"></div>
+                <hr class="tools-divider">
+                <div class="tools-row">
+                  <button class="tools-item-center tools-action-button" id="login-recover-button" type="button">Recover Account</button>
+                </div>
                 <hr class="tools-divider">
               </section>
               <section id="login-logged-in-section" class="hidden">
@@ -241,6 +247,9 @@
                 <div class="tools-row">
                   <button class="tools-item-left tools-action-button" id="login-set-email-button" type="button">Set Email</button>
                   <button class="tools-item-right tools-action-button" id="login-logout-button" type="button">Log Out</button>
+                </div>
+                <div class="tools-row">
+                  <button class="tools-item-center tools-action-button" id="login-manage-passkeys-button" type="button">Manage Passkeys</button>
                 </div>
                 <div id="login-account-status" class="tools-status-message"></div>
                 <hr class="tools-divider">
@@ -261,6 +270,32 @@
       <div class="tools-inline-modal-actions">
         <button id="login-set-email-save" type="button">Save</button>
         <button id="login-set-email-cancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="login-recover-modal" class="tools-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="login-recover-title">
+    <div class="tools-inline-modal-card">
+      <h3 id="login-recover-title">Recover Account</h3>
+      <p>If you've lost access to every device with a passkey for this account, enter the email you had on file. We'll send a one-time link to add a new passkey to that account.</p>
+      <label class="field-label" for="login-recover-email-input">Email</label>
+      <input id="login-recover-email-input" type="text" class="field-input" placeholder="e.g. user@example.com" autocomplete="email">
+      <p id="login-recover-status" class="tools-status-message"></p>
+      <div class="tools-inline-modal-actions">
+        <button id="login-recover-send" type="button">Send Recovery Link</button>
+        <button id="login-recover-cancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="login-passkeys-modal" class="tools-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="login-passkeys-title">
+    <div class="tools-inline-modal-card">
+      <h3 id="login-passkeys-title">Manage Passkeys</h3>
+      <p>These are the passkeys with access to your account. Disabling one signs it out of any future logins.</p>
+      <div id="login-passkeys-list"></div>
+      <p id="login-passkeys-status" class="tools-status-message"></p>
+      <div class="tools-inline-modal-actions">
+        <button id="login-passkeys-close" type="button">Close</button>
       </div>
     </div>
   </div>
@@ -300,6 +335,8 @@
           <div class="sections">
             <section>
               <p class="description">Complete passkey setup to add this device to your account. Your history and stats on this device will be replaced with your account's.</p>
+              <label class="field-label" for="login-link-landing-device-name-input">Device Name</label>
+              <input id="login-link-landing-device-name-input" type="text" class="field-input" placeholder="e.g. My Phone" maxlength="60">
               <div class="tools-row">
                 <button class="tools-item-center tools-action-button" id="login-link-landing-button" type="button">Set Up Passkey</button>
               </div>

@@ -91,16 +91,18 @@
 
         var begin = await api().registerBegin(beginPayload);
         var credential = await window.LeftWordleWebauthn.createCredential(begin.options);
-        var finish = await api().registerFinish({ credential: credential, nickname: guessDeviceNickname() });
+        var nickname = (options.nickname && options.nickname.trim()) || guessDeviceNickname();
+        var finish = await api().registerFinish({ credential: credential, nickname: nickname });
         applyProfile(finish);
         return finish;
     };
 
-    LeftWordleAuth.registerViaDeviceLink = async function(linkToken) {
+    LeftWordleAuth.registerViaDeviceLink = async function(linkToken, nickname) {
         requireWebauthnSupport();
         var begin = await api().registerBegin({ device_link_token: linkToken });
         var credential = await window.LeftWordleWebauthn.createCredential(begin.options);
-        var finish = await api().registerFinish({ credential: credential, nickname: guessDeviceNickname() });
+        var finalNickname = (nickname && nickname.trim()) || guessDeviceNickname();
+        var finish = await api().registerFinish({ credential: credential, nickname: finalNickname });
         applyProfile(finish);
         return finish;
     };
@@ -120,6 +122,21 @@
         } finally {
             clearSessionState();
         }
+    };
+
+    LeftWordleAuth.guessDeviceNickname = guessDeviceNickname;
+
+    LeftWordleAuth.listPasskeys = async function() {
+        var result = await api().listPasskeys();
+        return result.passkeys || [];
+    };
+
+    LeftWordleAuth.revokePasskey = async function(id) {
+        return api().revokePasskey(id);
+    };
+
+    LeftWordleAuth.requestRecovery = async function(email) {
+        return api().requestRecovery(email);
     };
 
     // One-time upload for a brand-new account, gated by user confirmation
