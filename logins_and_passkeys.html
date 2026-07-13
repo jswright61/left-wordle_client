@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passkeys &amp; Email</title>
+    <style>
+        body {
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+            background-color: #fff;
+            color: #1a1a1b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+        .page {
+            width: 100%;
+            max-width: 640px;
+        }
+        .back-link { display: inline-block; margin-bottom: 16px; color: #538d4e; font-size: 0.85rem; }
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 0.1rem;
+            text-transform: uppercase;
+            border-bottom: 1px solid #d3d6da;
+            padding-bottom: 16px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .subtitle {
+            font-size: 0.85rem;
+            color: #787c7e;
+            margin-bottom: 32px;
+            text-align: center;
+        }
+        h2 {
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.03rem;
+            margin: 32px 0 4px;
+        }
+        h2 .num {
+            display: inline-block;
+            color: #6aaa64;
+            margin-right: 6px;
+        }
+        p {
+            font-size: 0.9rem;
+            line-height: 1.55;
+            color: #3a3a3c;
+            margin: 8px 0;
+        }
+        ul {
+            margin: 8px 0;
+            padding-left: 1.2rem;
+        }
+        li {
+            font-size: 0.9rem;
+            line-height: 1.55;
+            color: #3a3a3c;
+            margin-bottom: 6px;
+        }
+        code {
+            background: #f4f4f4;
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-size: 0.85em;
+        }
+        .callout {
+            border: 2px solid #d3d6da;
+            border-radius: 6px;
+            padding: 14px 16px;
+            margin: 16px 0;
+            font-size: 0.85rem;
+            color: #3a3a3c;
+        }
+        .callout.good { border-color: #6aaa64; background: #f0faf0; }
+        .callout .callout-title {
+            font-weight: 700;
+            letter-spacing: 0.03rem;
+            text-transform: uppercase;
+            font-size: 0.72rem;
+            color: #538d4e;
+            margin-bottom: 6px;
+        }
+        .callout.good .callout-title { color: #538d4e; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin: 12px 0 24px;
+        }
+        th {
+            text-align: left;
+            padding: 6px 10px;
+            background: #f4f4f4;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.05rem;
+            text-transform: uppercase;
+            color: #787c7e;
+        }
+        td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: top;
+            color: #3a3a3c;
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <a href="/" class="back-link">&larr; Back to Left Wordle</a>
+    <h1>Passkeys &amp; Email</h1>
+    <p class="subtitle">How account login works in Left Wordle, and what stays anonymous.</p>
+
+    <h2><span class="num">1.</span>What is a passkey?</h2>
+    <p>A passkey is a replacement for a username and password. When you create one, your device (or a password
+        manager like iCloud Keychain, Google Password Manager, or 1Password) generates a pair of cryptographic keys.
+        The private key never leaves that secure store — it can't be typed, copied out, or intercepted. Only the
+        matching public key is sent to the server.</p>
+    <p>To log in, the server sends a challenge, and your device signs it with the private key, unlocked by
+        whatever you already use to unlock your device: Face ID, Touch ID, a PIN, or a security key. The
+        signature proves you hold the private key without ever transmitting a secret over the network, which is
+        why passkeys can't be phished, guessed, or leaked in a server data breach the way passwords can.</p>
+    <p>Passkeys are also scoped to the exact site that created them, so a phishing site with a lookalike domain
+        simply can't request yours. And because most passkey managers sync passkeys across your devices (the same
+        way they sync passwords today), a single passkey created on one device is often already usable on your
+        other devices without any extra setup.</p>
+
+    <h2><span class="num">2.</span>How Left Wordle uses passkeys</h2>
+    <p>Left Wordle has no usernames and no passwords anywhere. When you create a passkey, it's registered as a
+        <em>discoverable</em> (resident) credential, which means your device can present it without the server
+        ever asking "who are you?" first. Logging in is a single tap: the browser asks your passkey manager for any
+        passkey that matches this site, you approve it, and you're in. There's no field to type an identifier into
+        at all.</p>
+    <p>The use of a password manager can, assuming the password manager is on both devices, allow you to login from
+        a browser on your desktop pc and your phone. The passkey lives in the password manager which exercises control
+        over its use (requires biometric aythentication) and syncs it securely to the devices on which you have this
+        password manager.</p>
+    <h2><span class="num">3.</span>Complete anonymity by default</h2>
+    <p>Creating an account requires nothing but a passkey. No email, name, phone number, or any other identifying
+        detail is collected unless you explicitly choose to add one. Under the hood, your account is just a
+        randomly generated ID with zero information about who you are — the email column on an account is empty
+        unless you fill it in.</p>
+    <p>Because login is usernameless, the server never even needs to look up "which account is this?" before
+        authenticating you — your unique passkey or possibly multiple unique passkeys (see emailing links below) is tied
+        to your account - similar to the  way a user name and password identify your account on other systems.</p>
+
+    <h2><span class="num">4.</span>Adding a device without an email</h2>
+    <p>Passkey sync only works between devices that share the same passkey manager account. If you want to add a
+        device that isn't signed into that same manager — say, a friend's phone, a work laptop, or a password
+        manager that doesn't sync passkeys — "Add a Device (Link)" in the account menu generates a one-time,
+        single-use link tied to your account. Opening that link on the new device and completing a short passkey
+        registration adds a brand-new passkey to your existing (still anonymous) account. The link expires quickly
+        and stops working the moment it's used once, so it's safe to hand off manually — no email required.
+        Once registered with a passkey, that device will be able to log in anytime until that passkey is revoked.
+        Either by whatever is controlling the passkey on the device, or by managing your Passkeys from a logged in
+        session on this site.</p>
+
+    <h2><span class="num">5.</span>What adding an email buys you</h2>
+    <p>Setting an email doesn't change how you log in — logging in is always a passkey, never a password or a
+        magic link. What an email does is give the same one-time device-link a second, more convenient delivery
+        path: instead of manually copying or transferring the link yourself, "Email Me a Link" sends it straight
+        to your inbox, ready to open on the new device. It also allows you to recconnect to your online left
+        Wordle account should you lose access to all of your devices with Passkeys for this site.</p>
+
+    <table>
+        <thead><tr><th>Without an email</th><th>With an email</th></tr></thead>
+        <tbody>
+            <tr>
+                <td>Add a device by copying/showing the one-time link yourself</td>
+                <td>Add a device by opening a link emailed directly to you</td>
+            </tr>
+            <tr>
+                <td>Account has zero identifying information</td>
+                <td>Account has one identifying detail on file: your email address</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2><span class="num">6.</span>The trade-off</h2>
+    <p>An email address is the one piece of real-world identity Left Wordle can associate with your play history
+        and stats, so adding one is a deliberate, permanent-until-you-remove-it trade of some anonymity for
+        convenience. It's entirely optional, and can be added, changed, or left blank at any time from the account
+        menu.</p>
+
+    <div class="callout good">
+        <div class="callout-title">Worth noting</div>
+        Access to your email inbox alone can lead to access to your account. An emailed link lets you begin
+        registering a <em>new</em> passkey on whatever device opens it — anyone with access to your email could create
+        a Passkey on a device they control which would have access to your account.
+    </div>
+
+    <p>If you'd rather keep the account fully anonymous, that's the default — simply never set an email, and use
+        "Add a Device (Link)" or use your trusted password manager to bring new devices onto the account instead.</p>
+</div>
+</body>
+</html>

@@ -1711,6 +1711,15 @@ game-icon {
     padding: 8px 0 0;
 }
 
+#login .learn-more-link {
+    display: block;
+    text-align: center;
+    color: var(--color-tone-2);
+    font-size: 12px;
+    text-decoration: underline;
+    padding: 4px 0 12px;
+}
+
 #tools .send-settings-contact-label {
     display: block;
     font-size: 13px;
