@@ -1347,7 +1347,7 @@
                 }
             }
             this._paramWarnings = [];
-            var _KNOWN_PARAMS = new Set(["date","guess1","guess2","guess3","guess4","guess5","guess6","g1","g2","g3","g4","g5","g6","test-sentry","pwd"]);
+            var _KNOWN_PARAMS = new Set(["date","guess1","guess2","guess3","guess4","guess5","guess6","g1","g2","g3","g4","g5","g6","test-sentry","pwd","link_token"]);
             _sp.forEach(function(value, key) {
                 var keyLower = key.toLowerCase();
                 if (_KNOWN_PARAMS.has(keyLower)) return;
