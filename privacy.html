@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy</title>
+    <style>
+        body {
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+            background-color: #fff;
+            color: #1a1a1b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+        .page {
+            width: 100%;
+            max-width: 640px;
+        }
+        .back-link { display: inline-block; margin-bottom: 16px; color: #538d4e; font-size: 0.85rem; }
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 0.1rem;
+            text-transform: uppercase;
+            border-bottom: 1px solid #d3d6da;
+            padding-bottom: 16px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .subtitle {
+            font-size: 0.85rem;
+            color: #787c7e;
+            margin-bottom: 32px;
+            text-align: center;
+        }
+        h2 {
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.03rem;
+            margin: 32px 0 4px;
+        }
+        h2 .num {
+            display: inline-block;
+            color: #6aaa64;
+            margin-right: 6px;
+        }
+        p {
+            font-size: 0.9rem;
+            line-height: 1.55;
+            color: #3a3a3c;
+            margin: 8px 0;
+        }
+        ul {
+            margin: 8px 0;
+            padding-left: 1.2rem;
+        }
+        li {
+            font-size: 0.9rem;
+            line-height: 1.55;
+            color: #3a3a3c;
+            margin-bottom: 6px;
+        }
+        code {
+            background: #f4f4f4;
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-size: 0.85em;
+        }
+        a { color: #538d4e; }
+        .callout {
+            border: 2px solid #6aaa64;
+            border-radius: 6px;
+            padding: 14px 16px;
+            margin: 16px 0;
+            background: #f0faf0;
+            font-size: 0.85rem;
+            color: #3a3a3c;
+        }
+        .callout .callout-title {
+            font-weight: 700;
+            letter-spacing: 0.03rem;
+            text-transform: uppercase;
+            font-size: 0.72rem;
+            color: #538d4e;
+            margin-bottom: 6px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin: 12px 0 24px;
+        }
+        th {
+            text-align: left;
+            padding: 6px 10px;
+            background: #f4f4f4;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.05rem;
+            text-transform: uppercase;
+            color: #787c7e;
+        }
+        td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: top;
+            color: #3a3a3c;
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <a href="/" class="back-link">&larr; Back to Left Wordle</a>
+    <h1>Privacy Policy</h1>
+    <p class="subtitle">What Left Wordle collects, why, and who else ever sees it. Last updated 2026-07-13.</p>
+
+    <div class="callout">
+        <div class="callout-title">Short version</div>
+        Left Wordle is a hobby project, not a company collecting data to sell. Your game history and
+        stats live in your browser unless you create a Passkey account. An account needs no name, email,
+        or password to exist. We don't run ads, don't use ad trackers, and don't sell or share your data
+        with anyone.
+    </div>
+
+    <h2><span class="num">1.</span>What's stored on your device</h2>
+    <p>By default, everything about how you play &mdash; your guesses, win/loss history, streaks, and
+        preferences (dark mode, hard mode, etc.) &mdash; is stored only in your browser's local storage.
+        None of it reaches our servers unless you create an account (see below). Clearing your browser
+        data or switching devices loses this local history unless you've created an account or used the
+        backup tools in Troubleshooting.</p>
+
+    <h2><span class="num">2.</span>What's sent to our servers just by playing</h2>
+    <p>Each time you play, your browser generates a random device ID (not tied to your name or any
+        account) and we record it alongside the puzzle date, your guesses, and a coarse country code
+        (from Cloudflare's edge network, not your raw IP address &mdash; we never store your IP). This
+        is how we measure things like daily players and where the game is used, in aggregate. It isn't
+        linked to an identity unless you're logged in on that device, at which point it's associated
+        with your account like the rest of your history.</p>
+
+    <h2><span class="num">3.</span>Accounts &amp; Passkeys</h2>
+    <p>See <a href="/logins_and_passkeys.html">Logins &amp; Passkeys</a> for the full explanation. In
+        short: accounts use passkeys, not usernames or passwords, and need no personal information to
+        create. An account is a randomly generated ID plus whatever passkeys you've registered to it. If
+        you set an email, it's used <em>only</em> to deliver one-time links for adding a device or
+        recovering account access &mdash; never for login itself, and never for marketing or anything
+        else.</p>
+    <p>Once you're logged in, your history, stats, preferences, and current game sync to our server
+        under your account so they follow you across devices. That data is tied only to your account ID
+        and optional email &mdash; nothing else about you is collected.</p>
+
+    <h2><span class="num">4.</span>Cookies</h2>
+    <p>If you're logged in, we set an HttpOnly session cookie (invisible to any JavaScript, including
+        ours) that keeps you signed in. During a passkey registration or login attempt, a short-lived
+        signed cookie holds the in-progress challenge for a few minutes. Neither cookie is used for
+        advertising or cross-site tracking, and we don't set any third-party ad or tracking cookies.</p>
+
+    <h2><span class="num">5.</span>Third parties involved</h2>
+    <table>
+        <thead><tr><th>Service</th><th>What it's for</th></tr></thead>
+        <tbody>
+            <tr>
+                <td>Fastmail</td>
+                <td>Sends the one-time device-link and account-recovery emails, and the optional
+                    diagnostics email below. Doesn't receive anything else.</td>
+            </tr>
+            <tr>
+                <td>Sentry</td>
+                <td>Crash/error reporting on the live site only &mdash; receives stack traces and
+                    browser info when something breaks, not your game data or identity.</td>
+            </tr>
+            <tr>
+                <td>Cloudflare</td>
+                <td>Fronts the site and supplies the coarse country code used in section 2. Standard
+                    infrastructure for any site behind it.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2><span class="num">6.</span>"Send Settings to Developers"</h2>
+    <p>The Troubleshooting section has an opt-in button that emails a copy of your local data (and, if
+        you're logged in, your account email, preferences, stats, and history) directly to the developer,
+        to help debug an issue you're reporting. This only ever happens if you click that button
+        yourself &mdash; nothing is sent automatically.</p>
+
+    <h2><span class="num">7.</span>Deleting your data</h2>
+    <p>You can disable individual passkeys yourself from the account menu's Manage Passkeys screen. To
+        delete an account and all associated data entirely, email
+        <a href="mailto:scott@left-wordle.com">scott@left-wordle.com</a> and we'll remove it.</p>
+
+    <h2><span class="num">8.</span>Changes to this policy</h2>
+    <p>If what we collect changes, this page will be updated to reflect it.</p>
+
+    <h2><span class="num">9.</span>Contact</h2>
+    <p>Questions about any of this: <a href="mailto:scott@left-wordle.com">scott@left-wordle.com</a>.</p>
+</div>
+</body>
+</html>
