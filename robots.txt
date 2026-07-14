@@ -1,9 +1,24 @@
-# Default: block everything
+# Allow-list model: a short list of legitimate search crawlers is
+# explicitly allowed; everything else (including AI/LLM crawlers) is
+# denied by the default block below. A crawler with its own named
+# section here ignores the "*" section entirely, so listing a bot
+# below with Allow: / is what actually grants it access -- the
+# default deny doesn't need to be repeated per-bot.
 User-agent: *
 Disallow: /
 
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: KagiBot
+Allow: /
+
 # -----------------------
-# AI / LLM crawlers
+# AI / LLM crawlers -- already denied by the default "*" block above,
+# listed individually so the policy is unambiguous to a human reader.
 # -----------------------
 User-agent: GPTBot
 Disallow: /
@@ -32,71 +47,4 @@ Disallow: /
 User-agent: Applebot-Extended
 Disallow: /
 
-# -----------------------
-# Major search engines
-# -----------------------
-User-agent: Googlebot
-Disallow: /
-
-User-agent: Googlebot-Image
-Disallow: /
-
-User-agent: Googlebot-News
-Disallow: /
-
-User-agent: Bingbot
-Disallow: /
-
-User-agent: Baiduspider
-Disallow: /
-
-User-agent: YandexBot
-Disallow: /
-
-User-agent: DuckDuckBot
-Disallow: /
-
-User-agent: Slurp
-Disallow: /
-
-User-agent: Exabot
-Disallow: /
-
-User-agent: SeznamBot
-Disallow: /
-
-User-agent: Sogou
-Disallow: /
-
-# -----------------------
-# Privacy / indie search
-# -----------------------
-User-agent: KagiBot
-Disallow: /
-
-User-agent: MojeekBot
-Disallow: /
-
-User-agent: Qwantify
-Disallow: /
-
-# -----------------------
-# Archivers / misc
-# -----------------------
-User-agent: ia_archiver
-Disallow: /
-
-User-agent: archive.org_bot
-Disallow: /
-
-User-agent: AhrefsBot
-Disallow: /
-
-User-agent: SemrushBot
-Disallow: /
-
-User-agent: MJ12bot
-Disallow: /
-
-User-agent: DotBot
-Disallow: /
+Sitemap: https://left-wordle.com/sitemap.xml

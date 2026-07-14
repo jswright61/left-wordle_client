@@ -7,6 +7,7 @@ namespace :deploy do
     api_base_url = fetch(:api_base_url)
     version_tag = fetch(:release_version_tag)
     passkey_auth_enabled = fetch(:passkey_auth_enabled, false)
+    allow_search_indexing = fetch(:allow_search_indexing, false)
 
     config_js = <<~JS
       (function() {
@@ -58,6 +59,12 @@ namespace :deploy do
       busted = busted.gsub(/(<link\s[^>]*href=")([^"?]+\.css)(")/) do
         prefix, path, suffix = $1, $2, $3
         bust_local_asset.call(prefix, path, suffix)
+      end
+      if allow_search_indexing
+        busted = busted.sub(
+          '<meta name="robots" content="noindex, nofollow, noai, noimageai">',
+          '<meta name="robots" content="index, follow, noai, noimageai">'
+        )
       end
       upload! StringIO.new(busted), release_path.join("index.html")
     end
