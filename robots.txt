@@ -16,6 +16,21 @@ Allow: /
 User-agent: KagiBot
 Allow: /
 
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: Qwantify
+Allow: /
+
+User-agent: SeznamBot
+Allow: /
+
+User-agent: MojeekBot
+Allow: /
+
+User-agent: YandexBot
+Allow: /
+
 # -----------------------
 # AI / LLM crawlers -- already denied by the default "*" block above,
 # listed individually so the policy is unambiguous to a human reader.
