@@ -1317,6 +1317,7 @@
         dayOffset;
         encryptedAnswer = null;
         answer = null;
+        staleAcknowledged = false;
 
         constructor() {
             super();
@@ -1658,6 +1659,11 @@
             this.tileIndex -= 1;
         }
 
+        _isStale() {
+            if (this.isHistoryPlay) return false;
+            return DateUtils.calculateDaysBetween(this.today, new Date()) !== 0;
+        }
+
         submitGuess() {
             if (this.gameStatus !== GAME_STATUS_IN_PROGRESS) return;
             if (!this.canInput) return;
@@ -1665,6 +1671,10 @@
             if (this.tileIndex !== 5) {
                 this.$board.querySelectorAll("game-row")[this.rowIndex].setAttribute("invalid", "");
                 this.addToast("Not enough letters");
+                return;
+            }
+            if (this._isStale() && !this.staleAcknowledged) {
+                this._showStaleGameModal();
                 return;
             }
             this.evaluateRow();
@@ -1865,6 +1875,31 @@
             modal.appendChild(container);
             modal.setAttribute("open", "");
             setTimeout(() => container.querySelector('[data-action="cancel"]').focus(), 50);
+        }
+
+        _showStaleGameModal() {
+            var staleDateLabel = DateUtils.formatLocalDate(this.today);
+            var modal = this.$game.querySelector("game-modal");
+            var container = document.createElement("div");
+            container.className = "erase-confirm-modal";
+            container.innerHTML =
+                "<h2>This Tab Is Out of Date</h2>" +
+                "<p>This tab still has " + staleDateLabel + "’s puzzle loaded, but a new day has started. " +
+                "Continue this puzzle, or switch to today’s?</p>" +
+                "<div class='erase-confirm-buttons'>" +
+                    "<button class='erase-confirm-cancel' data-action='continue'>Continue</button>" +
+                    "<button class='erase-confirm-erase' data-action='today'>Play Today's Game</button>" +
+                "</div>";
+            container.querySelector('[data-action="continue"]').addEventListener("click", () => {
+                this.staleAcknowledged = true;
+                this.submitGuess();
+            });
+            container.querySelector('[data-action="today"]').addEventListener("click", () => {
+                window.location.reload();
+            });
+            modal.appendChild(container);
+            modal.setAttribute("open", "");
+            setTimeout(() => container.querySelector('[data-action="continue"]').focus(), 50);
         }
 
         eraseGame() {
