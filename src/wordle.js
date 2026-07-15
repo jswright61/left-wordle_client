@@ -1477,7 +1477,7 @@
                 } else {
                     var isCorrect = this.gameStatus === GAME_STATUS_WIN;
                     var isStreak = !!this.lastCompletedTs &&
-                        DateUtils.calculateDaysBetween(new Date(this.lastCompletedTs), new Date) === 1;
+                        DateUtils.calculateDaysBetween(new Date(this.lastCompletedTs), this.today) === 1;
                     StatisticsEngine.updateStatistics({
                         isWin: isCorrect,
                         isStreak: isStreak,
