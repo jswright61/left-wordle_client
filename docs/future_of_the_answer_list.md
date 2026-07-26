@@ -13,7 +13,7 @@ I've also seen some answers that maybe should not have been answers, and I'm pre
 the list, as yet unused.
 
 I have arrived at the opinion that consulting a list of previously used answers and eliminating them from consideration
-gives a player an unfair advatage - if you remember them, more power to you. And if you want to spend time commiting
+gives a player an unfair advantage - if you remember them, more power to you. And if you want to spend time commiting
 the list, or some portion of it, to memory that's up to you. Consulting the list while playing would be similar, in my
 mind, to taking notes into a closed book, no notes, exam. All this is to say, I don't think it matters much how many
 words remain - as long as there's one.
