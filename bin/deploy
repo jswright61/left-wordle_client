@@ -70,7 +70,7 @@ else
 fi
 
 echo "→ Running tests..."
-if ! npm test; then
+if ! mise exec -- npm test; then
   echo "" >&2
   echo "✗ Tests failed — aborting deploy." >&2
   if git rev-parse --verify "refs/tags/$VERSION" &>/dev/null; then
@@ -79,7 +79,7 @@ if ! npm test; then
   fi
   echo "" >&2
   echo "Ensure all tests pass before re-deploying:" >&2
-  echo "  1. npm test" >&2
+  echo "  1. mise exec -- npm test" >&2
   echo "  2. git tag -a $VERSION -m 'Release $VERSION'" >&2
   echo "  3. bin/deploy $ENV" >&2
   exit 1
