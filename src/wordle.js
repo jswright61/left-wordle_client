@@ -424,9 +424,17 @@
             if (body.classList.contains("colorblind")) {
                 this.querySelector("#color-blind-theme").setAttribute("checked", "");
             }
-            var modeValue = StorageController.preferences.get("insaneMode") ? "insane"
-                : StorageController.preferences.get("hardMode") ? "hard"
-                : "regular";
+            // Mid-game the radio must reflect the mode this game is actually being
+            // played under -- a "Just This Game" switch changes the game but not the
+            // preference, and "Change Next Game" changes the preference but not the game.
+            var modeValue;
+            if (this.gameApp && this.gameApp.gameStatus === GAME_STATUS_IN_PROGRESS && this.gameApp.rowIndex > 0) {
+                modeValue = this.gameApp.insaneMode ? "insane" : this.gameApp.hardMode ? "hard" : "regular";
+            } else {
+                modeValue = StorageController.preferences.get("insaneMode") ? "insane"
+                    : StorageController.preferences.get("hardMode") ? "hard"
+                    : "regular";
+            }
             var modeRadio = this.querySelector('input[name="gameplay-mode"][value="' + modeValue + '"]');
             if (modeRadio) modeRadio.checked = true;
             StorageController.preferences.get("goofProtectionMode") !== false
@@ -488,7 +496,7 @@
                 toastDiv.classList.add("fade");
             }, this._duration);
             toastDiv.addEventListener("transitionend", () => {
-                this.parentNode.removeChild(this);
+                this.remove();
             });
         }
     }
@@ -713,6 +721,12 @@
                 result += idx >= 0 ? StringUtils.ROT13_MAP[idx] : "_";
             }
             return result;
+        }
+
+        static escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, function(c) {
+                return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c];
+            });
         }
 
         static normalizeAnswer(value) {
@@ -1375,7 +1389,12 @@
 
             var state = GameStateManager.getGameState();
             this.lastPlayedTs = state.lastPlayedTs;
-            if (this.isHistoryPlay || !this.lastPlayedTs || DateUtils.calculateDaysBetween(new Date(this.lastPlayedTs), this.today) >= 1) {
+            // A saved game for a different puzzle number must never be restored into
+            // today's session (e.g. the clock moved backwards past the saved day) --
+            // its board and answer belong to another puzzle.
+            var storedPuzzleMismatch = state.puzzleNum != null && state.puzzleNum !== todayOffset;
+            if (this.isHistoryPlay || !this.lastPlayedTs || storedPuzzleMismatch ||
+                DateUtils.calculateDaysBetween(new Date(this.lastPlayedTs), this.today) >= 1) {
                 this.boardState = new Array(6).fill("");
                 this.evaluations = new Array(6).fill(null);
                 this.solution = null;
@@ -1914,6 +1933,11 @@
                     stats.gamesWon = Math.max(0, (stats.gamesWon || 0) - 1);
                     stats.guesses[todayCompletion.rowIndex] = Math.max(0, (stats.guesses[todayCompletion.rowIndex] || 0) - 1);
                     stats.currentStreak = Math.max(0, (stats.currentStreak || 0) - 1);
+                    // maxStreak is deliberately NOT rolled back: an earlier streak may have
+                    // legitimately reached the same value, and history can be incomplete
+                    // (pre-history games), so the pre-win max isn't recoverable from counters.
+                    // Replaying the erased day re-runs Math.max, so the cost is at most a
+                    // transiently inflated max until the day is replayed.
                 } else {
                     stats.guesses.fail = Math.max(0, (stats.guesses.fail || 0) - 1);
                     stats.currentStreak = stats.terminatedStreak || 0;
@@ -1957,16 +1981,18 @@
             var count = this._paramWarnings.length;
             var html = "<h2>Unknown URL Parameter" + (count > 1 ? "s" : "") + "</h2>";
             this._paramWarnings.forEach(function(w) {
+                var key = StringUtils.escapeHtml(w.key);
+                var value = StringUtils.escapeHtml(w.value);
                 if (w.type === "date_typo") {
-                    html += "<p>Unrecognized parameter <code>?" + w.key + "=</code>. Did you mean <code>?date=" + w.value + "</code>?</p>";
+                    html += "<p>Unrecognized parameter <code>?" + key + "=</code>. Did you mean <code>?date=" + value + "</code>?</p>";
                 } else if (w.type === "bad_date") {
                     if (w.reason === "range") {
-                        html += "<p>The date <code>" + w.value + "</code> is outside the allowed range for <code>?date=</code>.</p>";
+                        html += "<p>The date <code>" + value + "</code> is outside the allowed range for <code>?date=</code>.</p>";
                     } else {
-                        html += "<p>Invalid value for <code>?date=</code>: <code>" + w.value + "</code>. Expected format: <code>YYYY-MM-DD</code> (e.g. <code>?date=2026-07-01</code>).</p>";
+                        html += "<p>Invalid value for <code>?date=</code>: <code>" + value + "</code>. Expected format: <code>YYYY-MM-DD</code> (e.g. <code>?date=2026-07-01</code>).</p>";
                     }
                 } else {
-                    html += "<p>Unknown parameter: <code>?" + w.key + "=" + w.value + "</code></p>";
+                    html += "<p>Unknown parameter: <code>?" + key + "=" + value + "</code></p>";
                 }
             });
             container.innerHTML = html;
@@ -2094,6 +2120,14 @@
                 this._showFuturePlayBlocked();
             } else if (this.gameStatus === GAME_STATUS_IN_PROGRESS && !this.answer) {
                 this._fetchAnswer();
+            }
+            // A game restored as completed from history alone (no saved board, e.g. played
+            // on another device) has no evaluations, so the tile-reveal animation that
+            // normally triggers the stats modal never fires -- show the outcome here instead.
+            if (willShowStatsModal && !this.evaluations.some(Boolean)) {
+                var restoredCompletion = HistoryManager.getHistoryCompletionForPuzzle(this.dayOffset);
+                if (restoredCompletion) this._showAlreadyPlayed(restoredCompletion);
+                setTimeout(() => { this.showStatsModal(); }, 100);
             }
             this.$game.addEventListener("game-key-press", (event) => {
                 var key = event.detail.key;
@@ -2516,6 +2550,14 @@
     customElements.define("game-keyboard", GameKeyboard);
 
     class ShareUtils {
+        // Sentry loads from a CDN and is commonly blocked by ad blockers --
+        // reporting must never break the share fallback chain itself.
+        static captureException(err, context) {
+            if (typeof Sentry !== "undefined" && Sentry && typeof Sentry.captureException === "function") {
+                Sentry.captureException(err, context);
+            }
+        }
+
         // Share results via native share API or fall back to clipboard
         static async shareOrCopy(data, onSuccess, onError) {
             try {
@@ -2532,7 +2574,7 @@
                     // User cancelled - don't show error, just return
                     return;
                 }
-                Sentry.captureException(err, { tags: { shareMethod: "native" } });
+                ShareUtils.captureException(err, { tags: { shareMethod: "native" } });
             }
 
             // Clipboard fallback
@@ -2542,7 +2584,7 @@
                     onSuccess();
                     return;
                 } catch (err) {
-                    Sentry.captureException(err, { tags: { shareMethod: "clipboard" } });
+                    ShareUtils.captureException(err, { tags: { shareMethod: "clipboard" } });
                     console.error('Clipboard fallback failed:', err.name, err.message, err);
                 }
             }
@@ -2564,7 +2606,7 @@
                     onError();
                 }
             } catch (err) {
-                Sentry.captureException(err, { tags: { shareMethod: "execCommand" } });
+                ShareUtils.captureException(err, { tags: { shareMethod: "execCommand" } });
                 console.error('execCommand copy failed:', err.name, err.message, err);
                 onError();
             }
@@ -2635,7 +2677,7 @@
             // header += " (1995p)";
             if (!hideDateInShareHeader) {
                 var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-                var puzzleDate = new Date(2021, 5, 19 + dayOffset);
+                var puzzleDate = DateUtils.getDateFromDayOffset(dayOffset);
                 header += " for " + puzzleDate.getDate() + " " + MONTHS[puzzleDate.getMonth()] + ", " + puzzleDate.getFullYear();
             }
             if (shareAdditions.header) {
@@ -2744,17 +2786,22 @@
         connectedCallback() {
             this.appendChild(statsContainerTemplate.content.cloneNode(true));
             var statisticsEl = this.querySelector("#statistics"),
-                distributionEl = this.querySelector("#guess-distribution"),
-                maxGuesses = Math.max.apply(Math, Array.from(Object.values(this.stats.guesses)));
+                distributionEl = this.querySelector("#guess-distribution");
+            // Scale bars against the winning-guess counts only -- the fail count is
+            // never rendered as a bar, so it must not squash the visible ones.
+            var maxGuesses = 1;
+            for (var g = 1; g <= 6; g++) {
+                maxGuesses = Math.max(maxGuesses, this.stats.guesses[g] || 0);
+            }
             if (Object.values(this.stats.guesses).every((v) => 0 === v)) {
                 var noData = document.createElement("div");
                 noData.classList.add("no-data");
                 noData.innerText = "No Data";
                 distributionEl.appendChild(noData);
             } else
-                for (var i = 1; i < Object.keys(this.stats.guesses).length; i++) {
+                for (var i = 1; i <= 6; i++) {
                     var guessNum = i,
-                        count = this.stats.guesses[i],
+                        count = this.stats.guesses[i] || 0,
                         barFragment = graphBarTemplate.content.cloneNode(true),
                         barWidth = Math.max(7, Math.round(count / maxGuesses * 100));
                     barFragment.querySelector(".guess").textContent = guessNum;
@@ -2961,14 +3008,18 @@
             var display,
                 now = (new Date).getTime(),
                 remaining = Math.floor(this.targetEpochMS - now);
-            if (remaining <= 0)
-                display = "00:00:00";
-            else {
-                var hours = Math.floor(remaining % 864e5 / MS_PER_HOUR),
-                    minutes = Math.floor(remaining % MS_PER_HOUR / MS_PER_MINUTE),
-                    seconds = Math.floor(remaining % MS_PER_MINUTE / 1e3);
-                display = "".concat(this.padDigit(hours), ":").concat(this.padDigit(minutes), ":").concat(this.padDigit(seconds));
+            if (remaining <= 0) {
+                // Midnight passed while the modal was open -- the next puzzle is
+                // available now, so a frozen 00:00:00 (or a fresh 24h countdown to
+                // the puzzle after) would both be wrong.
+                this.$timer.textContent = "Ready!";
+                clearInterval(this.intervalId);
+                return;
             }
+            var hours = Math.floor(remaining % 864e5 / MS_PER_HOUR),
+                minutes = Math.floor(remaining % MS_PER_HOUR / MS_PER_MINUTE),
+                seconds = Math.floor(remaining % MS_PER_MINUTE / 1e3);
+            display = "".concat(this.padDigit(hours), ":").concat(this.padDigit(minutes), ":").concat(this.padDigit(seconds));
             this.$timer.textContent = display;
         }
 
@@ -3034,6 +3085,7 @@
         calculateDaysBetween: DateUtils.calculateDaysBetween,
         getDayOffset: PuzzleUtils.getDayOffset,
         encodeWord: StringUtils.encodeWord,
+        escapeHtml: StringUtils.escapeHtml,
         getStatistics: StatisticsEngine.getStatistics,
         updateStatistics: StatisticsEngine.updateStatistics,
         computeHistoryOnlyStatistics: StatisticsEngine.computeHistoryOnlyStatistics,

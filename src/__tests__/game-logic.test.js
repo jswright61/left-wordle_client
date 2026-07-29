@@ -892,3 +892,22 @@ describe('getDeviceId', () => {
         expect(getDeviceId()).toBe(existingV4);
     });
 });
+
+describe('escapeHtml', () => {
+    const escapeHtml = testExports.escapeHtml;
+
+    test('escapes HTML metacharacters', () => {
+        expect(escapeHtml('<img src=x onerror=alert(1)>')).toBe(
+            '&lt;img src=x onerror=alert(1)&gt;'
+        );
+        expect(escapeHtml('a&b"c\'d')).toBe('a&amp;b&quot;c&#39;d');
+    });
+
+    test('leaves plain text untouched', () => {
+        expect(escapeHtml('2026-07-01')).toBe('2026-07-01');
+    });
+
+    test('stringifies non-string input', () => {
+        expect(escapeHtml(42)).toBe('42');
+    });
+});

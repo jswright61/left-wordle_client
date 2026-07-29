@@ -157,6 +157,37 @@
         });
     };
 
+    // Inverse of historyEntriesForUpload: GET /api/v2/history rows carry
+    // game_status/guesses but no `result`, and everything local
+    // (getHistoryCompletionForPuzzle, computeHistoryStats, exports) keys
+    // off `result` -- so server rows must be translated back into the
+    // local entry shape before they're written to localStorage. A WIN with
+    // no recorded guesses (e.g. an imported game) has an unknowable guess
+    // count; result stays null and stats code skips it, same as before.
+    function serverHistoryToLocalHistory(serverHistory) {
+        var local = {};
+        Object.keys(serverHistory || {}).forEach(function(key) {
+            var entry = serverHistory[key];
+            if (!entry || entry.puzzle_num === undefined || entry.puzzle_num === null) return;
+            var guesses = Array.isArray(entry.guesses) ? entry.guesses : [];
+            var result = entry.game_status === "WIN" ? (guesses.length || null)
+                : entry.game_status === "FAIL" ? 7 : null;
+            local[String(entry.puzzle_num)] = {
+                puzzle_num: entry.puzzle_num,
+                date: entry.date || null,
+                result: result,
+                answer: null,
+                mode: entry.mode || null,
+                starter: guesses.length && Array.isArray(guesses[0]) ? guesses[0][0] : null,
+                completed_at: entry.completed_at || null,
+                updated_at: null,
+                device_id: null,
+                origin: "server"
+            };
+        });
+        return local;
+    }
+
     // Server is always the source of truth once an account exists -- this
     // is a full overwrite, never a merge, of this device's local cache.
     LeftWordleAuth.syncFromServerAndOverwriteLocal = async function() {
@@ -166,9 +197,11 @@
         StorageController.preferences.replace(profile.preferences || {});
         StorageController.gameState.replace(profile.game_state || {});
         StorageController.statistics.replace(profile.statistics || {});
-        StorageController.history.replace(history || {});
+        StorageController.history.replace(serverHistoryToLocalHistory(history));
         return profile;
     };
+
+    LeftWordleAuth.serverHistoryToLocalHistory = serverHistoryToLocalHistory;
 
     var config = window.LEFT_WORDLE_CONFIG || {};
     LeftWordleAuth.ready = config.passkeyAuthEnabled
