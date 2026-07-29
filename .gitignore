@@ -10,6 +10,10 @@ coverage/
 *.log
 docs_private/*
 
+# Local dev tooling config
+.config/
+devbin/
+
 # Playwright
 test-results/
 playwright-report/
