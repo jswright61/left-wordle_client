@@ -4,12 +4,14 @@ GEM
     airbrussh (1.6.1)
       sshkit (>= 1.6.1, != 1.7.0)
     base64 (0.3.0)
+    bcrypt_pbkdf (1.1.2)
     capistrano (3.20.1)
       airbrussh (>= 1.0.0)
       i18n
       rake (>= 10.0.0)
       sshkit (>= 1.9.0)
     concurrent-ruby (1.3.7)
+    ed25519 (1.4.0)
     i18n (1.15.1)
       concurrent-ruby (~> 1.0)
     logger (1.7.0)
@@ -33,14 +35,18 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  bcrypt_pbkdf (~> 1.0)
   capistrano (~> 3.19)
+  ed25519 (~> 1.2)
 
 CHECKSUMS
   airbrussh (1.6.1) sha256=9a5fc95583cefe722054a016d26ff0338cf00072b031b829086dde2039d5836a
   base64 (0.3.0) sha256=27337aeabad6ffae05c265c450490628ef3ebd4b67be58257393227588f5a97b
+  bcrypt_pbkdf (1.1.2) sha256=c2414c23ce66869b3eb9f643d6a3374d8322dfb5078125c82792304c10b94cf6
   bundler (4.0.11) sha256=5bcec0fb78302e48d02ee46f10ee6e6942be647ba5b44a6d1ddfda9a240ce785
   capistrano (3.20.1) sha256=b0d54ba5cf49bb194998bf6b427e889aa36ed05f545ecf7cc37acb9d529e9ae9
   concurrent-ruby (1.3.7) sha256=4412caec3a5ea2e5fdc52076724c071a81f2c0593d83b2ac8cbb8ca63b3151b0
+  ed25519 (1.4.0) sha256=16e97f5198689a154247169f3453ef4cfd3f7a47481fde0ae33206cdfdcac506
   i18n (1.15.1) sha256=505ec5de1f4e6c8a2cb028ef9700ca495f117911643455721dee5abdca797255
   logger (1.7.0) sha256=196edec7cc44b66cfb40f9755ce11b392f21f7967696af15d274dde7edff0203
   net-scp (4.1.0) sha256=a99b0b92a1e5d360b0de4ffbf2dc0c91531502d3d4f56c28b0139a7c093d1a5d
