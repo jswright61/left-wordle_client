@@ -1652,6 +1652,14 @@
             el.textContent = typeof count === "number" ? count : "";
         }
 
+        revealRowCounts(upToRowExclusive) {
+            for (var i = 0; i < upToRowExclusive; i++) {
+                if (typeof this.answersRemaining[i] === "number") {
+                    this.updateRowCount(i, this.answersRemaining[i]);
+                }
+            }
+        }
+
         addLetter(letter) {
             if (this.gameStatus !== GAME_STATUS_IN_PROGRESS) return;
             if (!this.canInput) return;
@@ -2103,12 +2111,11 @@
             this.positionRowCounts();
             if (this.restoringFromLocalStorage) {
                 var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
+                var restoredGameComplete = this.gameStatus === GAME_STATUS_WIN || this.gameStatus === GAME_STATUS_FAIL;
                 if ((remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") && this.answersRemaining[0] !== null) {
-                    for (var j = 0; j < this.rowIndex; j++) {
-                        if (typeof this.answersRemaining[j] === "number") {
-                            this.updateRowCount(j, this.answersRemaining[j]);
-                        }
-                    }
+                    this.revealRowCounts(this.rowIndex);
+                } else if (remainingAnswersMode === "sharetext" && restoredGameComplete && this.answersRemaining[0] !== null) {
+                    this.revealRowCounts(this.rowIndex);
                 }
             }
             var histPlayCompletion = this.isHistoryPlay
@@ -2161,10 +2168,18 @@
                             if ((_remainingAnswersMode === "gameplay" || _remainingAnswersMode === "both") && this.answersRemaining[0] !== null) {
                                 var _winRowIdx = this.rowIndex - 1;
                                 setTimeout(() => { this.updateRowCount(_winRowIdx, 0); }, 1000);
+                            } else if (_remainingAnswersMode === "sharetext" && this.answersRemaining[0] !== null) {
+                                var _finalRowIdx = this.rowIndex;
+                                setTimeout(() => { this.revealRowCounts(_finalRowIdx); }, 1000);
                             }
                         }
                         if (this.gameStatus === GAME_STATUS_FAIL) {
                             this.addToast(this.solution.toUpperCase(), Infinity);
+                            var _remainingAnswersModeFail = StorageController.preferences.get("remainingAnswersMode") || "neither";
+                            if (_remainingAnswersModeFail === "sharetext" && this.answersRemaining[0] !== null) {
+                                var _finalRowIdxFail = this.rowIndex;
+                                setTimeout(() => { this.revealRowCounts(_finalRowIdxFail); }, 1000);
+                            }
                         }
                         if (!this.historyPlaySkipStats) {
                             setTimeout(() => {
