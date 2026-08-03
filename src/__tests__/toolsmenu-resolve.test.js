@@ -314,3 +314,99 @@ describe('ToolsMenu#collectAllSettings', () => {
         expect(data.diagnostics.version).toBeNull();
     });
 });
+
+describe('ToolsMenu#buildRestoreSummary', () => {
+    var { ToolsMenu } = dom.window.toolsmenuTestExports;
+    var saveMenu;
+
+    beforeEach(() => {
+        saveMenu = new ToolsMenu(new HistoryManager(resolver));
+    });
+
+    test('reports history entry count and games played', () => {
+        var summary = saveMenu.buildRestoreSummary({
+            history: { '0': {}, '1': {} },
+            statistics: { gamesPlayed: 42 }
+        });
+        expect(summary).toContain('2 history entries');
+        expect(summary).toContain('42 games played');
+    });
+
+    test('uses singular wording for exactly one history entry', () => {
+        var summary = saveMenu.buildRestoreSummary({ history: { '0': {} } });
+        expect(summary).toContain('1 history entry');
+        expect(summary).not.toContain('1 history entries');
+    });
+
+    test('omits games played when statistics are missing', () => {
+        var summary = saveMenu.buildRestoreSummary({ history: {} });
+        expect(summary).not.toContain('games played');
+    });
+});
+
+describe('ToolsMenu#applyRestore', () => {
+    var { ToolsMenu } = dom.window.toolsmenuTestExports;
+    var saveMenu;
+
+    beforeEach(() => {
+        dom.window.localStorage.clear();
+        saveMenu = new ToolsMenu(new HistoryManager(resolver));
+        jest.spyOn(saveMenu, 'reloadPage').mockImplementation(() => {});
+    });
+
+    test('writes each restored key back, re-serializing non-string values', () => {
+        var data = {
+            device_id: 'abc-123',
+            statistics: { gamesPlayed: 5 },
+            diagnostics: { server: 'localhost' }
+        };
+        saveMenu.applyRestore(data, ['device_id', 'statistics']);
+
+        expect(dom.window.localStorage.getItem('device_id')).toBe('abc-123');
+        expect(JSON.parse(dom.window.localStorage.getItem('statistics'))).toEqual({ gamesPlayed: 5 });
+        expect(dom.window.localStorage.getItem('diagnostics')).toBeNull();
+    });
+
+    test('clears pre-existing keys not present in the restored file', () => {
+        dom.window.localStorage.setItem('stale_key', 'leftover');
+        saveMenu.applyRestore({ device_id: 'abc-123' }, ['device_id']);
+        expect(dom.window.localStorage.getItem('stale_key')).toBeNull();
+    });
+
+    test('reloads the page after a successful restore', () => {
+        saveMenu.applyRestore({ device_id: 'abc-123' }, ['device_id']);
+        expect(saveMenu.reloadPage).toHaveBeenCalled();
+    });
+});
+
+describe('ToolsMenu#handleRestoreFile', () => {
+    var { ToolsMenu } = dom.window.toolsmenuTestExports;
+    var saveMenu;
+
+    beforeEach(() => {
+        dom.window.localStorage.clear();
+        saveMenu = new ToolsMenu(new HistoryManager(resolver));
+    });
+
+    function fileFor(contents) {
+        return { text: () => Promise.resolve(contents) };
+    }
+
+    test('rejects a file that is not a JSON object', async () => {
+        var statusEl = dom.window.document.createElement('div');
+        await saveMenu.handleRestoreFile(fileFor('[1,2,3]'), statusEl);
+        expect(statusEl.textContent).toContain('Restore failed');
+    });
+
+    test('rejects a file with no restorable keys', async () => {
+        var statusEl = dom.window.document.createElement('div');
+        await saveMenu.handleRestoreFile(fileFor(JSON.stringify({ diagnostics: {}, server: {} })), statusEl);
+        expect(statusEl.textContent).toContain("doesn't contain any settings");
+    });
+
+    test('rejects malformed JSON', async () => {
+        var statusEl = dom.window.document.createElement('div');
+        await saveMenu.handleRestoreFile(fileFor('{not json'), statusEl);
+        expect(statusEl.textContent).toContain('Restore failed');
+    });
+});

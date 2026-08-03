@@ -1110,6 +1110,122 @@ class ToolsMenu {
         return data;
     }
 
+    // Keys collectAllSettings() adds on top of the raw localStorage dump --
+    // never real storage keys, so a restore must never write them back.
+    static get RESTORE_IGNORED_KEYS() {
+        return ["diagnostics", "server"];
+    }
+
+    buildRestoreSummary(data) {
+        var parts = [];
+        var historyCount = data.history && typeof data.history === "object" ? Object.keys(data.history).length : 0;
+        parts.push(historyCount + (historyCount === 1 ? " history entry" : " history entries"));
+
+        if (data.statistics && Number.isFinite(data.statistics.gamesPlayed)) {
+            parts.push(data.statistics.gamesPlayed + " games played");
+        }
+
+        return "This file contains " + parts.join(", ") + ".";
+    }
+
+    openRestoreConfirmModal(data, storageKeys, statusElement) {
+        var self = this;
+        var modal = document.getElementById("restore-backup-confirm-modal");
+        if (!modal) return;
+
+        var summaryEl = document.getElementById("restore-backup-confirm-summary");
+        if (summaryEl) summaryEl.textContent = this.buildRestoreSummary(data);
+
+        var applyButton = document.getElementById("restore-backup-confirm-apply");
+        var cancelButton = document.getElementById("restore-backup-confirm-cancel");
+
+        function close() {
+            modal.classList.add("hidden");
+            if (applyButton) applyButton.onclick = null;
+            if (cancelButton) cancelButton.onclick = null;
+        }
+
+        if (applyButton) {
+            applyButton.onclick = function() {
+                close();
+                self.applyRestore(data, storageKeys, statusElement);
+            };
+        }
+        if (cancelButton) {
+            cancelButton.onclick = function() {
+                close();
+                ToolsMenu.showStatus(statusElement, "Restore cancelled", false);
+            };
+        }
+
+        modal.classList.remove("hidden");
+    }
+
+    applyRestore(data, storageKeys, statusElement) {
+        try {
+            window.localStorage.clear();
+            storageKeys.forEach(function(key) {
+                var value = data[key];
+                var toStore = typeof value === "string" ? value : JSON.stringify(value);
+                window.localStorage.setItem(key, toStore);
+            });
+        } catch (err) {
+            ToolsMenu.showStatus(statusElement, "Restore failed: " + (err && err.message ? err.message : "unknown error"), true);
+            return;
+        }
+
+        this.reloadPage();
+    }
+
+    // Isolated so tests can stub it without touching jsdom's read-only
+    // window.location.reload.
+    reloadPage() {
+        window.location.reload();
+    }
+
+    async handleRestoreFile(file, statusElement, buttonElement) {
+        if (!file) return;
+
+        ToolsMenu.showStatus(statusElement, "Reading backup file...", false);
+        ToolsMenu.flashElement(buttonElement);
+
+        try {
+            var text = await file.text();
+            var parsed = this.resolver.safeParseJSON(text, null);
+            if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+                throw new Error("Invalid backup file — expected a JSON object");
+            }
+
+            var storageKeys = Object.keys(parsed).filter(function(key) {
+                return !ToolsMenu.RESTORE_IGNORED_KEYS.includes(key);
+            });
+            if (!storageKeys.length) {
+                throw new Error("This file doesn't contain any settings to restore");
+            }
+
+            ToolsMenu.showStatus(statusElement, "", false);
+            this.openRestoreConfirmModal(parsed, storageKeys, statusElement);
+        } catch (err) {
+            ToolsMenu.showStatus(statusElement, "Restore failed: " + (err && err.message ? err.message : "unknown error"), true);
+        }
+    }
+
+    wireRestoreBackup(statusElement) {
+        var self = this;
+        var restoreButton = document.getElementById("restoreBackupButton");
+        var restoreInput = document.getElementById("inputRestoreBackup");
+
+        if (restoreInput) {
+            restoreInput.addEventListener("change", function() {
+                var file = restoreInput.files && restoreInput.files[0];
+                if (!file) return;
+                self.handleRestoreFile(file, statusElement, restoreButton).finally(function() {
+                    restoreInput.value = "";
+                });
+            });
+        }
+    }
+
     wireTroubleshootingSection(statusElement) {
         var self = this;
         var downloadButton = document.getElementById("downloadAllSettingsButton");
@@ -1189,6 +1305,7 @@ class ToolsMenu {
         this.wireHistoryImportExport(statusElement);
         this.wireHistoryImportSummaryModal();
         this.wireAdjustStatsModal(statusElement);
+        this.wireRestoreBackup(statusElement);
         this.wireTroubleshootingSection(statusElement);
     }
 }
