@@ -1279,6 +1279,20 @@
                 completedAt: completedAt
             };
         }
+
+        // Continuity is decided by puzzle-number adjacency in recorded
+        // history, not by comparing timestamps against "today" -- that
+        // comparison re-derives local midnight under whatever timezone the
+        // device is in *right now*, which can misjudge the gap after the
+        // device's timezone has changed since the last completion. Puzzle
+        // numbers are assigned once and never reinterpreted, so this is
+        // stable across timezone changes and also means playing ahead via
+        // ?date= correctly sets up the following real day to continue the
+        // streak (it records a history entry too).
+        static isContinuingStreak(puzzleNum) {
+            var previousCompletion = HistoryManager.getHistoryCompletionForPuzzle(puzzleNum - 1);
+            return !!previousCompletion && previousCompletion.isWin;
+        }
     }
 
     var gameAppTemplate = document.createElement("template");
@@ -1507,8 +1521,7 @@
                     });
                 } else {
                     var isCorrect = this.gameStatus === GAME_STATUS_WIN;
-                    var isStreak = !!this.lastCompletedTs &&
-                        DateUtils.calculateDaysBetween(new Date(this.lastCompletedTs), this.today) === 1;
+                    var isStreak = HistoryManager.isContinuingStreak(this.dayOffset);
                     StatisticsEngine.updateStatistics({
                         isWin: isCorrect,
                         isStreak: isStreak,
@@ -3160,5 +3173,8 @@
         decryptAnswer: decryptAnswer,
         buildShareText: ShareUtils.buildShareText,
         buildAccessibleRows: ShareUtils.buildAccessibleRows,
+        recordHistoryEntry: HistoryManager.recordHistoryEntry,
+        getHistoryCompletionForPuzzle: HistoryManager.getHistoryCompletionForPuzzle,
+        isContinuingStreak: HistoryManager.isContinuingStreak,
     };
 })();

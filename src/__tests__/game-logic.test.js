@@ -91,6 +91,9 @@ const getDayOffset = testExports.getDayOffset;             // Ga -> getDayOffset
 const encodeWord = testExports.encodeWord;                 // Wa -> encodeWord
 const getStatistics = testExports.getStatistics;            // Xa -> getStatistics
 const updateStatistics = testExports.updateStatistics;      // Va -> updateStatistics
+const recordHistoryEntry = testExports.recordHistoryEntry;
+const getHistoryCompletionForPuzzle = testExports.getHistoryCompletionForPuzzle;
+const isContinuingStreak = testExports.isContinuingStreak;
 const evaluateGuess = testExports.evaluateGuess;            // IIFE -> evaluateGuess
 const validateHardMode = testExports.validateHardMode;
 const validateInsaneMode = testExports.validateInsaneMode;
@@ -398,6 +401,64 @@ describe('updateStatistics (currently Va)', () => {
             expect(syncHistoryEntry.mock.calls[0][0]).toMatchObject({ puzzle_num: 999, result: 3 });
         } finally {
             delete dom.window.LeftWordleAuth;
+        }
+    });
+});
+
+describe('HistoryManager.isContinuingStreak', () => {
+    beforeEach(() => {
+        dom.window.localStorage.removeItem('history');
+    });
+
+    test('is false with no recorded history', () => {
+        expect(isContinuingStreak(500)).toBe(false);
+    });
+
+    test('is true when the previous puzzle number was a win', () => {
+        recordHistoryEntry({ puzzleNum: 500, result: 3, date: '2026-08-03' });
+        expect(isContinuingStreak(501)).toBe(true);
+    });
+
+    test('is false when the previous puzzle number was a loss', () => {
+        recordHistoryEntry({ puzzleNum: 500, result: 7, date: '2026-08-03' });
+        expect(isContinuingStreak(501)).toBe(false);
+    });
+
+    test('is false when there is a gap (the previous puzzle number was never played)', () => {
+        recordHistoryEntry({ puzzleNum: 500, result: 3, date: '2026-08-03' });
+        expect(isContinuingStreak(502)).toBe(false);
+    });
+
+    // Regression test for the bug this replaces: completing a future puzzle
+    // via ?date= used to bump stats.currentStreak without ever updating the
+    // timestamp the *next* real-day completion checked against, so the
+    // following day's win would incorrectly reset the streak. Because
+    // continuity is now decided purely by puzzle-number adjacency in
+    // history -- and every completion (including a ?date= play) records a
+    // history entry -- playing ahead now correctly sets up the next day.
+    test('playing a future puzzle via ?date= sets up the following real day to continue the streak', () => {
+        recordHistoryEntry({ puzzleNum: 500, result: 3, date: '2026-08-03' }); // real play, today
+        expect(isContinuingStreak(501)).toBe(true); // ?date= play of tomorrow's puzzle
+        recordHistoryEntry({ puzzleNum: 501, result: 4, date: '2026-08-04' }); // that ?date= play completes
+        expect(isContinuingStreak(502)).toBe(true); // the next real day should still continue
+    });
+
+    // This is also timezone-proof, unlike the timestamp comparison it
+    // replaced: puzzle numbers are plain integers assigned once and never
+    // reinterpreted, so nothing here depends on what timezone the device
+    // is in when the check runs.
+    test('is unaffected by the current Date/timezone context', () => {
+        recordHistoryEntry({ puzzleNum: 500, result: 3, date: '2026-08-03' });
+        const realNow = dom.window.Date.now;
+        try {
+            // A wildly different "now" (in effect, a different timezone/clock
+            // than whatever was active when the history entry was recorded)
+            // must not change the answer -- there's no Date call in the
+            // continuity check left for it to affect.
+            dom.window.Date.now = () => new Date('2099-01-01T00:00:00Z').getTime();
+            expect(isContinuingStreak(501)).toBe(true);
+        } finally {
+            dom.window.Date.now = realNow;
         }
     });
 });
