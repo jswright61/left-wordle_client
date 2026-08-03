@@ -377,6 +377,65 @@ describe('ToolsMenu#applyRestore', () => {
         saveMenu.applyRestore({ device_id: 'abc-123' }, ['device_id']);
         expect(saveMenu.reloadPage).toHaveBeenCalled();
     });
+
+    describe('while logged in', () => {
+        var syncPreferences, syncStatistics, syncHistoryEntries;
+
+        beforeEach(() => {
+            syncPreferences = jest.fn(() => Promise.resolve());
+            syncStatistics = jest.fn(() => Promise.resolve());
+            syncHistoryEntries = jest.fn(() => Promise.resolve());
+            dom.window.LeftWordleAuth = {
+                isLoggedIn: () => true,
+                syncPreferences,
+                syncStatistics,
+                syncHistoryEntries
+            };
+        });
+
+        afterEach(() => {
+            delete dom.window.LeftWordleAuth;
+        });
+
+        test('pushes only the restored categories actually present in the file', async () => {
+            var data = { device_id: 'abc-123', statistics: { gamesPlayed: 5 } };
+            await saveMenu.applyRestore(data, ['device_id', 'statistics']);
+
+            expect(syncStatistics).toHaveBeenCalledWith({ gamesPlayed: 5 });
+            expect(syncPreferences).not.toHaveBeenCalled();
+            expect(syncHistoryEntries).not.toHaveBeenCalled();
+        });
+
+        test('pushes preferences and flattens the history map into an array', async () => {
+            var data = {
+                preferences: { hardMode: true },
+                history: {
+                    100: { puzzle_num: 100, date: '2021-09-27', result: 3 },
+                    101: { puzzle_num: 101, date: '2021-09-28', result: 7 }
+                }
+            };
+            await saveMenu.applyRestore(data, ['preferences', 'history']);
+
+            expect(syncPreferences).toHaveBeenCalled();
+            expect(syncHistoryEntries).toHaveBeenCalledWith([
+                { puzzle_num: 100, date: '2021-09-27', result: 3 },
+                { puzzle_num: 101, date: '2021-09-28', result: 7 }
+            ]);
+        });
+
+        test('reloads only after the pushes settle', async () => {
+            var resolvePush;
+            syncStatistics.mockImplementation(() => new Promise((resolve) => { resolvePush = resolve; }));
+
+            var restorePromise = saveMenu.applyRestore({ statistics: {} }, ['statistics']);
+            await Promise.resolve();
+            expect(saveMenu.reloadPage).not.toHaveBeenCalled();
+
+            resolvePush();
+            await restorePromise;
+            expect(saveMenu.reloadPage).toHaveBeenCalled();
+        });
+    });
 });
 
 describe('ToolsMenu#handleRestoreFile', () => {

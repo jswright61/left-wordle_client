@@ -171,24 +171,38 @@
     // In-progress game state (mid-puzzle guesses) is intentionally not
     // synced live; only settled, completed data is pushed.
     LeftWordleAuth.syncPreferences = function() {
-        if (!LeftWordleAuth.isLoggedIn()) return;
-        api().putPreferences(StorageController.preferences.getAll()).catch(function() {});
+        if (!LeftWordleAuth.isLoggedIn()) return Promise.resolve();
+        return api().putPreferences(StorageController.preferences.getAll()).catch(function() {});
     };
 
     LeftWordleAuth.syncStatistics = function(statistics) {
-        if (!LeftWordleAuth.isLoggedIn()) return;
-        api().putStatistics(statistics).catch(function() {});
+        if (!LeftWordleAuth.isLoggedIn()) return Promise.resolve();
+        return api().putStatistics(statistics).catch(function() {});
     };
 
-    LeftWordleAuth.syncHistoryEntry = function(entry) {
-        if (!LeftWordleAuth.isLoggedIn() || !entry) return;
-        api().importHistory([{
+    // entry shape (agreed client<->API contract, see api/app.rb
+    // import_history_row!): {puzzle_num, date, mode, game_status
+    // ("WIN"/"FAIL"), completed_at}.
+    function toHistoryImportPayload(entry) {
+        return {
             puzzle_num: entry.puzzle_num,
             date: entry.date,
             mode: entry.mode || "regular",
             game_status: (entry.result >= 1 && entry.result <= 6) ? "WIN" : "FAIL",
             completed_at: entry.completed_at || null
-        }]).catch(function() {});
+        };
+    }
+
+    LeftWordleAuth.syncHistoryEntry = function(entry) {
+        if (!LeftWordleAuth.isLoggedIn() || !entry) return Promise.resolve();
+        return api().importHistory([toHistoryImportPayload(entry)]).catch(function() {});
+    };
+
+    // Bulk variant for pushing a whole history dump at once (e.g. after a
+    // local restore-from-backup while logged in).
+    LeftWordleAuth.syncHistoryEntries = function(entries) {
+        if (!LeftWordleAuth.isLoggedIn() || !entries || !entries.length) return Promise.resolve();
+        return api().importHistory(entries.map(toHistoryImportPayload)).catch(function() {});
     };
 
     StorageController.preferences.onChange(LeftWordleAuth.syncPreferences);

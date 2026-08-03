@@ -212,3 +212,37 @@ describe('syncHistoryEntry', () => {
         }]);
     });
 });
+
+describe('syncHistoryEntries', () => {
+    test('does nothing when not logged in', () => {
+        const importHistory = jest.fn();
+        const dom = loadAuth({ client: { importHistory } });
+        dom.window.LeftWordleAuth.syncHistoryEntries([{ puzzle_num: 100, date: '2021-09-27', result: 3 }]);
+        expect(importHistory).not.toHaveBeenCalled();
+    });
+
+    test('does nothing for an empty list', () => {
+        const importHistory = jest.fn();
+        const dom = loadAuth({ client: { importHistory } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+        dom.window.LeftWordleAuth.syncHistoryEntries([]);
+        expect(importHistory).not.toHaveBeenCalled();
+    });
+
+    test('translates every entry into the /history/import payload shape in one call', () => {
+        const importHistory = jest.fn(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { importHistory } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        dom.window.LeftWordleAuth.syncHistoryEntries([
+            { puzzle_num: 100, date: '2021-09-27', result: 3, mode: 'hard', completed_at: 12345 },
+            { puzzle_num: 101, date: '2021-09-28', result: 7 }
+        ]);
+
+        expect(importHistory).toHaveBeenCalledTimes(1);
+        expect(importHistory).toHaveBeenCalledWith([
+            { puzzle_num: 100, date: '2021-09-27', mode: 'hard', game_status: 'WIN', completed_at: 12345 },
+            { puzzle_num: 101, date: '2021-09-28', mode: 'regular', game_status: 'FAIL', completed_at: null }
+        ]);
+    });
+});

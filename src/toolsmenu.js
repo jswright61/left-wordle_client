@@ -1161,7 +1161,7 @@ class ToolsMenu {
         modal.classList.remove("hidden");
     }
 
-    applyRestore(data, storageKeys, statusElement) {
+    async applyRestore(data, storageKeys, statusElement) {
         try {
             window.localStorage.clear();
             storageKeys.forEach(function(key) {
@@ -1174,7 +1174,33 @@ class ToolsMenu {
             return;
         }
 
+        if (this.isLoggedIn()) {
+            await this.pushRestoredDataToServer(data, storageKeys);
+        }
+
         this.reloadPage();
+    }
+
+    // Restoring writes straight to localStorage (see applyRestore above),
+    // bypassing the StorageController.preferences onChange hook and the
+    // gameplay-completion sync points in wordle.js -- so a restore while
+    // logged in needs its own explicit push, or the account would keep
+    // whatever it had before the restore. Best-effort, same as every other
+    // sync-up path: a failed push here doesn't block the reload.
+    pushRestoredDataToServer(data, storageKeys) {
+        var pushes = [];
+
+        if (storageKeys.includes("preferences")) {
+            pushes.push(window.LeftWordleAuth.syncPreferences());
+        }
+        if (storageKeys.includes("statistics")) {
+            pushes.push(window.LeftWordleAuth.syncStatistics(data.statistics));
+        }
+        if (storageKeys.includes("history")) {
+            pushes.push(window.LeftWordleAuth.syncHistoryEntries(Object.values(data.history || {})));
+        }
+
+        return Promise.all(pushes);
     }
 
     // Isolated so tests can stub it without touching jsdom's read-only
