@@ -3,8 +3,12 @@
 
     var host = window.location.hostname;
     var isLocal = host === "localhost" || host === "127.0.0.1" || host === "::1";
+    // Caddy dev setup (see api/config/caddy/dev/Caddyfile): client and API
+    // are reverse-proxied onto one HTTPS origin, same as staging/production,
+    // so passkey ceremonies get a real secure context and stable RP ID.
+    var isLocalTestDomain = host === "left-wordle.test";
     var defaults = {
-        apiBaseUrl: isLocal ? "http://localhost:9292" : "https://api.left-wordle.com",
+        apiBaseUrl: isLocal ? "http://localhost:9292" : (isLocalTestDomain ? "https://left-wordle.test" : "https://api.left-wordle.com"),
         // "same-origin" (not "omit") so the passkey session cookie -- which
         // is HttpOnly and never touched directly by client JS -- actually
         // gets sent once passkeyAuthEnabled is on. Never "include": this
