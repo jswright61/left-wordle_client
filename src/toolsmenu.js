@@ -1200,7 +1200,7 @@ class ToolsMenu {
                 return !ToolsMenu.RESTORE_IGNORED_KEYS.includes(key);
             });
             if (!storageKeys.length) {
-                throw new Error("This file doesn't contain any settings to restore");
+                throw new Error("This file doesn't contain any preferences to restore");
             }
 
             ToolsMenu.showStatus(statusElement, "", false);
@@ -1239,16 +1239,16 @@ class ToolsMenu {
             downloadButton.addEventListener("click", async function() {
                 ToolsMenu.flashElement(downloadButton);
                 var data = await self.collectAllSettings();
-                var filename = "left_wordle_settings_" + self.resolver.formatLocalDate(new Date()) + ".json";
+                var filename = "left_wordle_preferences_" + self.resolver.formatLocalDate(new Date()) + ".json";
                 ToolsMenu.createDownload(filename, JSON.stringify(data, null, 2), "application/json");
-                ToolsMenu.showStatus(statusElement, "Settings downloaded", false);
+                ToolsMenu.showStatus(statusElement, "Preferences downloaded", false);
             });
         }
 
         async function doSendSettings() {
             if (contactModal) contactModal.classList.add("hidden");
             sendButton.disabled = true;
-            ToolsMenu.showStatus(statusElement, "Sending settings...", false);
+            ToolsMenu.showStatus(statusElement, "Sending preferences...", false);
             var settings = await self.collectAllSettings();
             var contactValue = contactInput ? contactInput.value.trim() : "";
             var data = contactValue
@@ -1256,12 +1256,12 @@ class ToolsMenu {
                 : settings;
             window.LeftWordleApi.client.submitDiagnostics(data)
                 .then(function() {
-                    ToolsMenu.showStatus(statusElement, "Settings sent to developers", false);
+                    ToolsMenu.showStatus(statusElement, "Preferences sent to developers", false);
                 })
                 .catch(function(err) {
                     var msg = (err && err.status === 503)
-                        ? "Unable to send — please use Download All Settings instead"
-                        : "Failed to send — please try again or use Download All Settings";
+                        ? "Unable to send — please use Download All Preferences instead"
+                        : "Failed to send — please try again or use Download All Preferences";
                     ToolsMenu.showStatus(statusElement, msg, true);
                 })
                 .finally(function() {

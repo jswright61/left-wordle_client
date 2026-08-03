@@ -2239,7 +2239,7 @@
             });
             this.querySelector("#settings-button").addEventListener("click", () => {
                 var page = this.$game.querySelector("game-page"),
-                    title = document.createTextNode("Settings");
+                    title = document.createTextNode("Preferences");
                 page.appendChild(title);
                 var settings = document.createElement("game-settings");
                 settings.setAttribute("slot", "content");

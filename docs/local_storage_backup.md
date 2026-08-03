@@ -39,25 +39,25 @@ Multiple versions accumulate in the same `settingsBackup` key. There is no autom
 
 ---
 
-## Manual Export — "Download All Settings"
+## Manual Export — "Download All Preferences"
 
-The "Download All Settings" button in the Tools panel calls `ToolsMenu#collectAllSettings` (in `toolsmenu.js`), which:
+The "Download All Preferences" button in the Tools panel calls `ToolsMenu#collectAllSettings` (in `toolsmenu.js`), which:
 
 1. Walks every key in `localStorage` and parses each value as JSON (falls back to the raw string if parsing fails).
 2. Appends a `diagnostics` key with `{ server, version }` metadata.
 3. Returns the assembled object.
 
-`wireTroubleshootingSection` then passes that object to `ToolsMenu.createDownload`, triggering a browser download of the JSON file named `left_wordle_settings_<date>.json`.
+`wireTroubleshootingSection` then passes that object to `ToolsMenu.createDownload`, triggering a browser download of the JSON file named `left_wordle_preferences_<date>.json`.
 
 This export includes everything in localStorage at that moment, including the `settingsBackup` snapshots.
 
 ---
 
-## Manual Export — "Send Settings to Developers"
+## Manual Export — "Send Preferences to Developers"
 
-The "Send Settings to Developers" button follows the same path as Download — it calls `collectAllSettings` — but instead of a browser download, it POSTs the payload to `POST /api/v1/diagnostics` via `LeftWordleApi.client.submitDiagnostics`.
+The "Send Preferences to Developers" button follows the same path as Download — it calls `collectAllSettings` — but instead of a browser download, it POSTs the payload to `POST /api/v1/diagnostics` via `LeftWordleApi.client.submitDiagnostics`.
 
-The API emails the payload as a `.json` attachment to the Left Wordle support address. If the server's SMTP is not configured, the API returns 503 and the client tells the user to use "Download All Settings" instead.
+The API emails the payload as a `.json` attachment to the Left Wordle support address. If the server's SMTP is not configured, the API returns 503 and the client tells the user to use "Download All Preferences" instead.
 
 See `api/docs/mail_setup.md` for server-side SMTP configuration.
 

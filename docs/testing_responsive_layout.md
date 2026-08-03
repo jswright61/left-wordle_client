@@ -58,7 +58,7 @@ You can edit CSS live in the inspector (changes appear immediately on the phone)
 
 ### iOS-specific things to check
 
-- **Virtual keyboard**: tap a text field (like the share text additions inputs on the Settings screen) and verify the visible content area reflows correctly when the keyboard appears.
-- **Scroll behavior**: scroll through a long page (like Settings) and confirm only the intended container scrolls — not the background game content underneath.
+- **Virtual keyboard**: tap a text field (like the share text additions inputs on the Preferences screen) and verify the visible content area reflows correctly when the keyboard appears.
+- **Scroll behavior**: scroll through a long page (like Preferences) and confirm only the intended container scrolls — not the background game content underneath.
 - **Overscroll / bounce**: scroll past the top or bottom of a scroll container and check that the bounce doesn't expose content that should be hidden.
 - **Safe areas**: on notched/Dynamic Island iPhones, check that content isn't clipped by the notch or home indicator. Use `env(safe-area-inset-*)` CSS variables if needed.

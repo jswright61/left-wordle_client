@@ -79,7 +79,7 @@
                         <button id="statistics-button" class="icon" aria-label="statistics" title="Statistics">
                             <game-icon icon="statistics"></game-icon>
                         </button>
-                        <button id="settings-button" class="icon" aria-label="settings" title="Settings">
+                        <button id="settings-button" class="icon" aria-label="preferences" title="Preferences">
                             <game-icon icon="settings"></game-icon>
                         </button>
                         <button id="login-button" class="icon hidden" aria-label="account" title="Account">
@@ -128,7 +128,7 @@
       <h2 class="tools-section-heading">Backup &amp; Restore</h2>
       <div class="tools-row">
         <button class="tools-item-left tools-action-button" id="downloadAllSettingsButton" type="button"
-                title="Download all settings and history as a JSON file.">Download Backup</button>
+                title="Download all preferences and history as a JSON file.">Download Backup</button>
         <label class="tools-item-right tools-action-button" id="restoreBackupButton" for="inputRestoreBackup"
                title="Overwrite this device's local data from a previously downloaded backup file.">
           Restore from File
@@ -141,7 +141,7 @@
       <h2 id="troubleshooting-heading" class="tools-section-heading">Troubleshooting</h2>
       <div class="tools-row">
         <button class="tools-item-left tools-action-button" id="sendSettingsToDevelopersButton" type="button"
-                title="Send your settings to the developers for troubleshooting.">Send Settings to Developers</button>
+                title="Send your preferences to the developers for troubleshooting.">Send Preferences to Developers</button>
       </div>
       <hr class="tools-divider">
     </section>
@@ -162,8 +162,8 @@
   </div>
   <div id="send-settings-contact-modal" class="tools-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="send-settings-contact-title">
     <div class="tools-inline-modal-card">
-      <h3 id="send-settings-contact-title">Send Settings to Developers</h3>
-      <p>Your settings will be sent for troubleshooting. Optionally include your email or social media handle so developers can follow up if they have questions.</p>
+      <h3 id="send-settings-contact-title">Send Preferences to Developers</h3>
+      <p>Your preferences will be sent for troubleshooting. Optionally include your email or social media handle so developers can follow up if they have questions.</p>
       <label for="send-settings-contact-input" class="send-settings-contact-label">Email or social handle (optional)</label>
       <input id="send-settings-contact-input" type="text" class="send-settings-contact-input" placeholder="e.g. user@example.com or @handle" autocomplete="off">
       <div class="tools-inline-modal-actions">
@@ -316,7 +316,7 @@
   <div id="login-passkeys-modal" class="tools-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="login-passkeys-title">
     <div class="tools-inline-modal-card">
       <h3 id="login-passkeys-title">Manage Passkeys</h3>
-      <p>These are the passkeys with access to your account. Disabling one signs it out of any future logins.</p>
+      <p>These are the passkeys with access to your account. Disabling one logs it out of any future logins.</p>
       <div id="login-passkeys-list"></div>
       <p id="login-passkeys-status" class="tools-status-message"></p>
       <div class="tools-inline-modal-actions">

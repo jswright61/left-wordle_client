@@ -190,7 +190,7 @@
 <body>
     <a href="/" class="back-link">&larr; Back to Left Wordle</a>
     <h1>Restore from Backup</h1>
-    <p class="subtitle">Upload a Left Wordle settings backup file to restore localStorage on this origin.</p>
+    <p class="subtitle">Upload a Left Wordle preferences backup file to restore localStorage on this origin.</p>
 
     <!-- Phase 1: file upload -->
     <div id="phase-upload">
@@ -341,7 +341,7 @@
                 });
             }
 
-            // Top-level keys — the direct format from "Download All Settings" and
+            // Top-level keys — the direct format from "Download All Preferences" and
             // similar flat localStorage dumps.
             var topPayload = buildPayload(data);
             if (Object.keys(topPayload).length > 0) {

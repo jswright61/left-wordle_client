@@ -401,7 +401,7 @@ describe('ToolsMenu#handleRestoreFile', () => {
     test('rejects a file with no restorable keys', async () => {
         var statusEl = dom.window.document.createElement('div');
         await saveMenu.handleRestoreFile(fileFor(JSON.stringify({ diagnostics: {}, server: {} })), statusEl);
-        expect(statusEl.textContent).toContain("doesn't contain any settings");
+        expect(statusEl.textContent).toContain("doesn't contain any preferences");
     });
 
     test('rejects malformed JSON', async () => {

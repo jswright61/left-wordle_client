@@ -61,7 +61,7 @@
             if (headerButton) {
                 headerButton.classList.toggle("hidden", !window.LEFT_WORDLE_CONFIG || !window.LEFT_WORDLE_CONFIG.passkeyAuthEnabled);
                 var isLoggedIn = window.LeftWordleAuth.isLoggedIn();
-                headerButton.title = isLoggedIn ? "Account (signed in)" : "Account (signed out)";
+                headerButton.title = isLoggedIn ? "Account (logged in)" : "Account (logged out)";
                 var headerIcon = headerButton.querySelector("game-icon");
                 if (headerIcon) {
                     headerIcon.setAttribute("icon", isLoggedIn ? "account-active" : "account");
@@ -100,7 +100,7 @@
 
         async handleSignIn() {
             var statusEl = $("login-status");
-            setStatus(statusEl, "Signing in...", false);
+            setStatus(statusEl, "Logging in...", false);
             try {
                 await window.LeftWordleAuth.login();
                 this.render();
