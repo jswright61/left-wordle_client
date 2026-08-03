@@ -220,13 +220,14 @@
           <slot name="content">
             <div class="sections">
               <section id="login-logged-out-section">
-                <h2 class="tools-section-heading">Save Your Stats Across Devices</h2>
-                <p class="description">Create a passkey to save your history, stats, preferences, and current game to an account.
+                <h2 class="tools-section-heading">Save Your Account Data Across Devices</h2>
+                <p class="description">Create a passkey to save your account data (history, stats, preferences, and current game) to an account.
                   No email required — you can add one later to make it easier to add new devices or recover a lost Passkey.</p>
                 <label class="field-label" for="login-email-input">Email (optional)</label>
                 <input id="login-email-input" type="text" class="field-input" placeholder="e.g. user@example.com" autocomplete="email">
                 <label class="field-label" for="login-device-name-input">Device Name</label>
                 <input id="login-device-name-input" type="text" class="field-input" placeholder="e.g. My Phone" maxlength="60">
+                <p class="description">Creating a passkey here will not bring over this device's account data. If another device or browser has more complete history, stats, or preferences, create your account there instead — you can add this device to that account afterward.</p>
                 <div class="tools-row">
                   <button class="tools-item-left tools-action-button" id="login-register-button" type="button">Create Passkey</button>
                   <button class="tools-item-right tools-action-button" id="login-signin-button" type="button">Log In</button>
@@ -315,18 +316,6 @@
     </div>
   </div>
 
-  <div id="login-import-modal" class="tools-inline-modal hidden" role="dialog" aria-modal="true" aria-labelledby="login-import-title">
-    <div class="tools-inline-modal-card">
-      <h3 id="login-import-title">Save This Device's History?</h3>
-      <p>You can copy this device's history, stats, and preferences to your new account now. This only happens once.</p>
-      <p>If another device has more complete history or stats, you can instead log in from that device and skip this step here.</p>
-      <div class="tools-inline-modal-actions">
-        <button id="login-import-accept" type="button">Yes, Import</button>
-        <button id="login-import-decline" type="button">Not Now</button>
-      </div>
-    </div>
-  </div>
-
   <div id="login-link-landing" class="hidden">
     <div class="overlay">
       <div class="content">
@@ -336,7 +325,7 @@
         <div class="content-container">
           <div class="sections">
             <section>
-              <p class="description">Complete passkey setup to add this device to your account. Your history and stats on this device will be replaced with your account's.</p>
+              <p class="description">Complete passkey setup to add this device to your account. This device's account data will be replaced with your account's.</p>
               <label class="field-label" for="login-link-landing-device-name-input">Device Name</label>
               <input id="login-link-landing-device-name-input" type="text" class="field-input" placeholder="e.g. My Phone" maxlength="60">
               <div class="tools-row">

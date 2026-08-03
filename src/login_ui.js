@@ -70,9 +70,7 @@
                 var result = await window.LeftWordleAuth.register({ email: email || undefined, nickname: nickname || undefined });
                 this.render();
                 setStatus(statusEl, "Passkey created.", false);
-                if (!result.joined_existing_account && hasAnyLocalData()) {
-                    this.openImportModal();
-                } else if (result.joined_existing_account) {
+                if (result.joined_existing_account) {
                     await this.syncAndAnnounce();
                 }
             } catch (error) {
@@ -97,34 +95,12 @@
             try {
                 await window.LeftWordleAuth.syncFromServerAndOverwriteLocal();
                 if (app && typeof app.addToast === "function") {
-                    app.addToast("Logged in — your synced history and stats are now loaded", 3000, true);
+                    app.addToast("Logged in — your account data is now loaded", 3000, true);
                 }
             } catch (error) {
                 if (app && typeof app.addToast === "function") {
-                    app.addToast("Logged in, but syncing your data failed — try reopening the app", 3000, true);
+                    app.addToast("Logged in, but syncing your account data failed — try reopening the app", 3000, true);
                 }
-            }
-        }
-
-        openImportModal() {
-            var modal = $("login-import-modal");
-            if (modal) modal.classList.remove("hidden");
-        }
-
-        closeImportModal() {
-            var modal = $("login-import-modal");
-            if (modal) modal.classList.add("hidden");
-        }
-
-        async handleImportAccept() {
-            this.closeImportModal();
-            var statusEl = $("login-status");
-            setStatus(statusEl, "Importing your local history...", false);
-            try {
-                var result = await window.LeftWordleAuth.importLocalData();
-                setStatus(statusEl, "Imported " + result.imported_games + " game(s) to your account.", false);
-            } catch (error) {
-                setStatus(statusEl, errorMessage(error), true);
             }
         }
 
@@ -358,11 +334,6 @@
                 });
             }
 
-            var importAccept = $("login-import-accept");
-            if (importAccept) importAccept.addEventListener("click", function() { self.handleImportAccept(); });
-            var importDecline = $("login-import-decline");
-            if (importDecline) importDecline.addEventListener("click", function() { self.closeImportModal(); });
-
             var logoutButton = $("login-logout-button");
             if (logoutButton) logoutButton.addEventListener("click", function() { self.handleLogout(); });
 
@@ -416,12 +387,6 @@
                 this.render();
             }
         }
-    }
-
-    function hasAnyLocalData() {
-        return !!(Object.keys(StorageController.history.getAll()).length ||
-            Object.keys(StorageController.gameState.getAll()).length ||
-            Object.keys(StorageController.statistics.getAll()).length);
     }
 
     function formatPasskeyDate(isoString) {

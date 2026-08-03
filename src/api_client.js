@@ -133,11 +133,6 @@
             return this.request("/api/v2/auth/recover", options);
         }
 
-        async importLocalData(payload, options) {
-            options = Object.assign({}, options, { body: payload, method: "POST" });
-            return this.request("/api/v2/import/local_data", options);
-        }
-
         async getProfile(options) {
             return this.request("/api/v2/profile", options);
         }

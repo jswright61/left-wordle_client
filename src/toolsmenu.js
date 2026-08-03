@@ -1032,12 +1032,10 @@ class ToolsMenu {
         }
     }
 
-    // Repeatable "Tools > Import Games" while logged in -- distinct from
-    // the one-time new-account import in auth.js#importLocalData. Format
-    // validation happens client-side (same resolver used for local
-    // imports); duplicate-vs-new detection is left entirely to the server
-    // (POST /api/v2/history/import), which is the authoritative view of
-    // this account's history.
+    // "Tools > Import Games" while logged in. Format validation happens
+    // client-side (same resolver used for local imports); duplicate-vs-new
+    // detection is left entirely to the server (POST /api/v2/history/import),
+    // which is the authoritative view of this account's history.
     async importHistoryToServer(rawRecords, statusElement) {
         var self = this;
         var flaggedRows = [];
