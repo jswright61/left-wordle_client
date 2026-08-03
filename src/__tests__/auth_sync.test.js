@@ -118,3 +118,97 @@ describe('syncFromServerAndOverwriteLocal', () => {
         expect(dom.window.StorageController.statistics.getAll().gamesPlayed).toBe(1);
     });
 });
+
+describe('syncPreferences', () => {
+    test('does nothing when not logged in', () => {
+        const putPreferences = jest.fn();
+        const dom = loadAuth({ client: { putPreferences } });
+        dom.window.StorageController.preferences.set('hardMode', true);
+        expect(putPreferences).not.toHaveBeenCalled();
+    });
+
+    test('pushes the full local preferences object on set() when logged in', () => {
+        const putPreferences = jest.fn(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { putPreferences } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        dom.window.StorageController.preferences.set('hardMode', true);
+
+        expect(putPreferences).toHaveBeenCalledWith({ hardMode: true });
+    });
+
+    test('replace() (used by sync-down) does not re-trigger the sync-up push', () => {
+        const putPreferences = jest.fn(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { putPreferences } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        dom.window.StorageController.preferences.replace({ hardMode: true });
+
+        expect(putPreferences).not.toHaveBeenCalled();
+    });
+
+    test('swallows request failures without throwing', async () => {
+        const putPreferences = jest.fn(() => Promise.reject(new Error('network down')));
+        const dom = loadAuth({ client: { putPreferences } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        dom.window.StorageController.preferences.set('hardMode', true);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(putPreferences).toHaveBeenCalled();
+    });
+});
+
+describe('syncStatistics', () => {
+    test('does nothing when not logged in', () => {
+        const putStatistics = jest.fn();
+        const dom = loadAuth({ client: { putStatistics } });
+        dom.window.LeftWordleAuth.syncStatistics({ gamesPlayed: 1 });
+        expect(putStatistics).not.toHaveBeenCalled();
+    });
+
+    test('pushes the given statistics object when logged in', () => {
+        const putStatistics = jest.fn(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { putStatistics } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        dom.window.LeftWordleAuth.syncStatistics({ gamesPlayed: 5, gamesWon: 3 });
+
+        expect(putStatistics).toHaveBeenCalledWith({ gamesPlayed: 5, gamesWon: 3 });
+    });
+});
+
+describe('syncHistoryEntry', () => {
+    test('does nothing when not logged in', () => {
+        const importHistory = jest.fn();
+        const dom = loadAuth({ client: { importHistory } });
+        dom.window.LeftWordleAuth.syncHistoryEntry({ puzzle_num: 100, date: '2021-09-27', result: 3 });
+        expect(importHistory).not.toHaveBeenCalled();
+    });
+
+    test('translates a local entry into the /history/import payload shape', () => {
+        const importHistory = jest.fn(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { importHistory } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        dom.window.LeftWordleAuth.syncHistoryEntry({
+            puzzle_num: 100, date: '2021-09-27', result: 3, mode: 'hard', completed_at: 12345
+        });
+
+        expect(importHistory).toHaveBeenCalledWith([{
+            puzzle_num: 100, date: '2021-09-27', mode: 'hard', game_status: 'WIN', completed_at: 12345
+        }]);
+    });
+
+    test('maps a non-winning result (7) to game_status FAIL and defaults mode to regular', () => {
+        const importHistory = jest.fn(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { importHistory } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        dom.window.LeftWordleAuth.syncHistoryEntry({ puzzle_num: 101, date: '2021-09-28', result: 7 });
+
+        expect(importHistory).toHaveBeenCalledWith([{
+            puzzle_num: 101, date: '2021-09-28', mode: 'regular', game_status: 'FAIL', completed_at: null
+        }]);
+    });
+});

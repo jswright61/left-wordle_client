@@ -162,6 +162,37 @@
 
     LeftWordleAuth.serverHistoryToLocalHistory = serverHistoryToLocalHistory;
 
+    // Push-up counterparts to syncFromServerAndOverwriteLocal: once an
+    // account exists, local writes at gameplay checkpoints (a preference
+    // change, a completed puzzle) should reach the server too, not just
+    // sit in this device's localStorage until the next explicit sync-down.
+    // Best-effort and non-blocking -- a flaky network shouldn't interrupt
+    // gameplay or preference toggling, so failures are swallowed here.
+    // In-progress game state (mid-puzzle guesses) is intentionally not
+    // synced live; only settled, completed data is pushed.
+    LeftWordleAuth.syncPreferences = function() {
+        if (!LeftWordleAuth.isLoggedIn()) return;
+        api().putPreferences(StorageController.preferences.getAll()).catch(function() {});
+    };
+
+    LeftWordleAuth.syncStatistics = function(statistics) {
+        if (!LeftWordleAuth.isLoggedIn()) return;
+        api().putStatistics(statistics).catch(function() {});
+    };
+
+    LeftWordleAuth.syncHistoryEntry = function(entry) {
+        if (!LeftWordleAuth.isLoggedIn() || !entry) return;
+        api().importHistory([{
+            puzzle_num: entry.puzzle_num,
+            date: entry.date,
+            mode: entry.mode || "regular",
+            game_status: (entry.result >= 1 && entry.result <= 6) ? "WIN" : "FAIL",
+            completed_at: entry.completed_at || null
+        }]).catch(function() {});
+    };
+
+    StorageController.preferences.onChange(LeftWordleAuth.syncPreferences);
+
     var config = window.LEFT_WORDLE_CONFIG || {};
     LeftWordleAuth.ready = config.passkeyAuthEnabled
         ? LeftWordleAuth.refreshProfile()

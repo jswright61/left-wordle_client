@@ -1082,6 +1082,7 @@
             StatisticsEngine.applyFinalRateStats(stats);
 
             StorageController.statistics.replace(stats);
+            if (window.LeftWordleAuth) window.LeftWordleAuth.syncStatistics(stats);
 
             var result = gameResults.isWin ? gameResults.numGuesses : 7;
             HistoryManager.recordHistoryEntry({
@@ -1219,6 +1220,7 @@
             if (shouldWrite) {
                 history[key] = entry;
                 HistoryManager.saveHistory(history);
+                if (window.LeftWordleAuth) window.LeftWordleAuth.syncHistoryEntry(entry);
             } else if (existing) {
                 var updated = false;
                 if (!existing.answer && entry.answer) {
@@ -1237,6 +1239,7 @@
                     existing.updated_at = Date.now();
                     history[key] = existing;
                     HistoryManager.saveHistory(history);
+                    if (window.LeftWordleAuth) window.LeftWordleAuth.syncHistoryEntry(existing);
                 }
             }
         }

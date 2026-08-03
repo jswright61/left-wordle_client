@@ -154,6 +154,20 @@ class PreferencesStorage extends NamespacedStorage {
     constructor() {
         super("preferences", SCHEMA.preferences);
         this._legacyKeys = ["darkTheme", "colorBlindTheme", "shareFormat", "shareTextAdditions", "hardMode"];
+        this._onChange = null;
+    }
+
+    // Fires only on set() (an individual preference change), not replace()
+    // -- replace() is what auth.js uses to overwrite local state with a
+    // server pull, and re-syncing that data right back up would be a
+    // wasted round trip.
+    onChange(callback) {
+        this._onChange = callback;
+    }
+
+    set(key, value) {
+        super.set(key, value);
+        if (this._onChange) this._onChange();
     }
 
     _read() {
