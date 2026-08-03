@@ -68,22 +68,22 @@
                         <button id="downloads-button" class="icon" aria-label="downloads" title="Downloads">
                             <game-icon icon="download"></game-icon>
                         </button>
-                        <button id="login-button" class="icon hidden" aria-label="account" title="Account">
-                            <game-icon icon="key"></game-icon>
+                        <button id="tools-button" class="icon" aria-label="tools" title="Tools">
+                            <game-icon icon="tools"></game-icon>
                         </button>
                     </div>
                     <div class="title">
                         Left Wordle
                     </div>
                     <div class="menu">
-                        <button id="tools-button" class="icon" aria-label="tools" title="Tools">
-                            <game-icon icon="tools"></game-icon>
-                        </button>
                         <button id="statistics-button" class="icon" aria-label="statistics" title="Statistics">
                             <game-icon icon="statistics"></game-icon>
                         </button>
                         <button id="settings-button" class="icon" aria-label="settings" title="Settings">
                             <game-icon icon="settings"></game-icon>
+                        </button>
+                        <button id="login-button" class="icon hidden" aria-label="account" title="Account">
+                            <game-icon icon="account"></game-icon>
                         </button>
                     </div>
                 </header>
@@ -254,7 +254,7 @@
                   <button class="tools-item-left tools-action-button" id="login-register-button" type="button">Create Passkey</button>
                   <button class="tools-item-right tools-action-button" id="login-signin-button" type="button">Log In</button>
                 </div>
-                <button class="suppress-login-prompt-link" id="login-suppress-link" type="button">Don't ask me to log in</button>
+                <button class="suppress-login-prompt-link" id="login-suppress-link" type="button" title="Turns back on automatically if you log in on this device">Don't ask me to log in</button>
                 <div id="login-status" class="tools-status-message"></div>
                 <hr class="tools-divider">
                 <div class="tools-row">
@@ -428,7 +428,7 @@
           <div class="setting" id="suppress-login-prompt-setting">
             <div class="text">
               <div class="title">Suppress Login Prompt</div>
-              <div class="description">Don't ask me to log in with a passkey</div>
+              <div class="description">Don't ask me to log in with a passkey. Turns back on automatically if you log in on this device.</div>
             </div>
             <div class="control">
               <game-switch id="suppress-login-prompt" name="suppress-login-prompt"></game-switch>

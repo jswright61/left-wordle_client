@@ -2974,18 +2974,55 @@
         close: "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
         share: "M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92zM18 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM6 13c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm12 7.02c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z",
         statistics: "M16,11V3H8v6H2v12h20V11H16z M10,5h4v14h-4V5z M4,11h4v8H4V11z M20,19h-4v-6h4V19z",
-        tools: "M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z",
-        key: "M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"
+        tools: "M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"
+    };
+
+    // Account icon has a logged-out (outline) and logged-in (solid) state, each a
+    // small circle "head" over a rounded "shoulders" arc — too many shapes for a
+    // single filled <path>, so these render as a handful of SVG primitives instead.
+    var ACCOUNT_ICON_PARTS = {
+        account: [
+            { tag: "circle", attrs: { cx: "12", cy: "12", r: "9.25", fill: "none", stroke: "var(--color-tone-3)", "stroke-width": "1.3" } },
+            { tag: "circle", attrs: { cx: "12", cy: "9.4", r: "3", fill: "none", stroke: "var(--color-tone-3)", "stroke-width": "1.3" } },
+            { tag: "path", attrs: { d: "M6.4 18.6C6.4 14.9 8.9 13.3 12 13.3C15.1 13.3 17.6 14.9 17.6 18.6", fill: "none", stroke: "var(--color-tone-3)", "stroke-width": "1.3", "stroke-linecap": "round" } }
+        ],
+        "account-active": [
+            { tag: "circle", attrs: { cx: "12", cy: "12", r: "10", fill: "var(--color-tone-3)" } },
+            { tag: "circle", attrs: { cx: "12", cy: "9.4", r: "3", fill: "none", stroke: "var(--white)", "stroke-width": "1.3" } },
+            { tag: "path", attrs: { d: "M6.4 18.6C6.4 14.9 8.9 13.3 12 13.3C15.1 13.3 17.6 14.9 17.6 18.6", fill: "none", stroke: "var(--white)", "stroke-width": "1.3", "stroke-linecap": "round" } }
+        ]
     };
 
     class GameIcon extends HTMLElement {
+        static get observedAttributes() {
+            return ["icon"];
+        }
+
         connectedCallback() {
-            if (!this.querySelector("svg")) {
-                var iconName = this.getAttribute("icon");
-                var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-                svg.setAttribute("height", "24");
-                svg.setAttribute("viewBox", "0 0 24 24");
-                svg.setAttribute("width", "24");
+            this.render();
+        }
+
+        attributeChangedCallback(name, oldValue, newValue) {
+            if (name === "icon" && oldValue !== newValue) this.render();
+        }
+
+        render() {
+            var iconName = this.getAttribute("icon");
+            var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.setAttribute("height", "24");
+            svg.setAttribute("viewBox", "0 0 24 24");
+            svg.setAttribute("width", "24");
+
+            var parts = ACCOUNT_ICON_PARTS[iconName];
+            if (parts) {
+                parts.forEach(function(part) {
+                    var el = document.createElementNS("http://www.w3.org/2000/svg", part.tag);
+                    Object.keys(part.attrs).forEach(function(attr) {
+                        el.setAttribute(attr, part.attrs[attr]);
+                    });
+                    svg.appendChild(el);
+                });
+            } else {
                 var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
                 var fillColor = "var(--color-tone-3)";
                 if (iconName === "backspace") fillColor = "var(--color-tone-1)";
@@ -2993,8 +3030,10 @@
                 path.setAttribute("fill", fillColor);
                 path.setAttribute("d", ICON_PATHS[iconName]);
                 svg.appendChild(path);
-                this.appendChild(svg);
             }
+
+            this.innerHTML = "";
+            this.appendChild(svg);
         }
     }
     customElements.define("game-icon", GameIcon);

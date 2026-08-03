@@ -51,12 +51,31 @@
                 if (deviceNameInput && !deviceNameInput.value && window.LeftWordleAuth.guessDeviceNickname) {
                     deviceNameInput.value = window.LeftWordleAuth.guessDeviceNickname();
                 }
+                var suppressLink = $("login-suppress-link");
+                if (suppressLink) {
+                    suppressLink.classList.toggle("hidden", !!StorageController.preferences.get("suppressLoginPrompt"));
+                }
             }
 
             var headerButton = $("login-button");
             if (headerButton) {
                 headerButton.classList.toggle("hidden", !window.LEFT_WORDLE_CONFIG || !window.LEFT_WORDLE_CONFIG.passkeyAuthEnabled);
+                var isLoggedIn = window.LeftWordleAuth.isLoggedIn();
+                headerButton.title = isLoggedIn ? "Account (signed in)" : "Account (signed out)";
+                var headerIcon = headerButton.querySelector("game-icon");
+                if (headerIcon) {
+                    headerIcon.setAttribute("icon", isLoggedIn ? "account-active" : "account");
+                }
             }
+        }
+
+        // Re-enable the prompt on successful login/register so a future logout
+        // on this device (new browser profile, cleared passkey, etc.) surfaces
+        // it again instead of leaving the user stranded on a signed-out device.
+        // Runs after any account-data sync so it can't be clobbered by synced
+        // preferences from another device.
+        resetSuppressedLoginPrompt() {
+            StorageController.preferences.set("suppressLoginPrompt", false);
         }
 
         async handleRegister() {
@@ -73,6 +92,7 @@
                 if (result.joined_existing_account) {
                     await this.syncAndAnnounce();
                 }
+                this.resetSuppressedLoginPrompt();
             } catch (error) {
                 setStatus(statusEl, errorMessage(error), true);
             }
@@ -85,6 +105,7 @@
                 await window.LeftWordleAuth.login();
                 this.render();
                 await this.syncAndAnnounce();
+                this.resetSuppressedLoginPrompt();
             } catch (error) {
                 setStatus(statusEl, errorMessage(error), true);
             }
@@ -298,6 +319,7 @@
                     var nickname = deviceNameInput ? deviceNameInput.value.trim() : "";
                     await window.LeftWordleAuth.registerViaDeviceLink(linkToken, nickname);
                     await window.leftWordleLoginUI.syncAndAnnounce();
+                    window.leftWordleLoginUI.resetSuppressedLoginPrompt();
                     setStatus(statusEl, "Device added. Reloading...", false);
                     var url = new URL(window.location.href);
                     url.searchParams.delete("link_token");
@@ -330,6 +352,7 @@
             if (suppressLink) {
                 suppressLink.addEventListener("click", function() {
                     StorageController.preferences.set("suppressLoginPrompt", true);
+                    self.render();
                     self.closeOverlay();
                 });
             }
