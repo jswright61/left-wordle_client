@@ -1126,9 +1126,19 @@
                 guesses[7] = stats.guesses.fail || 0;
             }
             var state = GameStateManager.getGameState();
+            // Derive the end date from the completed puzzle's number, not by
+            // reinterpreting lastCompletedTs (an absolute instant) as a
+            // calendar date under whatever timezone happens to be active
+            // right now -- same class of bug isContinuingStreak fixes above.
+            // puzzleNum is only trustworthy here when gameStatus confirms
+            // it's the puzzle that was actually completed, not a later
+            // puzzle already started in progress (whose puzzleNum would
+            // overwrite this one without moving lastCompletedTs). If it's
+            // ambiguous, null is safer than a guessed-wrong date.
             var lastCompletedDate = null;
-            if (state && state.lastCompletedTs) {
-                lastCompletedDate = DateUtils.formatLocalDate(new Date(state.lastCompletedTs));
+            if (state && state.lastCompletedTs && state.puzzleNum != null &&
+                (state.gameStatus === GAME_STATUS_WIN || state.gameStatus === GAME_STATUS_FAIL)) {
+                lastCompletedDate = DateUtils.formatLocalDate(DateUtils.getDateFromDayOffset(state.puzzleNum));
             }
             return {
                 gamesPlayed: stats && stats.gamesPlayed || 0,
@@ -3176,5 +3186,6 @@
         recordHistoryEntry: HistoryManager.recordHistoryEntry,
         getHistoryCompletionForPuzzle: HistoryManager.getHistoryCompletionForPuzzle,
         isContinuingStreak: HistoryManager.isContinuingStreak,
+        buildLegacySnapshot: HistoryManager.buildLegacySnapshot,
     };
 })();

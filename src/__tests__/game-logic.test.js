@@ -94,6 +94,7 @@ const updateStatistics = testExports.updateStatistics;      // Va -> updateStati
 const recordHistoryEntry = testExports.recordHistoryEntry;
 const getHistoryCompletionForPuzzle = testExports.getHistoryCompletionForPuzzle;
 const isContinuingStreak = testExports.isContinuingStreak;
+const buildLegacySnapshot = testExports.buildLegacySnapshot;
 const evaluateGuess = testExports.evaluateGuess;            // IIFE -> evaluateGuess
 const validateHardMode = testExports.validateHardMode;
 const validateInsaneMode = testExports.validateInsaneMode;
@@ -457,6 +458,77 @@ describe('HistoryManager.isContinuingStreak', () => {
             // continuity check left for it to affect.
             dom.window.Date.now = () => new Date('2099-01-01T00:00:00Z').getTime();
             expect(isContinuingStreak(501)).toBe(true);
+        } finally {
+            dom.window.Date.now = realNow;
+        }
+    });
+});
+
+describe('HistoryManager.buildLegacySnapshot', () => {
+    const AUG_3_2026_PUZZLE_NUM = getDayOffset(new Date(2026, 7, 3));
+
+    beforeEach(() => {
+        dom.window.localStorage.removeItem('gameState');
+    });
+
+    test('current_streak_end_date is null with no saved game state', () => {
+        const snapshot = buildLegacySnapshot({ currentStreak: 5 }, '2026-08-02');
+        expect(snapshot.current_streak_end_date).toBeNull();
+    });
+
+    test('current_streak_end_date is derived from puzzleNum, not lastCompletedTs, when the puzzle was completed', () => {
+        dom.window.StorageController.gameState.replace({
+            puzzleNum: AUG_3_2026_PUZZLE_NUM,
+            gameStatus: GAME_STATUS_WIN,
+            // A lastCompletedTs that -- if reinterpreted as a calendar date
+            // under some other timezone -- would give the wrong answer.
+            // puzzleNum is the source of truth here, so this must be ignored.
+            lastCompletedTs: Date.parse('2020-01-01T00:00:00Z')
+        });
+
+        const snapshot = buildLegacySnapshot({ currentStreak: 5 }, '2026-08-02');
+
+        expect(snapshot.current_streak_end_date).toBe('2026-08-03');
+    });
+
+    test('current_streak_end_date is also derived correctly for a FAIL completion', () => {
+        dom.window.StorageController.gameState.replace({
+            puzzleNum: AUG_3_2026_PUZZLE_NUM,
+            gameStatus: GAME_STATUS_FAIL,
+            lastCompletedTs: Date.now()
+        });
+
+        const snapshot = buildLegacySnapshot({ currentStreak: 0 }, '2026-08-02');
+
+        expect(snapshot.current_streak_end_date).toBe('2026-08-03');
+    });
+
+    test('current_streak_end_date is null when the stored puzzle is still in progress', () => {
+        // puzzleNum here could belong to a later, not-yet-finished puzzle
+        // than whatever lastCompletedTs actually reflects -- ambiguous, so
+        // null is safer than guessing.
+        dom.window.StorageController.gameState.replace({
+            puzzleNum: AUG_3_2026_PUZZLE_NUM,
+            gameStatus: GAME_STATUS_IN_PROGRESS,
+            lastCompletedTs: Date.now()
+        });
+
+        const snapshot = buildLegacySnapshot({ currentStreak: 5 }, '2026-08-02');
+
+        expect(snapshot.current_streak_end_date).toBeNull();
+    });
+
+    test('is unaffected by the current Date/timezone context', () => {
+        dom.window.StorageController.gameState.replace({
+            puzzleNum: AUG_3_2026_PUZZLE_NUM,
+            gameStatus: GAME_STATUS_WIN,
+            lastCompletedTs: Date.now()
+        });
+        const realNow = dom.window.Date.now;
+        try {
+            dom.window.Date.now = () => new Date('2099-01-01T00:00:00Z').getTime();
+            const snapshot = buildLegacySnapshot({ currentStreak: 5 }, '2026-08-02');
+            expect(snapshot.current_streak_end_date).toBe('2026-08-03');
         } finally {
             dom.window.Date.now = realNow;
         }
