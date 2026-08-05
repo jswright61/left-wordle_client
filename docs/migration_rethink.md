@@ -20,20 +20,31 @@ unaffected by anything below.
 1. Skip the passkey verify-login round trip. The WebAuthn registration ceremony itself
    (`register_finish_response`) already proves the authenticator works — no forced
    logout/relogin, no "pending/not yet migrated" account flag.
-1. We add a row to `storage_snapshots` prior to anything else, `user_id` and
-   `client_device_id` are populated, event is "new user creation" and `local_storage`
-   is a hash object that copies as json the user's local storage.
-1. A row is added to `user_profiles` and their preferences, game_state, and statistics
-   are populated. The client's already-computed legacy-aware statistics blob
-   (`StatisticsEngine.computeStatisticsFromHistoryAndLegacy`) is trusted **once**,
-   wholesale, as the server's initial baseline — this is the only point where a full
-   client-computed blob is ever trusted, since it's the only source that still has
-   pre-`played_games` legacy aggregate data and there's no other device yet to
-   conflict with.
-1. All history files are added to the `played_games` table. If we don't have all the
-   guesses, use the starter word for guess 0. Also use the answer for the last guess if
-   the status is WIN; any guesses we don't know get set to null. (if solved in 3, no
-   null for array pos 3, 4, 5 — just 0, 1, & 2)
+1. Immediately after a brand-new registration (not a device-link join —
+   `login_ui.js`'s `pushLocalDataToNewAccount`), the client pushes a row to
+   `storage_snapshots` prior to anything else: `user_id` and `client_device_id`
+   populated, event `"new user creation"`, `local_storage` a raw dump of the client's
+   entire local storage (`StorageController.dumpRaw()`), via
+   `POST /api/v2/profile/local_storage_snapshot`. Audit-trail only — never treated as a
+   source of truth for anything below.
+1. Preferences, a one-time game_state snapshot, and full history all push next, in
+   parallel (`syncPreferences`, `syncGameStateOnce`, `syncHistoryEntries`). History
+   entries land in the `played_games` table exactly like every other import: if we
+   don't have all the guesses, use the starter word for guess 0, the answer for the
+   last guess if the status is WIN, and null for anything unknown in between (solved in
+   3 → no null at array pos 0–2, just those three).
+1. **Statistics are never pushed as a blob, including at registration** — retired along
+   with `PUT /api/v2/profile/statistics` (see Online Play Sync below). Instead
+   `gamesPlayed`/`gamesWon`/streak are derived the same way as every other scenario in
+   this doc: incrementally, from the `played_games` rows the history push above just
+   created. The one gap this can't close — a local total that includes legacy
+   aggregate-only data with no corresponding history entry — is surfaced rather than
+   silently trusted: `LeftWordleAuth.statsDiscrepancyAfterPush` compares the client's
+   locally-computed `gamesPlayed` (`StatisticsEngine.computeStatisticsFromHistoryAndLegacy`)
+   against what the server actually derived, and if the local figure is higher, the
+   user is pointed at the existing manual "Adjust Stats" flow instead of the gap being
+   auto-applied. Identical in spirit to how the restore-from-backup flow handles the
+   same problem.
 
 ## Device / Browser Added to Online Account, and Re-sync After Offline Period
 

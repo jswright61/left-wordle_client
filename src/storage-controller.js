@@ -413,7 +413,20 @@ window.StorageController = {
     legacyStats: new BlobStorage("legacy_stats"),
     statistics: new NamespacedStorage("statistics", SCHEMA.statistics),
     deviceId: new ScalarStorage("device_id"),
-    settingsBackup: new SettingsBackupStorage()
+    settingsBackup: new SettingsBackupStorage(),
+    // Raw dump of every localStorage key, each value JSON-parsed where
+    // possible (falls back to the raw string). Shared by ToolsMenu's
+    // "Download/Send Preferences" export and the new-account local storage
+    // snapshot pushed at registration (see auth.js's syncNewUserSnapshot).
+    dumpRaw: function() {
+        var data = {};
+        for (var i = 0; i < window.localStorage.length; i++) {
+            var key = window.localStorage.key(i);
+            var raw = window.localStorage.getItem(key);
+            try { data[key] = JSON.parse(raw); } catch (e) { data[key] = raw; }
+        }
+        return data;
+    }
 };
 
 (function() {

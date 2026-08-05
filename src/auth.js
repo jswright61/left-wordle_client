@@ -240,6 +240,15 @@
         },
         completion: function(payload) {
             return api().reportCompletion(payload.date, payload.puzzleNum, payload.mode, payload.gameStatus, payload.guesses);
+        },
+        // Same "ignore payload, re-read current" shape as "preferences" --
+        // only ever fired once, at registration, but a retry should still
+        // push whatever's current rather than a stale snapshot.
+        gameState: function() {
+            return api().putGameState(StorageController.gameState.getAll());
+        },
+        snapshot: function(payload) {
+            return api().postLocalStorageSnapshot(payload.event, payload.localStorage);
         }
     };
 
@@ -326,6 +335,43 @@
         if (!LeftWordleAuth.isLoggedIn()) return Promise.resolve();
         var payload = {date: date, puzzleNum: puzzleNum, mode: mode, gameStatus: gameStatus, guesses: guesses};
         return syncWithRetry("completion:" + puzzleNum, "completion", payload).catch(function() {});
+    };
+
+    // One-time push of the current in-progress game, at registration only --
+    // in-progress state is never synced live otherwise (see syncCompletion's
+    // comment / migration_rethink.md).
+    LeftWordleAuth.syncGameStateOnce = function() {
+        if (!LeftWordleAuth.isLoggedIn()) return Promise.resolve();
+        return syncWithRetry("gameState", "gameState", null).catch(function() {});
+    };
+
+    // Audit-trail only (see api/app.rb's local_storage_snapshot_response) --
+    // captures the client's pristine local storage before any other
+    // registration push touches the account. Currently only ever called
+    // with event "new user creation".
+    LeftWordleAuth.syncNewUserSnapshot = function(localStorageDump) {
+        if (!LeftWordleAuth.isLoggedIn()) return Promise.resolve();
+        var payload = {event: "new user creation", localStorage: localStorageDump};
+        return syncWithRetry("snapshot:new-user-creation", "snapshot", payload).catch(function() {});
+    };
+
+    // Shared by the restore-from-backup and new-registration push flows:
+    // after pushing local history, compare a locally-computed gamesPlayed
+    // figure against what the server could actually derive from it. A gap
+    // means some of the local total is legacy/aggregate-only data with no
+    // corresponding history entry -- not reconstructable via history import,
+    // so it's surfaced rather than silently trusted. Best-effort: if the
+    // comparison itself fails, don't guess, just skip it.
+    LeftWordleAuth.statsDiscrepancyAfterPush = async function(localGamesPlayed) {
+        if (!Number.isFinite(localGamesPlayed)) return null;
+        try {
+            var profile = await api().getProfile();
+            var serverGamesPlayed = (profile && profile.statistics && Number.isFinite(profile.statistics.gamesPlayed))
+                ? profile.statistics.gamesPlayed : 0;
+            return (localGamesPlayed > serverGamesPlayed) ? {local: localGamesPlayed, server: serverGamesPlayed} : null;
+        } catch (e) {
+            return null;
+        }
     };
 
     StorageController.preferences.onChange(LeftWordleAuth.syncPreferences);

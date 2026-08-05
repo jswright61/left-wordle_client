@@ -1080,12 +1080,7 @@ class ToolsMenu {
     // -- diagnosing local/server drift (expected once an account exists,
     // see auth.js) benefits from seeing both sides at once.
     async collectAllSettings() {
-        var data = {};
-        for (var i = 0; i < window.localStorage.length; i++) {
-            var key = window.localStorage.key(i);
-            var raw = window.localStorage.getItem(key);
-            try { data[key] = JSON.parse(raw); } catch (e) { data[key] = raw; }
-        }
+        var data = window.StorageController.dumpRaw();
         data.diagnostics = {
             server: window.location.hostname,
             version: window.APP_VERSION || null

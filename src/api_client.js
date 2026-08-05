@@ -147,6 +147,11 @@
             return this.request("/api/v2/profile/game_state", options);
         }
 
+        async postLocalStorageSnapshot(event, localStorage, options) {
+            options = Object.assign({}, options, { body: { event: event, local_storage: localStorage }, method: "POST" });
+            return this.request("/api/v2/profile/local_storage_snapshot", options);
+        }
+
         async getHistory(options) {
             return this.request("/api/v2/history", options);
         }

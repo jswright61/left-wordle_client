@@ -282,3 +282,73 @@ describe('retry-on-failure sync queue', () => {
         expect(putPreferences).toHaveBeenCalledTimes(3);
     });
 });
+
+describe('syncGameStateOnce', () => {
+    test('does nothing when not logged in', () => {
+        const putGameState = jest.fn();
+        const dom = loadAuth({ client: { putGameState } });
+        dom.window.LeftWordleAuth.syncGameStateOnce();
+        expect(putGameState).not.toHaveBeenCalled();
+    });
+
+    test('pushes the current local game state when logged in', () => {
+        const putGameState = jest.fn(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { putGameState } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+        dom.window.StorageController.gameState.replace({ puzzleNum: 42 });
+
+        dom.window.LeftWordleAuth.syncGameStateOnce();
+
+        expect(putGameState).toHaveBeenCalledWith({ puzzleNum: 42 });
+    });
+});
+
+describe('syncNewUserSnapshot', () => {
+    test('does nothing when not logged in', () => {
+        const postLocalStorageSnapshot = jest.fn();
+        const dom = loadAuth({ client: { postLocalStorageSnapshot } });
+        dom.window.LeftWordleAuth.syncNewUserSnapshot({ statistics: '{}' });
+        expect(postLocalStorageSnapshot).not.toHaveBeenCalled();
+    });
+
+    test('pushes the given dump under the "new user creation" event when logged in', () => {
+        const postLocalStorageSnapshot = jest.fn(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { postLocalStorageSnapshot } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        dom.window.LeftWordleAuth.syncNewUserSnapshot({ statistics: '{"gamesPlayed":1}' });
+
+        expect(postLocalStorageSnapshot).toHaveBeenCalledWith('new user creation', { statistics: '{"gamesPlayed":1}' });
+    });
+});
+
+describe('statsDiscrepancyAfterPush', () => {
+    test('returns null for a non-finite local count', async () => {
+        const dom = loadAuth({ client: { getProfile: jest.fn() } });
+        expect(await dom.window.LeftWordleAuth.statsDiscrepancyAfterPush(undefined)).toBeNull();
+    });
+
+    test('returns null when the local count is at or below the server-derived total', async () => {
+        const getProfile = jest.fn(() => Promise.resolve({ statistics: { gamesPlayed: 10 } }));
+        const dom = loadAuth({ client: { getProfile } });
+        expect(await dom.window.LeftWordleAuth.statsDiscrepancyAfterPush(5)).toBeNull();
+    });
+
+    test('returns the gap when the local count exceeds what the server could derive', async () => {
+        const getProfile = jest.fn(() => Promise.resolve({ statistics: { gamesPlayed: 2 } }));
+        const dom = loadAuth({ client: { getProfile } });
+        expect(await dom.window.LeftWordleAuth.statsDiscrepancyAfterPush(5)).toEqual({ local: 5, server: 2 });
+    });
+
+    test('treats a missing/malformed server statistics blob as zero games played', async () => {
+        const getProfile = jest.fn(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { getProfile } });
+        expect(await dom.window.LeftWordleAuth.statsDiscrepancyAfterPush(1)).toEqual({ local: 1, server: 0 });
+    });
+
+    test('returns null (does not throw) when the profile fetch fails', async () => {
+        const getProfile = jest.fn(() => Promise.reject(new Error('network down')));
+        const dom = loadAuth({ client: { getProfile } });
+        expect(await dom.window.LeftWordleAuth.statsDiscrepancyAfterPush(5)).toBeNull();
+    });
+});

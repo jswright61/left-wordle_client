@@ -91,6 +91,8 @@
                 setStatus(statusEl, "Passkey created.", false);
                 if (result.joined_existing_account) {
                     await this.syncAndAnnounce();
+                } else {
+                    await this.pushLocalDataToNewAccount();
                 }
                 this.resetSuppressedLoginPrompt();
             } catch (error) {
@@ -121,6 +123,46 @@
             } catch (error) {
                 if (app && typeof app.addToast === "function") {
                     app.addToast("Logged in, but syncing your account data failed — try reopening the app", 3000, true);
+                }
+            }
+        }
+
+        // Counterpart to syncAndAnnounce for a brand-new account (as opposed
+        // to joining an existing one via device link): there's no server
+        // data to pull down yet, so this device's local data pushes up
+        // instead. Order matches migration_rethink.md's Initial
+        // Registration section -- the local storage snapshot is captured
+        // "prior to anything else", before any of the other pushes can
+        // alter local state.
+        async pushLocalDataToNewAccount() {
+            var app = document.querySelector("game-app");
+            try {
+                await window.LeftWordleAuth.syncNewUserSnapshot(window.StorageController.dumpRaw());
+
+                await Promise.all([
+                    window.LeftWordleAuth.syncPreferences(),
+                    window.LeftWordleAuth.syncGameStateOnce(),
+                    window.LeftWordleAuth.syncHistoryEntries(Object.values(window.StorageController.history.getAll() || {}))
+                ]);
+
+                var localStats = window.wordleStats.compute();
+                var discrepancy = await window.LeftWordleAuth.statsDiscrepancyAfterPush(localStats && localStats.gamesPlayed);
+
+                if (app && typeof app.addToast === "function") {
+                    if (discrepancy) {
+                        app.addToast(
+                            "Account created. Your local history shows " + discrepancy.local +
+                            " games played, but only " + discrepancy.server + " could be matched to specific " +
+                            "puzzles — use Tools > Adjust Stats to correct the total if you'd like.",
+                            6000, true
+                        );
+                    } else {
+                        app.addToast("Account created — your local data has been saved", 3000, true);
+                    }
+                }
+            } catch (error) {
+                if (app && typeof app.addToast === "function") {
+                    app.addToast("Account created, but saving your local data failed — try reopening the app", 3000, true);
                 }
             }
         }
