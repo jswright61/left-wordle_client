@@ -1081,8 +1081,13 @@
             stats.gamesWon += gameResults.isWin ? 1 : 0;
             StatisticsEngine.applyFinalRateStats(stats);
 
+            // Local-only, for instant UI feedback -- the server never trusts
+            // this computed blob (see api/app.rb's
+            // apply_played_game_to_statistics!). It derives its own
+            // authoritative numbers from the played_games event that
+            // HistoryManager.recordHistoryEntry below pushes via
+            // syncHistoryEntry; this device picks that up on next sync-down.
             StorageController.statistics.replace(stats);
-            if (window.LeftWordleAuth) window.LeftWordleAuth.syncStatistics(stats);
 
             var result = gameResults.isWin ? gameResults.numGuesses : 7;
             HistoryManager.recordHistoryEntry({
@@ -2434,13 +2439,16 @@
 
         _fireCompletionReport(finalRowIndex, mode, gameStatus) {
             var allGuesses = this.buildPrevGuesses(finalRowIndex + 1);
-            window.LeftWordleApi.client.reportCompletion(
-                DateUtils.formatLocalDate(this.today),
-                this.dayOffset,
-                mode,
-                gameStatus,
-                allGuesses
-            ).catch(() => {});
+            var date = DateUtils.formatLocalDate(this.today);
+            // Logged in: retry-on-failure via LeftWordleAuth's pending-queue
+            // (re-sync after offline falls out of this). Anonymous: same
+            // best-effort fire-and-forget as before -- no account for a
+            // queued retry to reconcile against.
+            if (window.LeftWordleAuth && window.LeftWordleAuth.isLoggedIn()) {
+                window.LeftWordleAuth.syncCompletion(date, this.dayOffset, mode, gameStatus, allGuesses);
+            } else {
+                window.LeftWordleApi.client.reportCompletion(date, this.dayOffset, mode, gameStatus, allGuesses).catch(() => {});
+            }
         }
 
         debugTools() {

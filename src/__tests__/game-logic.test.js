@@ -390,14 +390,11 @@ describe('updateStatistics (currently Va)', () => {
         expect(parsed.gamesPlayed).toBe(1);
     });
 
-    test('pushes both the recomputed stats and the new history entry to the server via LeftWordleAuth when logged in', () => {
-        const syncStatistics = jest.fn();
+    test('pushes the new history entry to the server via LeftWordleAuth when logged in (statistics stay local-only -- the server derives its own from the history event)', () => {
         const syncHistoryEntry = jest.fn();
-        dom.window.LeftWordleAuth = { syncStatistics, syncHistoryEntry };
+        dom.window.LeftWordleAuth = { syncHistoryEntry };
         try {
             updateStatistics({ isWin: true, isStreak: false, numGuesses: 3, puzzleNum: 999, date: '2099-01-01' });
-            expect(syncStatistics).toHaveBeenCalledTimes(1);
-            expect(syncStatistics.mock.calls[0][0].gamesPlayed).toBe(1);
             expect(syncHistoryEntry).toHaveBeenCalledTimes(1);
             expect(syncHistoryEntry.mock.calls[0][0]).toMatchObject({ puzzle_num: 999, result: 3 });
         } finally {

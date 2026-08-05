@@ -379,31 +379,35 @@ describe('ToolsMenu#applyRestore', () => {
     });
 
     describe('while logged in', () => {
-        var syncPreferences, syncStatistics, syncHistoryEntries;
+        var syncPreferences, syncHistoryEntries, getProfile;
 
         beforeEach(() => {
             syncPreferences = jest.fn(() => Promise.resolve());
-            syncStatistics = jest.fn(() => Promise.resolve());
             syncHistoryEntries = jest.fn(() => Promise.resolve());
+            getProfile = jest.fn(() => Promise.resolve({ statistics: { gamesPlayed: 5 } }));
             dom.window.LeftWordleAuth = {
                 isLoggedIn: () => true,
                 syncPreferences,
-                syncStatistics,
                 syncHistoryEntries
             };
+            dom.window.LeftWordleApi = { client: { getProfile } };
         });
 
         afterEach(() => {
             delete dom.window.LeftWordleAuth;
+            delete dom.window.LeftWordleApi;
         });
 
+        // Statistics are never pushed as a client blob (see
+        // api/app.rb's apply_played_game_to_statistics!) -- only
+        // preferences and history go through an explicit push.
         test('pushes only the restored categories actually present in the file', async () => {
             var data = { device_id: 'abc-123', statistics: { gamesPlayed: 5 } };
             await saveMenu.applyRestore(data, ['device_id', 'statistics']);
 
-            expect(syncStatistics).toHaveBeenCalledWith({ gamesPlayed: 5 });
             expect(syncPreferences).not.toHaveBeenCalled();
             expect(syncHistoryEntries).not.toHaveBeenCalled();
+            expect(getProfile).toHaveBeenCalled(); // statistics present -> discrepancy check runs
         });
 
         test('pushes preferences and flattens the history map into an array', async () => {
@@ -421,13 +425,31 @@ describe('ToolsMenu#applyRestore', () => {
                 { puzzle_num: 100, date: '2021-09-27', result: 3 },
                 { puzzle_num: 101, date: '2021-09-28', result: 7 }
             ]);
+            expect(getProfile).not.toHaveBeenCalled(); // no 'statistics' key restored
+        });
+
+        test('reloads normally when the restored gamesPlayed is at or below what the server already shows', async () => {
+            getProfile.mockResolvedValue({ statistics: { gamesPlayed: 10 } });
+            await saveMenu.applyRestore({ statistics: { gamesPlayed: 5 } }, ['statistics']);
+
+            expect(saveMenu.reloadPage).toHaveBeenCalled();
+        });
+
+        test('flags a discrepancy and skips the reload when the backup shows more games than history import could account for', async () => {
+            getProfile.mockResolvedValue({ statistics: { gamesPlayed: 2 } });
+            var statusEl = dom.window.document.createElement('div');
+
+            await saveMenu.applyRestore({ statistics: { gamesPlayed: 5 } }, ['statistics'], statusEl);
+
+            expect(saveMenu.reloadPage).not.toHaveBeenCalled();
+            expect(statusEl.textContent).toMatch(/Adjust Stats/);
         });
 
         test('reloads only after the pushes settle', async () => {
             var resolvePush;
-            syncStatistics.mockImplementation(() => new Promise((resolve) => { resolvePush = resolve; }));
+            syncHistoryEntries.mockImplementation(() => new Promise((resolve) => { resolvePush = resolve; }));
 
-            var restorePromise = saveMenu.applyRestore({ statistics: {} }, ['statistics']);
+            var restorePromise = saveMenu.applyRestore({ history: {} }, ['history']);
             await Promise.resolve();
             expect(saveMenu.reloadPage).not.toHaveBeenCalled();
 

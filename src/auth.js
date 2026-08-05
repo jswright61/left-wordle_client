@@ -53,6 +53,11 @@
         try {
             var profile = await api().getProfile();
             applyProfile(profile);
+            // A successful call here proves the session and connectivity are
+            // both good -- exactly the moment anything left over from a
+            // previous offline stretch (see PENDING_RUNNERS below) should
+            // get another chance to land.
+            LeftWordleAuth.flushPendingSync();
             return profile;
         } catch (error) {
             clearSessionState();
@@ -97,6 +102,11 @@
         try {
             await api().logout();
         } finally {
+            // A pending push belongs to the account being logged out of, and
+            // can't be retried without its session -- drop it rather than
+            // risk it landing against a different account that later logs
+            // in on this same device/browser.
+            writePendingQueue([]);
             clearSessionState();
         }
     };
@@ -166,18 +176,119 @@
     // account exists, local writes at gameplay checkpoints (a preference
     // change, a completed puzzle) should reach the server too, not just
     // sit in this device's localStorage until the next explicit sync-down.
-    // Best-effort and non-blocking -- a flaky network shouldn't interrupt
-    // gameplay or preference toggling, so failures are swallowed here.
     // In-progress game state (mid-puzzle guesses) is intentionally not
     // synced live; only settled, completed data is pushed.
-    LeftWordleAuth.syncPreferences = function() {
-        if (!LeftWordleAuth.isLoggedIn()) return Promise.resolve();
-        return api().putPreferences(StorageController.preferences.getAll()).catch(function() {});
+    //
+    // Statistics are never pushed as a client-computed blob -- the server
+    // derives gamesPlayed/gamesWon/streak itself from each played_games
+    // event (see api/app.rb's apply_played_game_to_statistics!), so a
+    // completed game reaching the server via syncHistoryEntry is what
+    // actually moves the numbers, not a separate stats push.
+    //
+    // Every push below is retry-on-failure rather than fire-and-forget: a
+    // failed call is queued (see PENDING_RUNNERS/flushPendingSync) and
+    // retried the next time any sync call succeeds, which is what "re-sync
+    // after offline" amounts to -- no separate reconnect/offline-detection
+    // state machine.
+    var PENDING_SYNC_STORAGE_KEY = "pendingSyncQueue";
+
+    function readPendingQueue() {
+        try {
+            var parsed = JSON.parse(window.localStorage.getItem(PENDING_SYNC_STORAGE_KEY) || "[]");
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function writePendingQueue(queue) {
+        try {
+            window.localStorage.setItem(PENDING_SYNC_STORAGE_KEY, JSON.stringify(queue));
+        } catch (e) {
+            // localStorage unavailable/full -- this job just won't survive a
+            // reload, same as if it had never been queued.
+        }
+    }
+
+    function enqueuePending(key, type, payload) {
+        var queue = readPendingQueue().filter(function(job) { return job.key !== key; });
+        queue.push({key: key, type: type, payload: payload});
+        writePendingQueue(queue);
+    }
+
+    function dequeuePending(key) {
+        var queue = readPendingQueue();
+        var next = queue.filter(function(job) { return job.key !== key; });
+        if (next.length !== queue.length) writePendingQueue(next);
+    }
+
+    // Looked up by job.type at flush time, so queued job descriptors stay
+    // plain JSON (safe to persist across a reload) instead of holding an
+    // actual function reference. "preferences" ignores its payload and
+    // re-reads current localStorage on every attempt -- a retry should push
+    // whatever the device's newest intent is, not a stale snapshot from
+    // whenever it first failed.
+    var PENDING_RUNNERS = {
+        preferences: function() {
+            return api().putPreferences(StorageController.preferences.getAll());
+        },
+        history: function(payload) {
+            return api().importHistory([payload]);
+        },
+        historyBulk: function(payload) {
+            return api().importHistory(payload);
+        },
+        completion: function(payload) {
+            return api().reportCompletion(payload.date, payload.puzzleNum, payload.mode, payload.gameStatus, payload.guesses);
+        }
     };
 
-    LeftWordleAuth.syncStatistics = function(statistics) {
+    var flushingPendingQueue = false;
+
+    // Retries every queued job once, dropping whichever succeed and leaving
+    // the rest queued. Re-entrant calls while one is already in flight are a
+    // no-op. Every job here is naturally safe to replay (a preferences PUT
+    // is a full overwrite, a history import dedupes server-side by
+    // client_device_id+date), so retrying a job that actually already
+    // landed is harmless.
+    LeftWordleAuth.flushPendingSync = async function() {
+        if (flushingPendingQueue || !LeftWordleAuth.isLoggedIn()) return;
+        var queue = readPendingQueue();
+        if (!queue.length) return;
+
+        flushingPendingQueue = true;
+        try {
+            var remaining = [];
+            for (var i = 0; i < queue.length; i++) {
+                var job = queue[i];
+                var runner = PENDING_RUNNERS[job.type];
+                try {
+                    if (runner) await runner(job.payload);
+                } catch (e) {
+                    remaining.push(job);
+                }
+            }
+            writePendingQueue(remaining);
+        } finally {
+            flushingPendingQueue = false;
+        }
+    };
+
+    function syncWithRetry(key, type, payload) {
+        var runner = PENDING_RUNNERS[type];
+        return runner(payload).then(function(result) {
+            dequeuePending(key);
+            LeftWordleAuth.flushPendingSync();
+            return result;
+        }).catch(function(error) {
+            enqueuePending(key, type, payload);
+            throw error;
+        });
+    }
+
+    LeftWordleAuth.syncPreferences = function() {
         if (!LeftWordleAuth.isLoggedIn()) return Promise.resolve();
-        return api().putStatistics(statistics).catch(function() {});
+        return syncWithRetry("preferences", "preferences", null).catch(function() {});
     };
 
     // entry shape (agreed client<->API contract, see api/app.rb
@@ -195,14 +306,26 @@
 
     LeftWordleAuth.syncHistoryEntry = function(entry) {
         if (!LeftWordleAuth.isLoggedIn() || !entry) return Promise.resolve();
-        return api().importHistory([toHistoryImportPayload(entry)]).catch(function() {});
+        var payload = toHistoryImportPayload(entry);
+        return syncWithRetry("history:" + payload.puzzle_num, "history", payload).catch(function() {});
     };
 
     // Bulk variant for pushing a whole history dump at once (e.g. after a
     // local restore-from-backup while logged in).
     LeftWordleAuth.syncHistoryEntries = function(entries) {
         if (!LeftWordleAuth.isLoggedIn() || !entries || !entries.length) return Promise.resolve();
-        return api().importHistory(entries.map(toHistoryImportPayload)).catch(function() {});
+        var payload = entries.map(toHistoryImportPayload);
+        return syncWithRetry("historyBulk", "historyBulk", payload).catch(function() {});
+    };
+
+    // /api/v1/game/complete reporting (wordle.js's _fireCompletionReport).
+    // Retry-queued the same as the other pushes when logged in; anonymous
+    // play keeps the old fire-and-forget behavior in wordle.js since there's
+    // no account for a queued retry to eventually reconcile against.
+    LeftWordleAuth.syncCompletion = function(date, puzzleNum, mode, gameStatus, guesses) {
+        if (!LeftWordleAuth.isLoggedIn()) return Promise.resolve();
+        var payload = {date: date, puzzleNum: puzzleNum, mode: mode, gameStatus: gameStatus, guesses: guesses};
+        return syncWithRetry("completion:" + puzzleNum, "completion", payload).catch(function() {});
     };
 
     StorageController.preferences.onChange(LeftWordleAuth.syncPreferences);

@@ -147,11 +147,6 @@
             return this.request("/api/v2/profile/game_state", options);
         }
 
-        async putStatistics(statistics, options) {
-            options = Object.assign({}, options, { body: statistics, method: "PUT" });
-            return this.request("/api/v2/profile/statistics", options);
-        }
-
         async getHistory(options) {
             return this.request("/api/v2/history", options);
         }

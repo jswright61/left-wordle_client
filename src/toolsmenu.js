@@ -1175,7 +1175,16 @@ class ToolsMenu {
         }
 
         if (this.isLoggedIn()) {
-            await this.pushRestoredDataToServer(data, storageKeys);
+            var discrepancy = await this.pushRestoredDataToServer(data, storageKeys);
+            if (discrepancy) {
+                ToolsMenu.showStatus(statusElement,
+                    "Restored history added. This backup shows " + discrepancy.restored +
+                    " games played, but your account only shows " + discrepancy.server +
+                    " after import -- some older games in it couldn't be matched to a specific puzzle. " +
+                    "Use Tools > Adjust Stats if you want to correct the total manually, then reload when you're ready.",
+                    false);
+                return;
+            }
         }
 
         this.reloadPage();
@@ -1187,20 +1196,48 @@ class ToolsMenu {
     // logged in needs its own explicit push, or the account would keep
     // whatever it had before the restore. Best-effort, same as every other
     // sync-up path: a failed push here doesn't block the reload.
-    pushRestoredDataToServer(data, storageKeys) {
+    //
+    // Statistics are never pushed as a blob (see api/app.rb's
+    // apply_played_game_to_statistics! -- the server derives gamesPlayed/
+    // gamesWon/streak itself from each played_games event). Once the
+    // restored history entries land via syncHistoryEntries, the server
+    // already reflects everything reconstructable from them. The one gap:
+    // a backup old enough to carry legacy aggregate totals with no
+    // corresponding history entries can't be reconstructed that way -- see
+    // statsDiscrepancyAfterRestore, which flags that gap instead of
+    // silently trusting the backup's number over a possibly-more-current
+    // server total from another device.
+    async pushRestoredDataToServer(data, storageKeys) {
         var pushes = [];
 
         if (storageKeys.includes("preferences")) {
             pushes.push(window.LeftWordleAuth.syncPreferences());
         }
-        if (storageKeys.includes("statistics")) {
-            pushes.push(window.LeftWordleAuth.syncStatistics(data.statistics));
-        }
         if (storageKeys.includes("history")) {
             pushes.push(window.LeftWordleAuth.syncHistoryEntries(Object.values(data.history || {})));
         }
 
-        return Promise.all(pushes);
+        await Promise.all(pushes);
+
+        if (storageKeys.includes("statistics") && data.statistics && Number.isFinite(data.statistics.gamesPlayed)) {
+            return this.statsDiscrepancyAfterRestore(data.statistics.gamesPlayed);
+        }
+        return null;
+    }
+
+    // Best-effort: if the comparison itself fails, don't guess -- just skip
+    // the discrepancy prompt rather than risk a false alarm.
+    async statsDiscrepancyAfterRestore(restoredGamesPlayed) {
+        try {
+            var profile = await window.LeftWordleApi.client.getProfile();
+            var serverGamesPlayed = (profile && profile.statistics && Number.isFinite(profile.statistics.gamesPlayed))
+                ? profile.statistics.gamesPlayed : 0;
+            return (restoredGamesPlayed > serverGamesPlayed)
+                ? {restored: restoredGamesPlayed, server: serverGamesPlayed}
+                : null;
+        } catch (err) {
+            return null;
+        }
     }
 
     // Isolated so tests can stub it without touching jsdom's read-only

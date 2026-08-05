@@ -159,25 +159,6 @@ describe('syncPreferences', () => {
     });
 });
 
-describe('syncStatistics', () => {
-    test('does nothing when not logged in', () => {
-        const putStatistics = jest.fn();
-        const dom = loadAuth({ client: { putStatistics } });
-        dom.window.LeftWordleAuth.syncStatistics({ gamesPlayed: 1 });
-        expect(putStatistics).not.toHaveBeenCalled();
-    });
-
-    test('pushes the given statistics object when logged in', () => {
-        const putStatistics = jest.fn(() => Promise.resolve({}));
-        const dom = loadAuth({ client: { putStatistics } });
-        dom.window.LeftWordleAuth.loggedIn = true;
-
-        dom.window.LeftWordleAuth.syncStatistics({ gamesPlayed: 5, gamesWon: 3 });
-
-        expect(putStatistics).toHaveBeenCalledWith({ gamesPlayed: 5, gamesWon: 3 });
-    });
-});
-
 describe('syncHistoryEntry', () => {
     test('does nothing when not logged in', () => {
         const importHistory = jest.fn();
@@ -244,5 +225,60 @@ describe('syncHistoryEntries', () => {
             { puzzle_num: 100, date: '2021-09-27', mode: 'hard', game_status: 'WIN', completed_at: 12345 },
             { puzzle_num: 101, date: '2021-09-28', mode: 'regular', game_status: 'FAIL', completed_at: null }
         ]);
+    });
+});
+
+describe('retry-on-failure sync queue', () => {
+    test('flushPendingSync retries a failed preference push and drops it once it succeeds', async () => {
+        const putPreferences = jest.fn()
+            .mockImplementationOnce(() => Promise.reject(new Error('network down')))
+            .mockImplementationOnce(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { putPreferences } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        dom.window.StorageController.preferences.set('hardMode', true);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(putPreferences).toHaveBeenCalledTimes(1);
+
+        await dom.window.LeftWordleAuth.flushPendingSync();
+        expect(putPreferences).toHaveBeenCalledTimes(2);
+
+        // A third flush should be a no-op -- the job was dropped once it succeeded.
+        await dom.window.LeftWordleAuth.flushPendingSync();
+        expect(putPreferences).toHaveBeenCalledTimes(2);
+    });
+
+    test('a failed history entry sync is retried by the next successful sync call', async () => {
+        const importHistory = jest.fn()
+            .mockImplementationOnce(() => Promise.reject(new Error('network down')))
+            .mockImplementation(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { importHistory } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        await dom.window.LeftWordleAuth.syncHistoryEntry({ puzzle_num: 100, date: '2021-09-27', result: 3 });
+        expect(importHistory).toHaveBeenCalledTimes(1);
+
+        // A second, unrelated successful sync call should flush the queue too --
+        // there's no separate "reconnect" trigger, any successful call does it.
+        await dom.window.LeftWordleAuth.syncHistoryEntry({ puzzle_num: 101, date: '2021-09-28', result: 4 });
+        expect(importHistory).toHaveBeenCalledTimes(3); // puzzle 101, then retried puzzle 100
+    });
+
+    test('a failed preference push does not pile up duplicate queue entries', async () => {
+        const putPreferences = jest.fn(() => Promise.reject(new Error('network down')));
+        const dom = loadAuth({ client: { putPreferences } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        dom.window.StorageController.preferences.set('hardMode', true);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        dom.window.StorageController.preferences.set('darkTheme', true);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        putPreferences.mockImplementationOnce(() => Promise.resolve({}));
+        await dom.window.LeftWordleAuth.flushPendingSync();
+
+        // Only one queued "preferences" job should exist regardless of how many
+        // times the push failed before it was retried.
+        expect(putPreferences).toHaveBeenCalledTimes(3);
     });
 });
