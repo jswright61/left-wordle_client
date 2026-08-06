@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Left Wordle — Things to Test</title>
+    <style>
+        :root {
+            --green: #6aaa64;
+            --yellow: #c9b458;
+            --black: #212121;
+            --white: #fff;
+            --gray: #86888a;
+            --light-gray: #d3d6da;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+            color: var(--black);
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 24px 16px 64px;
+            line-height: 1.6;
+        }
+        h1 {
+            font-size: 28px;
+            letter-spacing: 0.1rem;
+            margin-bottom: 8px;
+        }
+        h2 {
+            font-size: 20px;
+            margin-top: 36px;
+            margin-bottom: 12px;
+            padding-bottom: 4px;
+            border-bottom: 2px solid var(--green);
+        }
+        h3 {
+            font-size: 16px;
+            margin-top: 20px;
+            margin-bottom: 8px;
+        }
+        p, li { font-size: 15px; }
+        p { margin-bottom: 10px; }
+        ul, ol { margin-left: 24px; margin-bottom: 12px; }
+        li { margin-bottom: 6px; }
+        code {
+            background: #f0f0f0;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        .warning-box {
+            background: #fff8e1;
+            border-left: 4px solid var(--yellow);
+            padding: 14px 16px;
+            margin-bottom: 20px;
+            border-radius: 0 4px 4px 0;
+        }
+        .warning-box p { margin-bottom: 6px; }
+        .warning-box p:last-child { margin-bottom: 0; }
+        .warning-box strong { color: #8a7530; }
+        a { color: var(--green); }
+        .back-link { margin-top: 12px; display: inline-block; }
+    </style>
+</head>
+<body>
+
+<h1>Things to Test</h1>
+<p><a href="/" class="back-link">&larr; Back to Left Wordle</a></p>
+
+<div class="warning-box">
+    <p><strong>Staging environment.</strong> The words "Left Wordle" in the header appear in yellow on staging,
+    indicating you're not on production. Stats and streaks <strong>do not transfer</strong> between staging and
+    production. Please continue to play in production daily to build your stats and keep your streak alive.</p>
+</div>
+
+<!--
+  Hand-curate this list as things need testing: what changed, how to reach
+  it, and what "working" looks like. Prune items once they've been verified
+  and promoted to production.
+
+  This page never ships to production (see lib/capistrano/tasks/
+  things_to_test.rake, gated on :things_to_test_enabled), so it's safe to
+  leave in-progress notes here between releases.
+
+  <h2>Feature Name</h2>
+  <p>How to access it and what to check.</p>
+  <ol>
+      <li>Step one.</li>
+      <li>Expected result.</li>
+  </ol>
+-->
+
+<h3>Reporting Issues</h3>
+<p>The best way to report a bug is to email me: scott at left-wordle dot com</p>
+<p>When reporting a bug, please include:</p>
+<ul>
+    <li>Browser name and version</li>
+    <li>Steps to reproduce</li>
+    <li>What you expected to happen vs. what actually happened</li>
+    <li>Screenshots, if applicable</li>
+    <li>Any errors in the browser console (F12 &rarr; Console tab)</li>
+</ul>
+
+<h3>Resetting Your Environment</h3>
+<p>If things get into a bad state, you can reset by clearing localStorage:</p>
+<ol>
+    <li>Open DevTools (F12 or Cmd+Option+I).</li>
+    <li>Go to <strong>Application</strong> &rarr; <strong>Local Storage</strong>.</li>
+    <li>Right-click the site entry and select <strong>Clear</strong>.</li>
+    <li>Reload the page.</li>
+</ol>
+
+</body>
+</html>

@@ -353,6 +353,32 @@
             var wordleHash = window.wordle;
             this.querySelector("#hash").textContent = wordleHash ? wordleHash.hash : undefined;
             this.querySelector("#puzzle-number").textContent = "#".concat(this.gameApp.dayOffset);
+
+            if (window.APP_VERSION) {
+                var versionLink = this.querySelector("#app-version-link");
+                if (versionLink) {
+                    versionLink.href = "/release-notes#" + window.APP_VERSION.replace(/\./g, "-");
+                    versionLink.textContent = window.APP_VERSION;
+                }
+            }
+
+            // things-to-test.html is stripped from production entirely (see
+            // lib/capistrano/tasks/things_to_test.rake), so this link is only
+            // ever constructed here -- never written as static markup -- and
+            // only for staging specifically, not local dev.
+            if (getEnvironmentLabel(window.location.hostname) === "staging") {
+                var footnote = this.querySelector("#footnote");
+                if (footnote && footnote.firstElementChild) {
+                    var thingsToTestRow = document.createElement("div");
+                    thingsToTestRow.id = "things-to-test-link";
+                    var thingsToTestLink = document.createElement("a");
+                    thingsToTestLink.href = "/things-to-test";
+                    thingsToTestLink.target = "_blank";
+                    thingsToTestLink.textContent = "Things to Test";
+                    thingsToTestRow.appendChild(thingsToTestLink);
+                    footnote.firstElementChild.appendChild(thingsToTestRow);
+                }
+            }
             this.addEventListener("game-switch-change", (event) => {
                 event.stopPropagation();
                 var detail = event.detail,
@@ -2331,12 +2357,28 @@
                 envBanner.id = "env-banner";
                 var bannerText = document.createElement("span");
                 bannerText.textContent = envLabel + " — stats & history are not shared with left-wordle.com";
+                envBanner.appendChild(bannerText);
+
+                // Things-to-test.html is stripped from production entirely (see
+                // lib/capistrano/tasks/things_to_test.rake), so this link is only
+                // ever constructed here -- never written as static markup -- and
+                // only for staging specifically, not local dev. (The matching
+                // Preferences-footer link is injected separately by GameSettings,
+                // since #footnote doesn't exist until that dialog's template clones.)
+                if (envLabel === "staging") {
+                    var thingsToTestLink = document.createElement("a");
+                    thingsToTestLink.id = "env-banner-things-to-test";
+                    thingsToTestLink.href = "/things-to-test";
+                    thingsToTestLink.target = "_blank";
+                    thingsToTestLink.textContent = "Things to Test";
+                    envBanner.appendChild(thingsToTestLink);
+                }
+
                 var dismissBtn = document.createElement("button");
                 dismissBtn.id = "env-banner-dismiss";
                 dismissBtn.setAttribute("aria-label", "Dismiss");
                 dismissBtn.textContent = "✕";
                 dismissBtn.addEventListener("click", () => envBanner.remove());
-                envBanner.appendChild(bannerText);
                 envBanner.appendChild(dismissBtn);
                 this.$game.insertBefore(envBanner, this.$game.querySelector("#board-container"));
             }

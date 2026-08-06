@@ -211,6 +211,12 @@ header {
     letter-spacing: 0.03em;
 }
 
+#env-banner a {
+    color: #fff;
+    margin-left: 8px;
+    text-decoration: underline;
+}
+
 #env-banner-dismiss {
     margin-left: auto;
     background: none;
@@ -1044,6 +1050,9 @@ game-settings #footnote {
 }
 
 game-settings #privacy-policy,
+game-settings #release-notes-link,
+game-settings #app-version,
+game-settings #things-to-test-link,
 game-settings #copyright {
     text-align: left;
 }

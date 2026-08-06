@@ -497,6 +497,8 @@
       <div id="footnote">
         <div>
           <div id="privacy-policy"><a href="/privacy.html" target="_blank">Privacy Policy</a></div>
+          <div id="release-notes-link"><a href="/release-notes" target="_blank">Release Notes</a></div>
+          <div id="app-version"><a href="/release-notes" target="_blank" id="app-version-link"></a></div>
           <div id="copyright">Copyright 2021-2022. All Rights Reserved.</div>
         </div>
         <div>
@@ -656,23 +658,31 @@
                 .then(function(text) {
                     var match = text.match(/APP_VERSION\s*=\s*"([^"]+)"/);
                     if (match && match[1] !== loadedVersion) {
-                        showUpdateModal();
+                        showUpdateModal(match[1]);
                     }
                 })
                 .catch(function() {});
         });
 
-        function showUpdateModal() {
+        function showUpdateModal(newVersion) {
             var overlay = document.createElement("div");
             overlay.id = "update-modal-overlay";
             overlay.innerHTML =
                 '<div id="update-modal">' +
                     '<p>There\'s an updated version of Left Wordle available. Do you want to update?</p>' +
+                    '<p id="update-modal-release-notes"></p>' +
                     '<div id="update-modal-buttons">' +
                         '<button id="update-now-btn">Update Now</button>' +
                         '<button id="update-later-btn">Maybe Later</button>' +
                     '</div>' +
                 '</div>';
+
+            var notesLink = document.createElement("a");
+            notesLink.href = "/release-notes#" + newVersion.replace(/\./g, "-");
+            notesLink.target = "_blank";
+            notesLink.textContent = "See what's new in " + newVersion;
+            overlay.querySelector("#update-modal-release-notes").appendChild(notesLink);
+
             document.body.appendChild(overlay);
 
             document.getElementById("update-now-btn").addEventListener("click", function() {
