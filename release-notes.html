@@ -78,19 +78,34 @@
     <h1>Release Notes</h1>
     <p class="subtitle">What's new in each release, most recent first.</p>
 
-    <!--
-      Add a new <section> here, above the previous one, for each release.
-      The id is the version tag with dots replaced by dashes, so v0.9.19
-      becomes id="v0-9-19" and links as /release-notes#v0-9-19.
+    <section id="v0-9-20">
+        <h2><a href="#v0-9-20">v0.9.20</a></h2>
+        <ul>
+            <li>Added this Release Notes page, plus a staging-only Things to Test page — both linked from Preferences and from the update-available prompt.</li>
+            <li>Housekeeping: deploy tooling fixes only, otherwise nothing else player-facing this release.</li>
+        </ul>
+    </section>
 
-      <section id="v0-9-19">
-          <h2><a href="#v0-9-19">v0.9.19</a></h2>
-          <ul>
-              <li>Some feature or fix.</li>
-          </ul>
-      </section>
-    -->
+    <section id="v0-9-19">
+        <h2><a href="#v0-9-19">v0.9.19</a></h2>
+        <ul>
+            <li>Preferences, statistics, and game history for logged-in accounts now sync automatically as you play — not just when using Adjust Stats or Import.</li>
+            <li>New accounts push your local data to the server immediately on creation, and Restore from Backup now syncs the restored data too.</li>
+            <li>Failed syncs are retried automatically instead of being silently dropped.</li>
+            <li>Fixed a bug where changing time zones (e.g. after travel) could incorrectly break or preserve a streak.</li>
+            <li>Restore from Backup is now available directly from the Tools menu.</li>
+            <li>Redesigned the header icons — account moved to the right, tools moved next to the title — and improved the login-prompt flow.</li>
+            <li>New accounts no longer get a one-time "import this device's data" step; you're now warned up front and pointed to whichever device has your fullest history.</li>
+            <li>Renamed "Settings" to "Preferences" and "Signed In/Out" to "Logged In/Out" throughout the app.</li>
+        </ul>
+    </section>
 
+    <section id="v0-9-18">
+        <h2><a href="#v0-9-18">v0.9.18</a></h2>
+        <ul>
+            <li>Deploy tooling fix only (SSH key support for deployments) — no player-facing changes this release.</li>
+        </ul>
+    </section>
 </div>
 </body>
 </html>
