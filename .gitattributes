@@ -1,0 +1,39 @@
+# Excluded from `git archive`, which is what Capistrano's `git:create_release`
+# uses to build each release directory (capistrano/scm/git#archive_to_release_path).
+# Anything marked export-ignore here never ships to staging or production,
+# without needing a bespoke deploy:remove_* rake task per file.
+#
+# Local workflows (tests, lint, `cap` itself) read the working tree directly,
+# not the archive, so this has no effect on development.
+
+# Deploy orchestration - runs on the deployer's machine, never on the server
+.githooks/ export-ignore
+bin/ export-ignore
+config/ export-ignore
+lib/capistrano/ export-ignore
+Capfile export-ignore
+Gemfile export-ignore
+Gemfile.lock export-ignore
+.ruby-version export-ignore
+
+# Dev/build tooling - not consumed at runtime (no server-side build step)
+package.json export-ignore
+package-lock.json export-ignore
+jest.config.js export-ignore
+playwright.config.js export-ignore
+eslint.config.js export-ignore
+test_runner.sh export-ignore
+
+# Test/QA artifacts - must never be publicly reachable
+e2e/ export-ignore
+migration_tests/ export-ignore
+src/__tests__/ export-ignore
+sample_stats.json export-ignore
+
+# Working files kept for reference, not ready-to-serve data
+data/wip/ export-ignore
+
+# Docs - internal, not part of the product
+docs/ export-ignore
+
+.gitattributes export-ignore
