@@ -14,11 +14,69 @@
       <li>Step one.</li>
       <li>Expected result.</li>
   </ol>
+<p></p>
+  <ol>
+    <li></li>
+    <li></li>
+  </ol>
 -->
+<h2>Start with a History in Your Browser / Device</h2>
+<p>If you don't have a history (or a significant history) on staging for you current browser / device, consider jumpstarting your staging history from the production site.</p>
+<ol>
+  <li>Open <a href="https://left-wordle.com">Left Wordle (Production)</a></li>
+  <li>Open the Tools modal (wrench icon in header)</li>
+  <li>Under "Troubleshooting" click "Download All Settings"</li>
+  <li>Open <a href="https://staging.left-wordle.com">Left Wordle (Staging)</a></li>
+  <li>This time, dismiss the login prompt without clicking "Don't ask me to log in" — we still want it to prompt you again for the Logins task below</li>
+  <li>Open the Tools modal (same wrench icon, now on the left side of the header)</li>
+  <li>Under "Backup & Restore" click "Restore from File"</li>
+  <li>Select the file you just downloaded</li>
+  <li>Click "Overwrite & Restore" to confirm</li>
+  <li>Click the statistics (bar graph) icon in the header and verify the stats match your production stats</li>
+  <li>Note: these stats are a point-in-time copy of production, not linked to it. Games played here will not be reflected on production.</li>
+  <li>Refresh the page, or click the account icon to proceed with account testing.</li>
+</ol>
 
 <h2>Logins</h2>
-<p>You should be prompted to create a login. </p>
+<p>You should be prompted to create a login. PLEASE create one and test various scenarios listed below. This is the biggest change yet for Left Wordle.</p>
+<p>Logins use Passkeys — <a href="logins_and_passkeys.html">Passkey info here</a>. Without an optional email, your login info on the server will not contain
+  any personally identifiable information.
+</p>
+
+
+<p>Signup on your first device</p>
 <ol>
-  <li>Step one.</li>
-  <li>Expected result.</li>
+  <li>In the login overlay, optionally enter an email address (optional — this is just for account recovery, not required)</li>
+  <li>Optionally edit the device nickname field (it's pre-filled with a guessed name)</li>
+  <li>Click "Create Passkey"</li>
+  <li>Complete your device/browser's passkey prompt (Face ID, Touch ID, Windows Hello, or a security key)</li>
+  <li>Verify the status message shows "Passkey created." and the overlay switches to the logged-in view</li>
+  <li>Verify a brief on-screen message appears confirming your local data was saved to the new account</li>
+  <li>Close the overlay and confirm the header's account icon now shows the logged-in state (tooltip: "Account (logged in)")</li>
+</ol>
+
+<p>Login on your second device</p>
+<ol>
+  <li>On your first device (now logged in), click the account icon to reopen the overlay</li>
+  <li>Click "Add a Device (Link)"</li>
+  <li>Verify the "Add a Device" modal opens with a one-time link (note: it expires soon and can only be used once)</li>
+  <li>Copy the link (or use "Email Me a Link" instead) and open it on your second device</li>
+  <li>On the second device, verify you land on a "Set up passkey" screen with a pre-filled device nickname</li>
+  <li>Click "Set Up Passkey" and complete your device's passkey prompt</li>
+  <li>Verify the page reloads and the account icon shows the logged-in state</li>
+  <li>Click the statistics icon and verify the stats match the account from your first device</li>
+  <li>Log out on the second device, then click "Log In" (not "Create Passkey") and verify you're signed back in using the passkey you just created</li>
+</ol>
+
+<p>"Don't ask me to log in"</p>
+<ol>
+  <li>On a logged-out device, when the login prompt appears on load, click "Don't ask me to log in" instead of signing up or logging in</li>
+  <li>Verify the overlay closes</li>
+  <li>Reload the page</li>
+  <li>Verify the login prompt does NOT automatically reappear this time</li>
+  <li>Click the account icon to open the overlay manually — verify the "Don't ask me to log in" link is no longer shown, but you can still create a passkey or log in from here</li>
+  <li>Log in (or create a passkey) from this manual overlay</li>
+  <li>Log out</li>
+  <li>Reload the page again</li>
+  <li>Verify the login prompt automatically reappears this time — logging in on a device resets the "don't ask" setting so a future logout doesn't leave you stranded on a signed-out device</li>
 </ol>
