@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "digest"
-
 namespace :deploy do
   task :write_app_config do
     api_base_url = fetch(:api_base_url)
@@ -41,32 +39,15 @@ namespace :deploy do
       upload! StringIO.new(config_js), release_path.join("app_config.js")
       upload! StringIO.new(version_js), release_path.join("app_version.js")
 
-      bust_local_asset = lambda do |prefix, path, suffix|
-        if path.start_with?("http://", "https://")
-          "#{prefix}#{path}#{suffix}"
-        else
-          content = capture(:cat, release_path.join(path))
-          digest = Digest::SHA256.hexdigest(content)[0, 10]
-          "#{prefix}#{path}?v=#{digest}#{suffix}"
-        end
-      end
-
       html = capture(:cat, release_path.join("index.html"))
-      busted = html.gsub(/(<script\s[^>]*src=")([^"?]+\.js)(")/) do
-        prefix, path, suffix = $1, $2, $3
-        bust_local_asset.call(prefix, path, suffix)
-      end
-      busted = busted.gsub(/(<link\s[^>]*href=")([^"?]+\.css)(")/) do
-        prefix, path, suffix = $1, $2, $3
-        bust_local_asset.call(prefix, path, suffix)
-      end
+      rendered = html
       if allow_search_indexing
-        busted = busted.sub(
+        rendered = rendered.sub(
           '<meta name="robots" content="noindex, nofollow, noai, noimageai">',
           '<meta name="robots" content="index, follow, noai, noimageai">'
         )
       end
-      upload! StringIO.new(busted), release_path.join("index.html")
+      upload! StringIO.new(rendered), release_path.join("index.html")
     end
   end
 end

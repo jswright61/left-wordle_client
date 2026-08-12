@@ -2437,6 +2437,9 @@
                 this.encryptedAnswer = response.encrypted_answer;
                 this.answer = decryptAnswer(this.encryptedAnswer);
                 GameStateManager.saveGameState({ encryptedAnswer: this.encryptedAnswer });
+                if (window.LeftWordleApi.eventQueue) {
+                    window.LeftWordleApi.eventQueue.enqueueGameStart(dateStr, response.puzzle_num);
+                }
                 if (this.gameStatus === GAME_STATUS_IN_PROGRESS) {
                     this.canInput = true;
                 }

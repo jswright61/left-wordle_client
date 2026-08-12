@@ -70,6 +70,11 @@
             return this.request("/api/v1/game/remaining_counts", options);
         }
 
+        async reportGameStart(date, puzzleNum, options) {
+            options = Object.assign({}, options, { body: { date: date, puzzle_num: puzzleNum }, method: "POST" });
+            return this.request("/api/v1/game/start", options);
+        }
+
         async reportCompletion(date, puzzleNum, mode, gameStatus, guesses, options) {
             var body = {
                 date: date,
@@ -254,14 +259,108 @@
         }
     }
 
+    class ApiEventQueue {
+        constructor(client, options) {
+            options = options || {};
+            this.client = client;
+            this.flushing = false;
+            this.maxJobs = Number(options.maxJobs) || 50;
+            this.storageKey = options.storageKey || "leftWordleApiEventQueue";
+
+            if (window.addEventListener) {
+                window.addEventListener("online", () => {
+                    this.flush();
+                });
+                if (document.addEventListener) {
+                    document.addEventListener("visibilitychange", () => {
+                        if (!document.hidden) this.flush();
+                    });
+                }
+                setTimeout(() => this.flush(), 0);
+            }
+        }
+
+        enqueueGameStart(date, puzzleNum) {
+            var jobs = this._readJobs().filter((job) => job.key !== this._gameStartKey(date));
+            jobs.push({
+                attempts: 0,
+                key: this._gameStartKey(date),
+                payload: { date: date, puzzle_num: puzzleNum },
+                type: "gameStart"
+            });
+            this._writeJobs(jobs.slice(-this.maxJobs));
+            return this.flush();
+        }
+
+        async flush() {
+            if (this.flushing) return;
+            this.flushing = true;
+            try {
+                var remaining = [];
+                var jobs = this._readJobs();
+                this._writeJobs([]);
+
+                for (var i = 0; i < jobs.length; i += 1) {
+                    var job = jobs[i];
+                    try {
+                        await this._perform(job);
+                    } catch (error) {
+                        if (error && error.retryable === false) continue;
+                        job.attempts = (Number(job.attempts) || 0) + 1;
+                        remaining.push(job);
+                    }
+                }
+
+                this._writeJobs(remaining.concat(this._readJobs()).slice(-this.maxJobs));
+            } finally {
+                this.flushing = false;
+            }
+        }
+
+        _gameStartKey(date) {
+            return "gameStart:" + date;
+        }
+
+        _perform(job) {
+            if (!job || job.type !== "gameStart" || !job.payload) {
+                return Promise.resolve();
+            }
+            return this.client.reportGameStart(job.payload.date, job.payload.puzzle_num);
+        }
+
+        _readJobs() {
+            try {
+                var raw = window.localStorage && window.localStorage.getItem(this.storageKey);
+                if (!raw) return [];
+                var jobs = JSON.parse(raw);
+                return Array.isArray(jobs) ? jobs : [];
+            } catch (error) {
+                return [];
+            }
+        }
+
+        _writeJobs(jobs) {
+            if (!window.localStorage) return;
+            if (!jobs.length) {
+                window.localStorage.removeItem(this.storageKey);
+                return;
+            }
+            window.localStorage.setItem(this.storageKey, JSON.stringify(jobs));
+        }
+    }
+
     var config = window.LEFT_WORDLE_CONFIG || {};
+    var client = new ApiClient({
+        baseUrl: config.apiBaseUrl,
+        credentials: config.apiCredentials,
+        timeoutMs: config.apiRequestTimeoutMs
+    });
+
     window.LeftWordleApi = {
         ApiClient: ApiClient,
         ApiClientError: ApiClientError,
-        client: new ApiClient({
-            baseUrl: config.apiBaseUrl,
-            credentials: config.apiCredentials,
-            timeoutMs: config.apiRequestTimeoutMs
-        })
+        ApiEventQueue: ApiEventQueue,
+        client: client,
+        eventQueue: new ApiEventQueue(client)
     };
 })();

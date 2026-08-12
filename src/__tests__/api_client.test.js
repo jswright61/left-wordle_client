@@ -92,6 +92,23 @@ describe('LeftWordleApi', () => {
         expect(result).toEqual({ date: '2021-06-19', remaining_counts: [145, 23] });
     });
 
+    test('posts a game start report', async () => {
+        const fetchImpl = jest.fn().mockResolvedValue(response({ body: '{"status":"recorded"}' }));
+        const dom = loadClient(fetchImpl);
+
+        const result = await dom.window.LeftWordleApi.client.reportGameStart('2021-06-19', 0);
+
+        expect(fetchImpl).toHaveBeenCalledWith(
+            'http://localhost:9292/api/v1/game/start',
+            expect.objectContaining({
+                body: JSON.stringify({ date: '2021-06-19', puzzle_num: 0 }),
+                headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+                method: 'POST'
+            })
+        );
+        expect(result).toEqual({ status: 'recorded' });
+    });
+
     test('posts guesses for evaluation', async () => {
         const fetchImpl = jest.fn().mockResolvedValue(response({
             body: '{"evaluation":["correct"],"game_status":"IN_PROGRESS"}'
@@ -261,5 +278,53 @@ describe('LeftWordleApi', () => {
             })
         );
         expect(result).toEqual({ status: 'recorded' });
+    });
+
+    test('retains queued game start events when the request is retryable', async () => {
+        const fetchImpl = jest.fn().mockRejectedValue(new Error('offline'));
+        const dom = loadClient(fetchImpl);
+        await new Promise((resolve) => dom.window.setTimeout(resolve, 0));
+
+        await dom.window.LeftWordleApi.eventQueue.enqueueGameStart('2021-06-19', 0);
+
+        const jobs = JSON.parse(dom.window.localStorage.getItem('leftWordleApiEventQueue'));
+        expect(fetchImpl).toHaveBeenCalledWith(
+            'http://localhost:9292/api/v1/game/start',
+            expect.objectContaining({
+                body: JSON.stringify({ date: '2021-06-19', puzzle_num: 0 }),
+                method: 'POST'
+            })
+        );
+        expect(jobs).toHaveLength(1);
+        expect(jobs[0]).toMatchObject({
+            attempts: 1,
+            key: 'gameStart:2021-06-19',
+            payload: { date: '2021-06-19', puzzle_num: 0 },
+            type: 'gameStart'
+        });
+    });
+
+    test('flushes queued game start events and clears local storage', async () => {
+        const fetchImpl = jest.fn().mockResolvedValue(response({ body: '{"status":"recorded"}' }));
+        const dom = loadClient(fetchImpl);
+        await new Promise((resolve) => dom.window.setTimeout(resolve, 0));
+        fetchImpl.mockClear();
+        dom.window.localStorage.setItem('leftWordleApiEventQueue', JSON.stringify([{
+            attempts: 2,
+            key: 'gameStart:2021-06-19',
+            payload: { date: '2021-06-19', puzzle_num: 0 },
+            type: 'gameStart'
+        }]));
+
+        await dom.window.LeftWordleApi.eventQueue.flush();
+
+        expect(fetchImpl).toHaveBeenCalledWith(
+            'http://localhost:9292/api/v1/game/start',
+            expect.objectContaining({
+                body: JSON.stringify({ date: '2021-06-19', puzzle_num: 0 }),
+                method: 'POST'
+            })
+        );
+        expect(dom.window.localStorage.getItem('leftWordleApiEventQueue')).toBeNull();
     });
 });
