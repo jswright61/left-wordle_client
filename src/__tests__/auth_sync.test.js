@@ -1,9 +1,11 @@
 /**
- * Tests for auth.js server-history translation and sync overwrite.
+ * Tests for auth.js's sync-up pushes and server-history translation.
  *
  * GET /api/v2/history rows carry game_status/guesses but no `result`;
- * everything local keys off `result`, so syncFromServerAndOverwriteLocal
- * must translate rows back into the local entry shape before storing.
+ * everything local keys off `result`, so serverHistoryToLocalHistory
+ * translates rows back into the local entry shape (used by toolsmenu.js's
+ * online "Download Backup" reshape, not by any local-storage overwrite --
+ * online play no longer pulls server data down into local storage).
  */
 
 const fs = require('fs');
@@ -83,41 +85,6 @@ describe('serverHistoryToLocalHistory', () => {
     });
 });
 
-describe('syncFromServerAndOverwriteLocal', () => {
-    test('stores translated history entries readable by local result-based code', async () => {
-        const apiMock = {
-            client: {
-                getProfile: async () => ({
-                    email: 'a@b.c',
-                    csrf_token: 'tok',
-                    preferences: { hardMode: true },
-                    game_state: {},
-                    statistics: { gamesPlayed: 1, gamesWon: 1 }
-                }),
-                getHistory: async () => ({
-                    '100': {
-                        puzzle_num: 100,
-                        date: '2021-09-27',
-                        mode: 'regular',
-                        game_status: 'WIN',
-                        guesses: [['slate', '02222'], ['plate', '22222']],
-                        completed_at: '2021-09-27T14:00:00Z'
-                    }
-                })
-            }
-        };
-        const dom = loadAuth(apiMock);
-
-        await dom.window.LeftWordleAuth.syncFromServerAndOverwriteLocal();
-
-        const entry = dom.window.StorageController.history.getEntry(100);
-        expect(entry.result).toBe(2);
-        expect(entry.puzzle_num).toBe(100);
-        expect(entry.origin).toBe('server');
-        expect(dom.window.StorageController.preferences.get('hardMode')).toBe(true);
-        expect(dom.window.StorageController.statistics.getAll().gamesPlayed).toBe(1);
-    });
-});
 
 describe('syncPreferences', () => {
     test('does nothing when not logged in', () => {
@@ -300,6 +267,111 @@ describe('syncGameStateOnce', () => {
         dom.window.LeftWordleAuth.syncGameStateOnce();
 
         expect(putGameState).toHaveBeenCalledWith({ puzzleNum: 42 });
+    });
+});
+
+describe('pushGameState', () => {
+    test('does nothing when not logged in', () => {
+        const putGameState = jest.fn();
+        const dom = loadAuth({ client: { putGameState } });
+        dom.window.LeftWordleAuth.pushGameState({ puzzleNum: 42 });
+        expect(putGameState).not.toHaveBeenCalled();
+    });
+
+    test('pushes the given blob directly, without reading local storage, when logged in', () => {
+        const putGameState = jest.fn(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { putGameState } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        dom.window.LeftWordleAuth.pushGameState({ puzzleNum: 99, rowIndex: 2 });
+
+        expect(putGameState).toHaveBeenCalledWith({ puzzleNum: 99, rowIndex: 2 });
+    });
+});
+
+describe('pushGameProgress', () => {
+    afterEach(() => {
+        jest.useRealTimers();
+    });
+
+    test('fires and forgets when not logged in, swallowing failures', async () => {
+        const reportProgress = jest.fn(() => Promise.reject(new Error('offline')));
+        const dom = loadAuth({ client: { reportProgress } });
+
+        await dom.window.LeftWordleAuth.pushGameProgress('2021-09-27', 'regular', [['crane', '01000']]);
+
+        expect(reportProgress).toHaveBeenCalledTimes(1);
+        expect(reportProgress).toHaveBeenCalledWith('2021-09-27', 'regular', [['crane', '01000']]);
+    });
+
+    test('resolves on the first success when logged in, with no retry', async () => {
+        const reportProgress = jest.fn(() => Promise.resolve({ status: 'recorded' }));
+        const dom = loadAuth({ client: { reportProgress } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        await dom.window.LeftWordleAuth.pushGameProgress('2021-09-27', 'regular', [['crane', '01000']]);
+
+        expect(reportProgress).toHaveBeenCalledTimes(1);
+    });
+
+    test('retries a network failure in place until it lands, while logged in', async () => {
+        jest.useFakeTimers();
+        let attempt = 0;
+        const reportProgress = jest.fn(() => {
+            attempt += 1;
+            return attempt < 3 ? Promise.reject(new Error('network down')) : Promise.resolve({ status: 'recorded' });
+        });
+        const dom = loadAuth({ client: { reportProgress } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        const pushPromise = dom.window.LeftWordleAuth.pushGameProgress('2021-09-27', 'regular', [['crane', '01000']]);
+        await jest.advanceTimersByTimeAsync(2000);
+        await jest.advanceTimersByTimeAsync(2000);
+        await pushPromise;
+
+        expect(reportProgress).toHaveBeenCalledTimes(3);
+    });
+
+    test('a 401 invalidates the session (with the given snapshot) instead of retrying, while logged in', async () => {
+        const error = Object.assign(new Error('unauthorized'), { status: 401 });
+        const reportProgress = jest.fn(() => Promise.reject(error));
+        const dom = loadAuth({ client: { reportProgress } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        await dom.window.LeftWordleAuth.pushGameProgress(
+            '2021-09-27', 'regular', [['crane', '01000']], { boardState: ['crane'] }
+        );
+
+        expect(reportProgress).toHaveBeenCalledTimes(1);
+        expect(dom.window.LeftWordleAuth.isLoggedIn()).toBe(false);
+        expect(dom.window.StorageController.gameState.getAll()).toEqual({ boardState: ['crane'] });
+    });
+});
+
+describe('handleSessionInvalidated', () => {
+    test('snapshots the given game state into local storage, clears session, and flags the unexpected end', () => {
+        const dom = loadAuth();
+        dom.window.LeftWordleAuth.loggedIn = true;
+        dom.window.LeftWordleAuth.email = 'a@b.c';
+        dom.window.LeftWordleAuth.csrfToken = 'tok';
+
+        dom.window.LeftWordleAuth.handleSessionInvalidated({ rowIndex: 2, boardState: ['crane', 'moist'] });
+
+        expect(dom.window.LeftWordleAuth.isLoggedIn()).toBe(false);
+        expect(dom.window.LeftWordleAuth.email).toBeNull();
+        expect(dom.window.LeftWordleAuth.csrfToken).toBeNull();
+        expect(dom.window.LeftWordleAuth.consumeSessionUnexpectedlyEnded()).toBe(true);
+        expect(dom.window.StorageController.gameState.getAll()).toEqual({ rowIndex: 2, boardState: ['crane', 'moist'] });
+    });
+
+    test('without a snapshot, still clears the session but leaves local storage untouched', () => {
+        const dom = loadAuth();
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        dom.window.LeftWordleAuth.handleSessionInvalidated();
+
+        expect(dom.window.LeftWordleAuth.isLoggedIn()).toBe(false);
+        expect(dom.window.StorageController.gameState.getAll()).toEqual({});
     });
 });
 

@@ -1650,6 +1650,16 @@ game-icon {
     cursor: not-allowed;
 }
 
+/* Import Games / Restore from File are <label>s wrapping a hidden file
+   input (native file picker needs a real <label for>), so they can't be
+   :disabled themselves -- disabling the nested input and styling via
+   :has() gets the same greyed-out treatment as a real disabled button. */
+#tools .tools-action-button:has(input:disabled) {
+    background: var(--color-tone-4);
+    color: var(--color-tone-3);
+    cursor: not-allowed;
+}
+
 #tools .tools-file-input {
     display: none;
 }

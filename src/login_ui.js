@@ -67,13 +67,15 @@
                     headerIcon.setAttribute("icon", isLoggedIn ? "account-active" : "account");
                 }
             }
+
+            if (window.leftWordleToolsMenu && typeof window.leftWordleToolsMenu.refreshImportRestoreAvailability === "function") {
+                window.leftWordleToolsMenu.refreshImportRestoreAvailability();
+            }
         }
 
         // Re-enable the prompt on successful login/register so a future logout
         // on this device (new browser profile, cleared passkey, etc.) surfaces
         // it again instead of leaving the user stranded on a signed-out device.
-        // Runs after any account-data sync so it can't be clobbered by synced
-        // preferences from another device.
         resetSuppressedLoginPrompt() {
             StorageController.preferences.set("suppressLoginPrompt", false);
         }
@@ -113,10 +115,14 @@
             }
         }
 
+        // Pure authentication + display cache, not a data merge: online
+        // play never writes account data into local storage (see
+        // online_play_redesign.md), so this only populates
+        // LeftWordleAuth.cachedProfile for the Stats screen etc. to read.
         async syncAndAnnounce() {
             var app = document.querySelector("game-app");
             try {
-                await window.LeftWordleAuth.syncFromServerAndOverwriteLocal();
+                await window.LeftWordleAuth.refreshCachedProfile();
                 if (app && typeof app.addToast === "function") {
                     app.addToast("Logged in — your account data is now loaded", 3000, true);
                 }

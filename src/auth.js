@@ -23,7 +23,16 @@
         // reverting to offline play is exactly the "app looks broken"
         // surprise online_play_redesign.md's offline indicator is meant to
         // prevent. Not set on an explicit logout -- the user already knows.
-        sessionUnexpectedlyEnded: false
+        sessionUnexpectedlyEnded: false,
+        // In-memory only -- {preferences, game_state, statistics} from the
+        // account's last GET /profile fetch. This is what an online device
+        // reads for display (Stats screen, etc.) instead of
+        // StorageController, since online play never writes account data
+        // into local storage. Populated by refreshProfile() (boot) and
+        // refreshCachedProfile() (right after login/register); cleared
+        // whenever the session ends so a logged-out device never shows a
+        // stale account's numbers.
+        cachedProfile: null
     };
 
     // Persisted (not in-memory) so a fresh page load can tell "was logged
@@ -51,10 +60,23 @@
         rememberLoggedIn();
     }
 
+    // Separate from applyProfile because register/login finish responses
+    // are minimal ({user_id, email, csrf_token}, no preferences/statistics)
+    // -- only calls that fetch a *full* GET /profile should touch the
+    // cache, or it'd get clobbered with undefined right after every login.
+    function cacheProfile(profile) {
+        LeftWordleAuth.cachedProfile = {
+            preferences: profile.preferences || {},
+            game_state: profile.game_state || {},
+            statistics: profile.statistics || {}
+        };
+    }
+
     function clearSessionState() {
         LeftWordleAuth.loggedIn = false;
         LeftWordleAuth.email = null;
         LeftWordleAuth.csrfToken = null;
+        LeftWordleAuth.cachedProfile = null;
     }
 
     function requireWebauthnSupport() {
@@ -81,6 +103,7 @@
         try {
             var profile = await api().getProfile();
             applyProfile(profile);
+            cacheProfile(profile);
             // A successful call here proves the session and connectivity are
             // both good -- exactly the moment anything left over from a
             // previous offline stretch (see PENDING_RUNNERS below) should
@@ -95,6 +118,19 @@
         }
     };
 
+    // Fetches and caches the account's profile without refreshProfile's
+    // session-invalidation side effects -- used right after a login/
+    // register that just succeeded, where a failed profile fetch means
+    // "try again", not "the session died" (the login call itself already
+    // proved the session is good). login_ui.js's syncAndAnnounce uses this
+    // instead of refreshProfile so a transient failure here can't
+    // incorrectly clear a session that was just established.
+    LeftWordleAuth.refreshCachedProfile = async function() {
+        var profile = await api().getProfile();
+        cacheProfile(profile);
+        return profile;
+    };
+
     // One-shot: login_ui.js calls this at boot to decide whether to
     // surface the "you're playing offline now" toast, then clears the
     // flag so it doesn't fire again on a later reload of the same
@@ -103,6 +139,26 @@
         var value = LeftWordleAuth.sessionUnexpectedlyEnded;
         LeftWordleAuth.sessionUnexpectedlyEnded = false;
         return value;
+    };
+
+    // Reached mid-play (not just at boot) when a live online push comes
+    // back 401 -- the session died between one guess and the next, not
+    // just between page loads. `gameStateSnapshot`, if given, is the
+    // caller's most recent local `saveGameState`-shaped board (wordle.js
+    // stashes this on every guess) written to local storage exactly once
+    // here -- the online->offline handoff. Without it, a session dying
+    // mid-game would strand the in-progress board server-side with
+    // nothing locally to resume from, since online play otherwise never
+    // touches local storage. Sets sessionUnexpectedlyEnded so the caller
+    // can immediately surface the toast via login_ui.js's
+    // announceSessionExpiredIfNeeded (auth.js doesn't touch the DOM).
+    LeftWordleAuth.handleSessionInvalidated = function(gameStateSnapshot) {
+        if (gameStateSnapshot) {
+            StorageController.gameState.replace(gameStateSnapshot);
+        }
+        LeftWordleAuth.sessionUnexpectedlyEnded = true;
+        clearSessionState();
+        forgetLoggedIn();
     };
 
     LeftWordleAuth.register = async function(options) {
@@ -198,19 +254,6 @@
         return local;
     }
 
-    // Server is always the source of truth once an account exists -- this
-    // is a full overwrite, never a merge, of this device's local cache.
-    LeftWordleAuth.syncFromServerAndOverwriteLocal = async function() {
-        var profile = await api().getProfile();
-        applyProfile(profile);
-        var history = await api().getHistory();
-        StorageController.preferences.replace(profile.preferences || {});
-        StorageController.gameState.replace(profile.game_state || {});
-        StorageController.statistics.replace(profile.statistics || {});
-        StorageController.history.replace(serverHistoryToLocalHistory(history));
-        return profile;
-    };
-
     LeftWordleAuth.serverHistoryToLocalHistory = serverHistoryToLocalHistory;
 
     // Push-up counterparts to syncFromServerAndOverwriteLocal: once an
@@ -282,11 +325,13 @@
         completion: function(payload) {
             return api().reportCompletion(payload.date, payload.puzzleNum, payload.mode, payload.gameStatus, payload.guesses);
         },
-        // Same "ignore payload, re-read current" shape as "preferences" --
-        // only ever fired once, at registration, but a retry should still
-        // push whatever's current rather than a stale snapshot.
-        gameState: function() {
-            return api().putGameState(StorageController.gameState.getAll());
+        // A registration push (syncGameStateOnce) has no payload and reads
+        // local storage, same "ignore payload, re-read current" shape as
+        // "preferences". A live push while online (pushGameState) passes
+        // the current in-memory board directly, since online play doesn't
+        // write to local storage for the runner to fall back to reading.
+        gameState: function(payload) {
+            return api().putGameState(payload || StorageController.gameState.getAll());
         },
         snapshot: function(payload) {
             return api().postLocalStorageSnapshot(payload.event, payload.localStorage);
@@ -378,12 +423,67 @@
         return syncWithRetry("completion:" + puzzleNum, "completion", payload).catch(function() {});
     };
 
-    // One-time push of the current in-progress game, at registration only --
-    // in-progress state is never synced live otherwise (see syncCompletion's
-    // comment / migration_rethink.md).
+    // One-time push of the current in-progress game, at registration only.
     LeftWordleAuth.syncGameStateOnce = function() {
         if (!LeftWordleAuth.isLoggedIn()) return Promise.resolve();
         return syncWithRetry("gameState", "gameState", null).catch(function() {});
+    };
+
+    // Live push of the current in-progress board, called after every guess
+    // while online (wordle.js's evaluateRow). Queued-retry like the other
+    // PENDING_RUNNERS-backed pushes -- unlike pushGameProgress below, a
+    // dropped gameState push doesn't block the next guess, since it's a
+    // secondary rendering convenience (cross-device resume of the board),
+    // not the authoritative per-guess record (that's played_games, via
+    // pushGameProgress/reportProgress).
+    LeftWordleAuth.pushGameState = function(gameStateBlob) {
+        if (!LeftWordleAuth.isLoggedIn()) return Promise.resolve();
+        return syncWithRetry("gameState", "gameState", gameStateBlob).catch(function() {});
+    };
+
+    var PROGRESS_RETRY_DELAY_MS = 2000;
+
+    function delay(ms) {
+        return new Promise(function(resolve) { setTimeout(resolve, ms); });
+    }
+
+    // The new "every guess, every device" live save (see
+    // online_play_redesign.md's "Playing online" section and this
+    // session's extension of it to offline devices). Two entirely
+    // different failure modes by design, not just by login state:
+    //
+    // - Offline: local storage is still this device's real source of
+    //   truth, so a failed push is best-effort/fire-and-forget, same as
+    //   anonymous completion reporting already is (wordle.js's
+    //   _fireCompletionReport) -- a missed beat here is a missed
+    //   analytics/abandoned-game signal, never data loss.
+    // - Online: there is no local fallback, so the caller awaits this and
+    //   is expected to block further input until it resolves. A network
+    //   failure retries in place; a 401 specifically means the session
+    //   died (not a transient blip), so it's handled via
+    //   handleSessionInvalidated instead of retried forever.
+    //
+    // Deliberately NOT part of PENDING_RUNNERS/pendingSyncQueue -- that
+    // queue is for "retry next time anything succeeds, whenever that is",
+    // which is exactly the silent-reconciliation-later shape this session
+    // chose not to have for live gameplay.
+    LeftWordleAuth.pushGameProgress = async function(date, mode, guesses, gameStateSnapshot) {
+        if (!LeftWordleAuth.isLoggedIn()) {
+            return api().reportProgress(date, mode, guesses).catch(function() {});
+        }
+
+        for (;;) {
+            try {
+                await api().reportProgress(date, mode, guesses);
+                return;
+            } catch (error) {
+                if (error && error.status === 401) {
+                    LeftWordleAuth.handleSessionInvalidated(gameStateSnapshot);
+                    return;
+                }
+                await delay(PROGRESS_RETRY_DELAY_MS);
+            }
+        }
     };
 
     // Audit-trail only (see api/app.rb's local_storage_snapshot_response) --

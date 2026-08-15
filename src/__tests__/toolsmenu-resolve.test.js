@@ -313,6 +313,63 @@ describe('ToolsMenu#collectAllSettings', () => {
         var data = await saveMenu.collectAllSettings();
         expect(data.diagnostics.version).toBeNull();
     });
+
+    test('includes the raw local dump when not logged in', async () => {
+        dom.window.localStorage.setItem('preferences', JSON.stringify({ hardMode: true }));
+        var data = await saveMenu.collectAllSettings();
+        expect(data.preferences).toEqual({ hardMode: true });
+    });
+
+    describe('while logged in', () => {
+        var getProfile, getHistory;
+
+        beforeEach(() => {
+            getProfile = jest.fn(() => Promise.resolve({
+                preferences: { hardMode: true },
+                statistics: { gamesPlayed: 5 },
+                game_state: { puzzleNum: 42 }
+            }));
+            getHistory = jest.fn(() => Promise.resolve({
+                100: { puzzle_num: 100, date: '2021-09-27', mode: 'regular', game_status: 'WIN', guesses: [['crane', '22222']] }
+            }));
+            dom.window.LeftWordleAuth = {
+                isLoggedIn: () => true,
+                serverHistoryToLocalHistory: (h) => ({ 100: { puzzle_num: 100, result: 1 } })
+            };
+            dom.window.LeftWordleApi = { client: { getProfile, getHistory } };
+        });
+
+        afterEach(() => {
+            delete dom.window.LeftWordleAuth;
+            delete dom.window.LeftWordleApi;
+        });
+
+        // Same top-level keys applyRestore already consumes -- so a backup
+        // downloaded online is directly restorable on a future offline
+        // device through the existing restore path, no separate format.
+        test('reshapes the account into the same {preferences, history, statistics, gameState} keys applyRestore expects', async () => {
+            var data = await saveMenu.collectAllSettings();
+
+            expect(data.preferences).toEqual({ hardMode: true });
+            expect(data.statistics).toEqual({ gamesPlayed: 5 });
+            expect(data.gameState).toEqual({ puzzleNum: 42 });
+            expect(data.history).toEqual({ 100: { puzzle_num: 100, result: 1 } });
+            expect(data.server).toBeUndefined();
+        });
+
+        test('does not include the raw local dump', async () => {
+            dom.window.localStorage.setItem('device_id', 'abc-123');
+            var data = await saveMenu.collectAllSettings();
+            expect(data.device_id).toBeUndefined();
+        });
+
+        test('falls back to a data.server error block if the fetch fails', async () => {
+            getProfile.mockRejectedValue(new Error('network down'));
+            var data = await saveMenu.collectAllSettings();
+            expect(data.server).toEqual({ error: 'network down' });
+            expect(data.preferences).toBeUndefined();
+        });
+    });
 });
 
 describe('ToolsMenu#buildRestoreSummary', () => {
@@ -377,87 +434,6 @@ describe('ToolsMenu#applyRestore', () => {
         saveMenu.applyRestore({ device_id: 'abc-123' }, ['device_id']);
         expect(saveMenu.reloadPage).toHaveBeenCalled();
     });
-
-    describe('while logged in', () => {
-        var syncPreferences, syncHistoryEntries, getProfile;
-
-        beforeEach(() => {
-            syncPreferences = jest.fn(() => Promise.resolve());
-            syncHistoryEntries = jest.fn(() => Promise.resolve());
-            getProfile = jest.fn(() => Promise.resolve({ statistics: { gamesPlayed: 5 } }));
-            dom.window.LeftWordleAuth = {
-                isLoggedIn: () => true,
-                syncPreferences,
-                syncHistoryEntries
-            };
-            dom.window.LeftWordleApi = { client: { getProfile } };
-        });
-
-        afterEach(() => {
-            delete dom.window.LeftWordleAuth;
-            delete dom.window.LeftWordleApi;
-        });
-
-        // Statistics are never pushed as a client blob (see
-        // api/app.rb's apply_played_game_to_statistics!) -- only
-        // preferences and history go through an explicit push.
-        test('pushes only the restored categories actually present in the file', async () => {
-            var data = { device_id: 'abc-123', statistics: { gamesPlayed: 5 } };
-            await saveMenu.applyRestore(data, ['device_id', 'statistics']);
-
-            expect(syncPreferences).not.toHaveBeenCalled();
-            expect(syncHistoryEntries).not.toHaveBeenCalled();
-            expect(getProfile).toHaveBeenCalled(); // statistics present -> discrepancy check runs
-        });
-
-        test('pushes preferences and flattens the history map into an array', async () => {
-            var data = {
-                preferences: { hardMode: true },
-                history: {
-                    100: { puzzle_num: 100, date: '2021-09-27', result: 3 },
-                    101: { puzzle_num: 101, date: '2021-09-28', result: 7 }
-                }
-            };
-            await saveMenu.applyRestore(data, ['preferences', 'history']);
-
-            expect(syncPreferences).toHaveBeenCalled();
-            expect(syncHistoryEntries).toHaveBeenCalledWith([
-                { puzzle_num: 100, date: '2021-09-27', result: 3 },
-                { puzzle_num: 101, date: '2021-09-28', result: 7 }
-            ]);
-            expect(getProfile).not.toHaveBeenCalled(); // no 'statistics' key restored
-        });
-
-        test('reloads normally when the restored gamesPlayed is at or below what the server already shows', async () => {
-            getProfile.mockResolvedValue({ statistics: { gamesPlayed: 10 } });
-            await saveMenu.applyRestore({ statistics: { gamesPlayed: 5 } }, ['statistics']);
-
-            expect(saveMenu.reloadPage).toHaveBeenCalled();
-        });
-
-        test('flags a discrepancy and skips the reload when the backup shows more games than history import could account for', async () => {
-            getProfile.mockResolvedValue({ statistics: { gamesPlayed: 2 } });
-            var statusEl = dom.window.document.createElement('div');
-
-            await saveMenu.applyRestore({ statistics: { gamesPlayed: 5 } }, ['statistics'], statusEl);
-
-            expect(saveMenu.reloadPage).not.toHaveBeenCalled();
-            expect(statusEl.textContent).toMatch(/Adjust Stats/);
-        });
-
-        test('reloads only after the pushes settle', async () => {
-            var resolvePush;
-            syncHistoryEntries.mockImplementation(() => new Promise((resolve) => { resolvePush = resolve; }));
-
-            var restorePromise = saveMenu.applyRestore({ history: {} }, ['history']);
-            await Promise.resolve();
-            expect(saveMenu.reloadPage).not.toHaveBeenCalled();
-
-            resolvePush();
-            await restorePromise;
-            expect(saveMenu.reloadPage).toHaveBeenCalled();
-        });
-    });
 });
 
 describe('ToolsMenu#handleRestoreFile', () => {
@@ -489,5 +465,94 @@ describe('ToolsMenu#handleRestoreFile', () => {
         var statusEl = dom.window.document.createElement('div');
         await saveMenu.handleRestoreFile(fileFor('{not json'), statusEl);
         expect(statusEl.textContent).toContain('Restore failed');
+    });
+
+    test('is unavailable while logged in, without reading the file', async () => {
+        dom.window.LeftWordleAuth = { isLoggedIn: () => true };
+        var statusEl = dom.window.document.createElement('div');
+        var file = fileFor('{"preferences":{}}');
+        var readSpy = jest.spyOn(file, 'text');
+
+        await saveMenu.handleRestoreFile(file, statusEl);
+
+        expect(statusEl.textContent).toMatch(/unavailable while playing online/);
+        expect(readSpy).not.toHaveBeenCalled();
+        delete dom.window.LeftWordleAuth;
+    });
+});
+
+describe('ToolsMenu#handleHistoryImportFile', () => {
+    var { ToolsMenu } = dom.window.toolsmenuTestExports;
+    var saveMenu;
+
+    beforeEach(() => {
+        dom.window.localStorage.clear();
+        saveMenu = new ToolsMenu(new HistoryManager(resolver));
+    });
+
+    afterEach(() => {
+        delete dom.window.LeftWordleAuth;
+    });
+
+    function fileFor(contents) {
+        return { text: () => Promise.resolve(contents) };
+    }
+
+    test('is unavailable while logged in, without parsing the file', async () => {
+        dom.window.LeftWordleAuth = { isLoggedIn: () => true };
+        var statusEl = dom.window.document.createElement('div');
+        var file = fileFor('not,valid,csv,at,all');
+        var readSpy = jest.spyOn(file, 'text');
+
+        await saveMenu.handleHistoryImportFile(file, statusEl, dom.window.document.createElement('button'));
+
+        expect(statusEl.textContent).toMatch(/unavailable while playing online/);
+        expect(readSpy).not.toHaveBeenCalled();
+    });
+});
+
+describe('ToolsMenu#refreshImportRestoreAvailability', () => {
+    var { ToolsMenu } = dom.window.toolsmenuTestExports;
+    var saveMenu, importInput, importLabel, restoreInput, restoreLabel;
+
+    beforeEach(() => {
+        dom.window.document.body.innerHTML =
+            '<label id="loadHistoryButton"><input id="inputHistoryLoad" type="file"></label>' +
+            '<label id="restoreBackupButton"><input id="inputRestoreBackup" type="file"></label>';
+        importInput = dom.window.document.getElementById('inputHistoryLoad');
+        importLabel = dom.window.document.getElementById('loadHistoryButton');
+        restoreInput = dom.window.document.getElementById('inputRestoreBackup');
+        restoreLabel = dom.window.document.getElementById('restoreBackupButton');
+        saveMenu = new ToolsMenu(new HistoryManager(resolver));
+    });
+
+    afterEach(() => {
+        delete dom.window.LeftWordleAuth;
+        dom.window.document.body.innerHTML = '';
+    });
+
+    test('leaves both inputs enabled when logged out', () => {
+        saveMenu.refreshImportRestoreAvailability();
+        expect(importInput.disabled).toBe(false);
+        expect(restoreInput.disabled).toBe(false);
+    });
+
+    test('disables both inputs, with an explanatory title, when logged in', () => {
+        dom.window.LeftWordleAuth = { isLoggedIn: () => true };
+        saveMenu.refreshImportRestoreAvailability();
+        expect(importInput.disabled).toBe(true);
+        expect(restoreInput.disabled).toBe(true);
+        expect(importLabel.title).toMatch(/Unavailable while playing online/);
+        expect(restoreLabel.title).toMatch(/Unavailable while playing online/);
+    });
+
+    test('re-enables both inputs after logging out again', () => {
+        dom.window.LeftWordleAuth = { isLoggedIn: () => true };
+        saveMenu.refreshImportRestoreAvailability();
+        dom.window.LeftWordleAuth = { isLoggedIn: () => false };
+        saveMenu.refreshImportRestoreAvailability();
+        expect(importInput.disabled).toBe(false);
+        expect(restoreInput.disabled).toBe(false);
+        expect(importLabel.title).toBe('');
     });
 });

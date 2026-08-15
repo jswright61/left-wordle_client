@@ -704,8 +704,19 @@ class ToolsMenu {
         }
     }
 
+    // Disabled while online (see refreshImportRestoreAvailability, which
+    // also disables the underlying file input/label so this guard is
+    // normally unreachable via the UI) -- importing arbitrary history is
+    // exactly the ad-hoc local<->server merge online_play_redesign.md
+    // removes. The account's data is already the source of truth; there's
+    // nothing local to reconcile it with.
     async handleHistoryImportFile(file, statusElement, loadButtonElement) {
         if (!file) return;
+
+        if (this.isLoggedIn()) {
+            ToolsMenu.showStatus(statusElement, "Import Games is unavailable while playing online -- your account's data is already the source of truth.", true);
+            return;
+        }
 
         ToolsMenu.showStatus(statusElement, "Importing history...", false);
         ToolsMenu.flashElement(loadButtonElement);
@@ -715,11 +726,6 @@ class ToolsMenu {
             var rawRecords = this.resolver.parseImportRecords(text, file.name);
             if (!rawRecords.length) {
                 ToolsMenu.showStatus(statusElement, "No history rows found in file", true);
-                return;
-            }
-
-            if (this.isLoggedIn()) {
-                await this.importHistoryToServer(rawRecords, statusElement);
                 return;
             }
 
@@ -1032,74 +1038,33 @@ class ToolsMenu {
         }
     }
 
-    // "Tools > Import Games" while logged in. Format validation happens
-    // client-side (same resolver used for local imports); duplicate-vs-new
-    // detection is left entirely to the server (POST /api/v2/history/import),
-    // which is the authoritative view of this account's history.
-    async importHistoryToServer(rawRecords, statusElement) {
-        var self = this;
-        var flaggedRows = [];
-        var entries = [];
+    // Offline: the raw local dump, same as always. Online: the account's
+    // data reshaped into the *same* {preferences, history, statistics,
+    // game_state} top-level keys applyRestore already expects -- one
+    // backup file format regardless of source, so a backup downloaded
+    // while online is directly restorable on a future offline device
+    // through the existing restore path, no separate format to maintain.
+    // (serverHistoryToLocalHistory is the same translation auth.js used to
+    // use for the old pull-and-overwrite sync -- still needed here to turn
+    // GET /history's game_status/guesses rows back into the local
+    // result-keyed entry shape.)
+    async collectAllSettings() {
+        var data = { diagnostics: { server: window.location.hostname, version: window.APP_VERSION || null } };
 
-        rawRecords.forEach(function(raw, index) {
-            var resolved = self.resolver.resolveAndValidateEntry(raw, index);
-            if (resolved.flag) {
-                flaggedRows.push({ row: index + 1, raw: raw, reason: resolved.flag });
-                return;
-            }
-            var entry = resolved.entry;
-            entries.push({
-                puzzle_num: entry.puzzle_num,
-                date: entry.date,
-                mode: entry.mode || "regular",
-                game_status: (entry.result >= 1 && entry.result <= 6) ? "WIN" : "FAIL",
-                completed_at: entry.completed_at || null
-            });
-        });
-
-        if (!entries.length) {
-            var noneMessage = "Import complete: no valid rows found";
-            if (flaggedRows.length) noneMessage += " (" + flaggedRows.length + " flagged rows skipped)";
-            ToolsMenu.showStatus(statusElement, noneMessage, false);
-            if (flaggedRows.length) {
-                this.openHistoryImportSummaryModal({ processed: rawRecords.length, newGames: 0, flaggedRows: flaggedRows });
-            }
-            return;
+        if (!this.isLoggedIn()) {
+            Object.assign(data, window.StorageController.dumpRaw());
+            return data;
         }
 
-        var result = await window.LeftWordleApi.client.importHistory(entries);
-        var statusMessage = "Import complete: " + result.imported + " new game(s) added to your account";
-        if (result.skipped) statusMessage += ", " + result.skipped + " already recorded";
-        if (flaggedRows.length) statusMessage += ", " + flaggedRows.length + " flagged";
-        ToolsMenu.showStatus(statusElement, statusMessage, false);
-
-        this.openHistoryImportSummaryModal({ processed: rawRecords.length, newGames: result.imported, flaggedRows: flaggedRows });
-    }
-
-    // Server data is additive here, never a replacement for the local dump
-    // -- diagnosing local/server drift (expected once an account exists,
-    // see auth.js) benefits from seeing both sides at once.
-    async collectAllSettings() {
-        var data = window.StorageController.dumpRaw();
-        data.diagnostics = {
-            server: window.location.hostname,
-            version: window.APP_VERSION || null
-        };
-
-        if (this.isLoggedIn()) {
-            try {
-                var profile = await window.LeftWordleApi.client.getProfile();
-                var history = await window.LeftWordleApi.client.getHistory();
-                data.server = {
-                    email: profile.email,
-                    preferences: profile.preferences,
-                    game_state: profile.game_state,
-                    statistics: profile.statistics,
-                    history: history
-                };
-            } catch (err) {
-                data.server = { error: err && err.message ? err.message : "failed to load account data" };
-            }
+        try {
+            var profile = await window.LeftWordleApi.client.getProfile();
+            var history = await window.LeftWordleApi.client.getHistory();
+            data.preferences = profile.preferences || {};
+            data.statistics = profile.statistics || {};
+            data.gameState = profile.game_state || {};
+            data.history = window.LeftWordleAuth.serverHistoryToLocalHistory(history);
+        } catch (err) {
+            data.server = { error: err && err.message ? err.message : "failed to load account data" };
         }
 
         return data;
@@ -1156,7 +1121,11 @@ class ToolsMenu {
         modal.classList.remove("hidden");
     }
 
-    async applyRestore(data, storageKeys, statusElement) {
+    // Restore is offline-only (guarded earlier in handleRestoreFile) --
+    // writes straight to local storage and reloads. Nothing to push:
+    // online play never reads local storage, so there's no account for
+    // this to reconcile against.
+    applyRestore(data, storageKeys, statusElement) {
         try {
             window.localStorage.clear();
             storageKeys.forEach(function(key) {
@@ -1169,70 +1138,7 @@ class ToolsMenu {
             return;
         }
 
-        if (this.isLoggedIn()) {
-            var discrepancy = await this.pushRestoredDataToServer(data, storageKeys);
-            if (discrepancy) {
-                ToolsMenu.showStatus(statusElement,
-                    "Restored history added. This backup shows " + discrepancy.restored +
-                    " games played, but your account only shows " + discrepancy.server +
-                    " after import -- some older games in it couldn't be matched to a specific puzzle. " +
-                    "Use Tools > Adjust Stats if you want to correct the total manually, then reload when you're ready.",
-                    false);
-                return;
-            }
-        }
-
         this.reloadPage();
-    }
-
-    // Restoring writes straight to localStorage (see applyRestore above),
-    // bypassing the StorageController.preferences onChange hook and the
-    // gameplay-completion sync points in wordle.js -- so a restore while
-    // logged in needs its own explicit push, or the account would keep
-    // whatever it had before the restore. Best-effort, same as every other
-    // sync-up path: a failed push here doesn't block the reload.
-    //
-    // Statistics are never pushed as a blob (see api/app.rb's
-    // apply_played_game_to_statistics! -- the server derives gamesPlayed/
-    // gamesWon/streak itself from each played_games event). Once the
-    // restored history entries land via syncHistoryEntries, the server
-    // already reflects everything reconstructable from them. The one gap:
-    // a backup old enough to carry legacy aggregate totals with no
-    // corresponding history entries can't be reconstructed that way -- see
-    // statsDiscrepancyAfterRestore, which flags that gap instead of
-    // silently trusting the backup's number over a possibly-more-current
-    // server total from another device.
-    async pushRestoredDataToServer(data, storageKeys) {
-        var pushes = [];
-
-        if (storageKeys.includes("preferences")) {
-            pushes.push(window.LeftWordleAuth.syncPreferences());
-        }
-        if (storageKeys.includes("history")) {
-            pushes.push(window.LeftWordleAuth.syncHistoryEntries(Object.values(data.history || {})));
-        }
-
-        await Promise.all(pushes);
-
-        if (storageKeys.includes("statistics") && data.statistics && Number.isFinite(data.statistics.gamesPlayed)) {
-            return this.statsDiscrepancyAfterRestore(data.statistics.gamesPlayed);
-        }
-        return null;
-    }
-
-    // Best-effort: if the comparison itself fails, don't guess -- just skip
-    // the discrepancy prompt rather than risk a false alarm.
-    async statsDiscrepancyAfterRestore(restoredGamesPlayed) {
-        try {
-            var profile = await window.LeftWordleApi.client.getProfile();
-            var serverGamesPlayed = (profile && profile.statistics && Number.isFinite(profile.statistics.gamesPlayed))
-                ? profile.statistics.gamesPlayed : 0;
-            return (restoredGamesPlayed > serverGamesPlayed)
-                ? {restored: restoredGamesPlayed, server: serverGamesPlayed}
-                : null;
-        } catch (err) {
-            return null;
-        }
     }
 
     // Isolated so tests can stub it without touching jsdom's read-only
@@ -1241,8 +1147,19 @@ class ToolsMenu {
         window.location.reload();
     }
 
+    // Disabled while online (see refreshImportRestoreAvailability, which
+    // also disables the underlying file input/label so this guard is
+    // normally unreachable via the UI) -- restoring writes straight to
+    // local storage, which online play doesn't read from at all. The
+    // account is already the source of truth; there's nothing local to
+    // restore it *into*.
     async handleRestoreFile(file, statusElement, buttonElement) {
         if (!file) return;
+
+        if (this.isLoggedIn()) {
+            ToolsMenu.showStatus(statusElement, "Restore from File is unavailable while playing online -- your account's data is already the source of truth.", true);
+            return;
+        }
 
         ToolsMenu.showStatus(statusElement, "Reading backup file...", false);
         ToolsMenu.flashElement(buttonElement);
@@ -1349,6 +1266,28 @@ class ToolsMenu {
         }
     }
 
+    // Import Games / Restore from File are <label>s wrapping a hidden file
+    // input rather than real <button>s (a native file picker needs a real
+    // <label for>), so "disabled" means disabling the nested input --
+    // clicking a label associated with a disabled control is a no-op in
+    // every major browser. wordle.css's :has(input:disabled) rule picks up
+    // the same greyed-out look real disabled buttons get. Called once at
+    // init and again from login_ui.js's render() (after every login/
+    // register/logout), since availability only ever changes at those
+    // moments.
+    refreshImportRestoreAvailability() {
+        var loggedIn = this.isLoggedIn();
+        var reason = loggedIn ? "Unavailable while playing online -- your account's data is already the source of truth." : "";
+        [
+            {input: document.getElementById("inputHistoryLoad"), label: document.getElementById("loadHistoryButton")},
+            {input: document.getElementById("inputRestoreBackup"), label: document.getElementById("restoreBackupButton")}
+        ].forEach(function(pair) {
+            if (!pair.input || !pair.label) return;
+            pair.input.disabled = loggedIn;
+            pair.label.title = reason;
+        });
+    }
+
     init() {
         var closeButton = document.getElementById("tools-close");
         var saveModal = document.querySelector("#tools");
@@ -1365,6 +1304,7 @@ class ToolsMenu {
         this.wireAdjustStatsModal(statusElement);
         this.wireRestoreBackup(statusElement);
         this.wireTroubleshootingSection(statusElement);
+        this.refreshImportRestoreAvailability();
     }
 }
 

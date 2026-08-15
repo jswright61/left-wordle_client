@@ -823,13 +823,19 @@
             averageGuesses: 0
         };
 
-        static getStatistics() {
-            var stored = StorageController.statistics.getAll();
+        // Shared by the local read (below) and GameStats' online read
+        // (LeftWordleAuth.cachedProfile.statistics, same field shape as
+        // returned by apply_played_game_to_statistics! server-side).
+        static mergeWithDefaults(stored) {
             var defaults = JSON.parse(JSON.stringify(StatisticsEngine.DEFAULT_STATISTICS));
             if (!stored || !Object.keys(stored).length) return defaults;
             var result = Object.assign(defaults, stored);
             result.guesses = Object.assign({}, StatisticsEngine.DEFAULT_STATISTICS.guesses, stored.guesses || {});
             return result;
+        }
+
+        static getStatistics() {
+            return StatisticsEngine.mergeWithDefaults(StorageController.statistics.getAll());
         }
 
         static isCurrentStreakAdjustmentActive(entries, streakAdjustment) {
@@ -1391,6 +1397,12 @@
         evaluations;
         answersRemaining = new Array(6).fill(null);
         canInput = true;
+        // Additive to canInput, never replaces it -- true only while an
+        // online device's live per-guess progress push (pushGameProgress)
+        // is in flight/retrying, since there's no local fallback to keep
+        // playing against. Left false for every offline/anonymous device,
+        // where the push is fire-and-forget and never blocks input.
+        awaitingOnlineProgressSync = false;
         gameStatus = GAME_STATUS_IN_PROGRESS;
         letterEvaluations = {};
         $board;
@@ -1616,7 +1628,20 @@
                     saveData.completedInInsaneMode = this.insaneMode;
                     saveData.lastCompletedTs = Date.now();
                 }
-                GameStateManager.saveGameState(saveData);
+                // Stashed regardless of mode -- this is the exact snapshot
+                // handleSessionInvalidated needs to hand an online device's
+                // board back to local storage if its session dies mid-game
+                // (see the online branch below and auth.js's
+                // handleSessionInvalidated).
+                this._lastSaveData = saveData;
+                if (window.LeftWordleAuth && window.LeftWordleAuth.isLoggedIn()) {
+                    // Online: the server is this device's only source of
+                    // truth for game data, so local storage is never
+                    // written here -- push the board live instead.
+                    window.LeftWordleAuth.pushGameState(saveData);
+                } else {
+                    GameStateManager.saveGameState(saveData);
+                }
                 if (gameOver && !this.historyPlaySkipStats) {
                     gtag("event", "level_end", {
                         level_name: StringUtils.encodeWord(this.solution),
@@ -1692,6 +1717,11 @@
 
             if (gameStatus !== GAME_STATUS_IN_PROGRESS) {
                 this._fireCompletionReport(evaluatedRowIndex, mode, gameStatus);
+            } else {
+                // The completing guess is covered by _fireCompletionReport's
+                // own full guesses array above -- only non-final guesses
+                // need their own live progress push.
+                this._fireProgressReport(rowNumber, mode);
             }
         }
 
@@ -1739,7 +1769,7 @@
 
         addLetter(letter) {
             if (this.gameStatus !== GAME_STATUS_IN_PROGRESS) return;
-            if (!this.canInput) return;
+            if (!this.canInput || this.awaitingOnlineProgressSync) return;
             if (this.tileIndex >= 5) return;
             this.boardState[this.rowIndex] += letter;
             var row = this.$board.querySelectorAll("game-row")[this.rowIndex];
@@ -1749,7 +1779,7 @@
 
         removeLetter() {
             if (this.gameStatus !== GAME_STATUS_IN_PROGRESS) return;
-            if (!this.canInput) return;
+            if (!this.canInput || this.awaitingOnlineProgressSync) return;
             if (this.tileIndex <= 0) return;
 
             this.boardState[this.rowIndex] = this.boardState[this.rowIndex].slice(0, -1);
@@ -1770,7 +1800,7 @@
 
         submitGuess() {
             if (this.gameStatus !== GAME_STATUS_IN_PROGRESS) return;
-            if (!this.canInput) return;
+            if (!this.canInput || this.awaitingOnlineProgressSync) return;
 
             if (this.tileIndex !== 5) {
                 this.$board.querySelectorAll("game-row")[this.rowIndex].setAttribute("invalid", "");
@@ -2517,6 +2547,47 @@
             }
         }
 
+        // Live per-guess save for every non-final guess -- every device,
+        // logged in or not (see online_play_redesign.md's "Playing online"
+        // and this session's extension of it to offline devices: visibility
+        // into abandoned games and better aggregate stats even though local
+        // storage stays the offline source of truth). Only the *online*
+        // branch blocks input: pushGameProgress already handles both the
+        // offline fire-and-forget and the online block-and-retry cases
+        // internally, but only the online case has no local fallback to
+        // keep playing against while it's in flight.
+        _fireProgressReport(rowNumber, mode) {
+            var allGuesses = this.buildPrevGuesses(rowNumber);
+            var date = DateUtils.formatLocalDate(this.today);
+            var isOnline = window.LeftWordleAuth && window.LeftWordleAuth.isLoggedIn();
+
+            if (!window.LeftWordleAuth) {
+                window.LeftWordleApi.client.reportProgress(date, mode, allGuesses).catch(() => {});
+                return;
+            }
+
+            if (isOnline) this.awaitingOnlineProgressSync = true;
+            var push = window.LeftWordleAuth.pushGameProgress(date, mode, allGuesses, this._lastSaveData);
+            if (isOnline) {
+                push.then(() => {
+                    this.awaitingOnlineProgressSync = false;
+                    // pushGameProgress resolves normally even when it hit a
+                    // 401 and called handleSessionInvalidated internally --
+                    // isLoggedIn() flipping false during a push that started
+                    // online is exactly that case. announceSessionExpiredIfNeeded
+                    // is a no-op unless the flag is actually set, so this is
+                    // safe to call speculatively.
+                    if (!window.LeftWordleAuth.isLoggedIn() && window.leftWordleLoginUI) {
+                        // render() flips the header icon back to logged-out
+                        // and re-enables ToolsMenu's Import/Restore (see
+                        // login_ui.js's render()), then the toast.
+                        window.leftWordleLoginUI.render();
+                        window.leftWordleLoginUI.announceSessionExpiredIfNeeded();
+                    }
+                });
+            }
+        }
+
         debugTools() {
             this.querySelector("#debug-tools").appendChild(qaButtons.content.cloneNode(true));
             this.querySelector("#toast").addEventListener("click", () => {
@@ -2895,7 +2966,14 @@
 
         constructor() {
             super();
-            this.stats = StatisticsEngine.getStatistics();
+            // Online: the account's numbers, from the profile cache
+            // populated at login/boot (LeftWordleAuth.cachedProfile) --
+            // never StorageController, which online play doesn't write to.
+            // Offline: unchanged local computation.
+            var auth = window.LeftWordleAuth;
+            this.stats = (auth && auth.isLoggedIn() && auth.cachedProfile)
+                ? StatisticsEngine.mergeWithDefaults(auth.cachedProfile.statistics)
+                : StatisticsEngine.getStatistics();
         }
 
         connectedCallback() {

@@ -87,6 +87,19 @@
             return this.request("/api/v1/game/complete", options);
         }
 
+        // Live per-guess save of an in-progress (not yet WIN/FAIL) game --
+        // same device_id-scoped, login-optional shape as reportCompletion,
+        // called after every guess instead of only at the end.
+        async reportProgress(date, mode, guesses, options) {
+            var body = {
+                date: date,
+                mode: mode,
+                guesses: guesses
+            };
+            options = Object.assign({}, options, { body: body, method: "POST" });
+            return this.request("/api/v1/game/progress", options);
+        }
+
         // -- Passkey auth / server sync (/api/v2) --------------------------
 
         async registerBegin(payload, options) {
