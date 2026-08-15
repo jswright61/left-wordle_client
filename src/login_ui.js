@@ -332,9 +332,24 @@
             if (!config.passkeyAuthEnabled) return;
             if (!window.LeftWordleWebauthn || !window.LeftWordleWebauthn.isSupported()) return;
             await window.LeftWordleAuth.ready;
+            this.announceSessionExpiredIfNeeded();
             if (window.LeftWordleAuth.isLoggedIn()) return;
             if (StorageController.preferences.get("suppressLoginPrompt")) return;
             this.openOverlay();
+        }
+
+        // A device that was logged in last visit but whose session didn't
+        // validate this load (expired, revoked from another device) just
+        // silently reverted to offline play -- the header icon alone is
+        // too easy to miss for a change nobody asked for. Explicit logout
+        // doesn't set this flag (see auth.js's logout/forgetLoggedIn), so
+        // this only fires for the unexpected case.
+        announceSessionExpiredIfNeeded() {
+            if (!window.LeftWordleAuth.consumeSessionUnexpectedlyEnded()) return;
+            var app = document.querySelector("game-app");
+            if (app && typeof app.addToast === "function") {
+                app.addToast("Your session ended — you're playing offline on this device now", null, true, true);
+            }
         }
 
         async maybeHandleDeviceLinkLanding() {

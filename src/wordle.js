@@ -3080,6 +3080,10 @@
     // Account icon has a logged-out (outline) and logged-in (solid) state, each a
     // small circle "head" over a rounded "shoulders" arc — too many shapes for a
     // single filled <path>, so these render as a handful of SVG primitives instead.
+    // The logged-in fill uses --color-correct (not the neutral tone-3 the other
+    // header icons use) so online/offline reads as a status at a glance without
+    // adding any new element to the header -- shape carries the signal for
+    // colorblind theme users, color reinforces it for everyone else.
     var ACCOUNT_ICON_PARTS = {
         account: [
             { tag: "circle", attrs: { cx: "12", cy: "12", r: "9.25", fill: "none", stroke: "var(--color-tone-3)", "stroke-width": "1.3" } },
@@ -3087,7 +3091,7 @@
             { tag: "path", attrs: { d: "M6.4 18.6C6.4 14.9 8.9 13.3 12 13.3C15.1 13.3 17.6 14.9 17.6 18.6", fill: "none", stroke: "var(--color-tone-3)", "stroke-width": "1.3", "stroke-linecap": "round" } }
         ],
         "account-active": [
-            { tag: "circle", attrs: { cx: "12", cy: "12", r: "10", fill: "var(--color-tone-3)" } },
+            { tag: "circle", attrs: { cx: "12", cy: "12", r: "10", fill: "var(--color-correct)" } },
             { tag: "circle", attrs: { cx: "12", cy: "9.4", r: "3", fill: "none", stroke: "var(--white)", "stroke-width": "1.3" } },
             { tag: "path", attrs: { d: "M6.4 18.6C6.4 14.9 8.9 13.3 12 13.3C15.1 13.3 17.6 14.9 17.6 18.6", fill: "none", stroke: "var(--white)", "stroke-width": "1.3", "stroke-linecap": "round" } }
         ]

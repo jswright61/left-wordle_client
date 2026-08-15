@@ -14,13 +14,41 @@
         // which IS persistent, is what actually keeps the account signed in
         // across reloads).
         csrfToken: null,
-        ready: null
+        ready: null,
+        // Set by refreshProfile() when this device was logged in as of its
+        // last visit (see AUTH_STATE_STORAGE_KEY below) but the session
+        // didn't validate this time -- i.e. it expired or was revoked, as
+        // opposed to a device that was never logged in. login_ui.js
+        // consumes this once at boot to surface a toast, since silently
+        // reverting to offline play is exactly the "app looks broken"
+        // surprise online_play_redesign.md's offline indicator is meant to
+        // prevent. Not set on an explicit logout -- the user already knows.
+        sessionUnexpectedlyEnded: false
     };
+
+    // Persisted (not in-memory) so a fresh page load can tell "was logged
+    // in last time, isn't now" apart from "never logged in on this
+    // device" -- the distinction refreshProfile() needs to decide whether
+    // an expired/revoked session is worth surfacing.
+    var AUTH_STATE_STORAGE_KEY = "lastKnownAuthState";
+
+    function rememberLoggedIn() {
+        try { window.localStorage.setItem(AUTH_STATE_STORAGE_KEY, "logged_in"); } catch (e) {}
+    }
+
+    function forgetLoggedIn() {
+        try { window.localStorage.removeItem(AUTH_STATE_STORAGE_KEY); } catch (e) {}
+    }
+
+    function wasPreviouslyLoggedIn() {
+        try { return window.localStorage.getItem(AUTH_STATE_STORAGE_KEY) === "logged_in"; } catch (e) { return false; }
+    }
 
     function applyProfile(profile) {
         LeftWordleAuth.loggedIn = true;
         LeftWordleAuth.email = profile.email || null;
         LeftWordleAuth.csrfToken = profile.csrf_token || null;
+        rememberLoggedIn();
     }
 
     function clearSessionState() {
@@ -60,9 +88,21 @@
             LeftWordleAuth.flushPendingSync();
             return profile;
         } catch (error) {
+            LeftWordleAuth.sessionUnexpectedlyEnded = wasPreviouslyLoggedIn();
             clearSessionState();
+            forgetLoggedIn();
             return null;
         }
+    };
+
+    // One-shot: login_ui.js calls this at boot to decide whether to
+    // surface the "you're playing offline now" toast, then clears the
+    // flag so it doesn't fire again on a later reload of the same
+    // still-logged-out device.
+    LeftWordleAuth.consumeSessionUnexpectedlyEnded = function() {
+        var value = LeftWordleAuth.sessionUnexpectedlyEnded;
+        LeftWordleAuth.sessionUnexpectedlyEnded = false;
+        return value;
     };
 
     LeftWordleAuth.register = async function(options) {
@@ -108,6 +148,7 @@
             // in on this same device/browser.
             writePendingQueue([]);
             clearSessionState();
+            forgetLoggedIn();
         }
     };
 
