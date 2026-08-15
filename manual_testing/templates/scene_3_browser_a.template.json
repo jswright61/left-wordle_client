@@ -1,0 +1,263 @@
+{
+  "preferences": {
+    "darkTheme": false,
+    "shareTextAdditions": {
+      "header": "#LeftWordle",
+      "afterGrid": "#Wordle #WordPuzzle #Not_NYT\nLeft-Wordle.com"
+    },
+    "hideDateInShareHeader": false,
+    "remainingAnswersMode": "both",
+    "shareFormat": "both",
+    "hideAverageGuesses": false
+  },
+  "history": {
+    "28": {
+      "daysAgo": 28,
+      "result": 3,
+      "answer": "pluck",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "27": {
+      "daysAgo": 27,
+      "result": 3,
+      "answer": "windy",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "26": {
+      "daysAgo": 26,
+      "result": 4,
+      "answer": "raise",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "25": {
+      "daysAgo": 25,
+      "result": 3,
+      "answer": "soare",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "24": {
+      "daysAgo": 24,
+      "result": 2,
+      "answer": "trail",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "23": {
+      "daysAgo": 23,
+      "result": 3,
+      "answer": "roate",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "22": {
+      "daysAgo": 22,
+      "result": 3,
+      "answer": "adieu",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "21": {
+      "daysAgo": 21,
+      "result": 4,
+      "answer": "crane",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "20": {
+      "daysAgo": 20,
+      "result": 3,
+      "answer": "slate",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "19": {
+      "daysAgo": 19,
+      "result": 2,
+      "answer": "tears",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "18": {
+      "daysAgo": 18,
+      "result": 3,
+      "answer": "arose",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "17": {
+      "daysAgo": 17,
+      "result": 3,
+      "answer": "briny",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "16": {
+      "daysAgo": 16,
+      "result": 4,
+      "answer": "mount",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "15": {
+      "daysAgo": 15,
+      "result": 3,
+      "answer": "flair",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "14": {
+      "daysAgo": 14,
+      "result": 2,
+      "answer": "grape",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "13": {
+      "daysAgo": 13,
+      "result": 3,
+      "answer": "shone",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "12": {
+      "daysAgo": 12,
+      "result": 3,
+      "answer": "pluck",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "11": {
+      "daysAgo": 11,
+      "result": 4,
+      "answer": "windy",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "10": {
+      "daysAgo": 10,
+      "result": 3,
+      "answer": "raise",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "9": {
+      "daysAgo": 9,
+      "result": 2,
+      "answer": "soare",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "8": {
+      "daysAgo": 8,
+      "result": 3,
+      "answer": "trail",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "7": {
+      "daysAgo": 7,
+      "result": 3,
+      "answer": "roate",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "6": {
+      "daysAgo": 6,
+      "result": 4,
+      "answer": "adieu",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "5": {
+      "daysAgo": 5,
+      "result": 3,
+      "answer": "crane",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    },
+    "4": {
+      "daysAgo": 4,
+      "result": 2,
+      "answer": "slate",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+      "origin": "played"
+    }
+  },
+  "statistics": {
+    "currentStreak": 25,
+    "maxStreak": 25,
+    "terminatedStreak": null,
+    "guesses": {
+      "1": 0,
+      "2": 5,
+      "3": 15,
+      "4": 5,
+      "5": 0,
+      "6": 0,
+      "fail": 0
+    },
+    "winPercentage": 100,
+    "gamesPlayed": 25,
+    "gamesWon": 25,
+    "averageGuesses": 3.0,
+    "versionNumber": 2,
+    "migratedBy": "v0.0.0"
+  },
+  "device_id": "780b5e21-0c01-5c2d-b1b2-e6a016665bb8",
+  "schema_version": 1,
+  "version": "v0.9.20"
+}

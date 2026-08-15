@@ -1,0 +1,27 @@
+{
+  "preferences": {
+    "darkTheme": false,
+    "shareTextAdditions": {
+      "header": "#LeftWordle",
+      "afterGrid": "#Wordle #WordPuzzle #Not_NYT\nLeft-Wordle.com"
+    },
+    "hideDateInShareHeader": false,
+    "remainingAnswersMode": "both",
+    "shareFormat": "both",
+    "hideAverageGuesses": false
+  },
+  "history": {
+    "0": {
+      "daysAgo": 0,
+      "result": 4,
+      "answer": "mount",
+      "mode": "regular",
+      "starter": "raise",
+      "device_id": "34e2cd5f-6939-5b16-b293-dbc047dfb5da",
+      "origin": "played"
+    }
+  },
+  "device_id": "34e2cd5f-6939-5b16-b293-dbc047dfb5da",
+  "schema_version": 1,
+  "version": "v0.9.20"
+}

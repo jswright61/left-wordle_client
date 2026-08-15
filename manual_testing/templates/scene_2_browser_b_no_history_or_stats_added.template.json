@@ -1,0 +1,16 @@
+{
+  "preferences": {
+    "darkTheme": false,
+    "shareTextAdditions": {
+      "header": "#LeftWordle",
+      "afterGrid": "#Wordle #WordPuzzle #Not_NYT\nLeft-Wordle.com"
+    },
+    "hideDateInShareHeader": false,
+    "remainingAnswersMode": "both",
+    "shareFormat": "both",
+    "hideAverageGuesses": false
+  },
+  "device_id": "f446a47f-a7cc-59fc-885d-c5dc302dba56",
+  "schema_version": 1,
+  "version": "v0.9.20"
+}
