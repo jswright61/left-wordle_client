@@ -517,10 +517,30 @@
             toastDiv.classList.add("toast");
             this.appendChild(toastDiv);
             toastDiv.textContent = this.getAttribute("text");
-            this._duration = this.getAttribute("duration") || 1e3;
-            "Infinity" !== this._duration && setTimeout(() => {
-                toastDiv.classList.add("fade");
-            }, this._duration);
+
+            // Dismissible toasts (errors the user may need time to read and
+            // copy) never auto-fade -- they wait for an explicit close-icon
+            // click instead of a timer race the user can lose.
+            if (this.hasAttribute("dismissible")) {
+                toastDiv.classList.add("dismissible");
+                var closeIcon = document.createElement("div");
+                closeIcon.classList.add("close-icon");
+                closeIcon.setAttribute("role", "button");
+                closeIcon.setAttribute("aria-label", "Dismiss");
+                var closeGameIcon = document.createElement("game-icon");
+                closeGameIcon.setAttribute("icon", "close");
+                closeIcon.appendChild(closeGameIcon);
+                closeIcon.addEventListener("click", () => {
+                    toastDiv.classList.add("fade");
+                });
+                toastDiv.appendChild(closeIcon);
+            } else {
+                this._duration = this.getAttribute("duration") || 1e3;
+                "Infinity" !== this._duration && setTimeout(() => {
+                    toastDiv.classList.add("fade");
+                }, this._duration);
+            }
+
             toastDiv.addEventListener("transitionend", () => {
                 this.remove();
             });
@@ -1764,11 +1784,12 @@
             this.evaluateRow();
         }
 
-        addToast(text, duration, isSystem) {
+        addToast(text, duration, isSystem, dismissible) {
             isSystem = isSystem || false;
             var toast = document.createElement("game-toast");
             toast.setAttribute("text", text);
             duration && toast.setAttribute("duration", duration);
+            dismissible && toast.setAttribute("dismissible", "");
             if (isSystem){
                 this.querySelector("#system-toaster").prepend(toast);
             } else {

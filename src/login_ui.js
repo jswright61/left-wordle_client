@@ -122,7 +122,7 @@
                 }
             } catch (error) {
                 if (app && typeof app.addToast === "function") {
-                    app.addToast("Logged in, but syncing your account data failed — try reopening the app", 3000, true);
+                    app.addToast("Logged in, but syncing your account data failed — try reopening the app", null, true, true);
                 }
             }
         }
@@ -162,7 +162,7 @@
                 }
             } catch (error) {
                 if (app && typeof app.addToast === "function") {
-                    app.addToast("Account created, but saving your local data failed — try reopening the app", 3000, true);
+                    app.addToast("Account created, but saving your local data failed — try reopening the app", null, true, true);
                 }
             }
         }

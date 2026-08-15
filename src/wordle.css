@@ -1437,6 +1437,26 @@ game-toast .toast.fade {
     opacity: 0;
 }
 
+game-toast .toast.dismissible {
+    /* .toaster is pointer-events: none so toasts don't block board clicks --
+       opt back in here so the close icon is actually clickable. */
+    pointer-events: auto;
+    padding-right: 48px;
+}
+
+game-toast .close-icon {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+}
+
+game-toast .close-icon game-icon {
+    user-select: none;
+    cursor: pointer;
+}
+
 game-icon {
     display: inline-block;
 }
