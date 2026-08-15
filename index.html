@@ -56,7 +56,12 @@
 </head>
 
 <body>
-    <game-app></game-app>
+    <!-- Only ever visible on a device that's logged in before, while it
+         waits out the customElements.define gate in wordle.js -- cleared
+         (this.innerHTML = "") the moment <game-app> actually upgrades.
+         Every other device never sees this; connectedCallback runs before
+         any paint would show it. -->
+    <game-app><div style="display:flex;align-items:center;justify-content:center;height:100vh;color:var(--color-tone-3);font-family:'Clear Sans','Helvetica Neue',Arial,sans-serif;font-size:16px;">Loading your game&hellip;</div></game-app>
     <div id='header-container' style='display: none;'>
         <game-theme-manager>
             <div id="game">

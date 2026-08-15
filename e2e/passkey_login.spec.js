@@ -67,6 +67,24 @@ async function dismissHelpModal(page) {
     }
 }
 
+async function submitWord(page, word) {
+    for (const letter of word) {
+        await page.keyboard.press(letter.toUpperCase());
+    }
+    await page.keyboard.press('Enter');
+}
+
+// canInput alone isn't enough to know a guess is safely on the server --
+// it flips true once the tile-flip animation finishes, independent of
+// whether the online device's live progress push (which blocks input via
+// the separate awaitingOnlineProgressSync flag) has actually landed yet.
+async function waitForGuessToLand(page) {
+    await page.waitForFunction(() => {
+        const app = document.querySelector('game-app');
+        return (app.canInput || app.gameStatus !== 'IN_PROGRESS') && !app.awaitingOnlineProgressSync;
+    }, { timeout: 10000 });
+}
+
 test.describe('Passkey login', () => {
     test('register a new passkey, log out, and log back in on the same device', async ({ browser }) => {
         const { context, page } = await setupPasskeyPage(browser);
@@ -174,6 +192,55 @@ test.describe('Passkey login', () => {
         expect(historyAfterJoin['50']).toBeDefined();
         expect(historyAfterJoin['50'].result).toBe(3);
         expect(historyAfterJoin['50'].starter).toBe('crane');
+
+        await first.context.close();
+        await second.context.close();
+    });
+
+    // Proves the read side of cross-device resume (the write side --
+    // every guess pushing live -- already landed in the prior phase).
+    // wordle.js's customElements.define gate (GameStateManager.
+    // getInitialGameState) is what makes this possible: a device that's
+    // logged in before waits for its profile fetch before the board
+    // renders, so it reads the account's real in-progress game instead of
+    // its own empty local storage.
+    test('a guess made on one device appears on another device that loads afterward', async ({ browser }) => {
+        const first = await setupPasskeyPage(browser);
+        await freshLoad(first.page);
+        await dismissHelpModal(first.page);
+
+        await first.page.click('game-app #login-button');
+        await first.page.click('#login-register-button');
+        await expect(first.page.locator('#login-logged-in-section')).not.toHaveClass(/hidden/, { timeout: 10000 });
+
+        await first.page.click('#login-add-device-link-button');
+        await expect(first.page.locator('#login-device-link-modal')).not.toHaveClass(/hidden/, { timeout: 10000 });
+        const linkUrl = await first.page.locator('#login-device-link-url').inputValue();
+
+        const second = await setupPasskeyPage(browser);
+        await second.page.goto(linkUrl.replace(/^https?:\/\/[^/]+/, ''));
+        await second.page.waitForSelector('#login-link-landing:not(.hidden)', { timeout: 10000 });
+        await second.page.click('#login-link-landing-button');
+        await second.page.waitForURL((url) => !url.searchParams.has('link_token'), { timeout: 10000 });
+        await second.page.waitForFunction(() => window.LeftWordleAuth && window.LeftWordleAuth.isLoggedIn(), { timeout: 10000 });
+
+        // Device A submits one guess -- doesn't need to win, just needs to
+        // land on the server (Phase 1's live per-guess push).
+        const guess = 'crane';
+        await submitWord(first.page, guess);
+        await waitForGuessToLand(first.page);
+
+        // Device B loads fresh -- a new navigation, not a new context, so
+        // its lastKnownAuthState: logged_in flag from joining above is
+        // still there to trigger the gate.
+        await second.page.goto('/');
+        await second.page.waitForFunction(() => {
+            const app = document.querySelector('game-app');
+            return app && app.querySelector('#board');
+        }, { timeout: 10000 });
+
+        const firstRowOnSecond = await second.page.evaluate(() => document.querySelector('game-app').boardState[0]);
+        expect(firstRowOnSecond).toBe(guess);
 
         await first.context.close();
         await second.context.close();

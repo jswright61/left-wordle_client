@@ -239,6 +239,26 @@
             return stored;
         }
 
+        // Used only by GameApp's constructor for the initial board read --
+        // deliberately separate from getGameState() above, which has its
+        // own other callers (saveGameState's merge-on-write, a share-text
+        // helper, migrateHardModeFromGameState) this session isn't
+        // touching. Online: the account's real in-progress game, from the
+        // profile cache populated before <game-app> was even allowed to
+        // upgrade (see the customElements.define gate below) -- same field
+        // shape as local storage's gameState key, since it's literally
+        // what pushGameState pushed there, verbatim, server-side. Offline,
+        // or online with nothing in progress yet: falls through to the
+        // existing local read, unchanged.
+        static getInitialGameState() {
+            var auth = window.LeftWordleAuth;
+            if (auth && auth.isLoggedIn() && auth.cachedProfile) {
+                var serverState = auth.cachedProfile.game_state;
+                if (serverState && Object.keys(serverState).length) return serverState;
+            }
+            return GameStateManager.getGameState();
+        }
+
         static saveGameState(updates) {
             var current = GameStateManager.getGameState();
             var merged = GameStateManager.deepMerge(current, updates);
@@ -1477,7 +1497,7 @@
             }
             this.today = this.isHistoryPlay ? requestedDate : realToday;
 
-            var state = GameStateManager.getGameState();
+            var state = GameStateManager.getInitialGameState();
             this.lastPlayedTs = state.lastPlayedTs;
             // A saved game for a different puzzle number must never be restored into
             // today's session (e.g. the clock moved backwards past the saved day) --
@@ -2158,6 +2178,11 @@
             StatisticsEngine.preservePreHistoryStats();
             StatisticsEngine.migrateIfNeeded();
             migrateHardModeFromGameState();
+            // Clears the static loading placeholder (index.html) shown
+            // while a previously-logged-in device waited out the
+            // customElements.define gate above -- harmless no-op for
+            // every other device, since <game-app> starts empty for them.
+            this.innerHTML = "";
             this.appendChild(gameAppTemplate.content.cloneNode(true));
             this.$game = this.querySelector("#game");
             this.$board = this.querySelector("#board");
@@ -2610,7 +2635,22 @@
             });
         }
     }
-    customElements.define("game-app", GameApp);
+    // A device with no history of logging in gets zero delay here -- the
+    // element upgrades (constructor runs) the instant this fires, exactly
+    // as before. A device that HAS logged in before waits for
+    // LeftWordleAuth.ready (the GET /profile fetch, already in flight
+    // regardless) so the constructor's GameStateManager.getInitialGameState()
+    // can read the account's real in-progress game instead of racing an
+    // empty local cache -- online play doesn't write to local storage.
+    // ready never rejects (refreshProfile always catches internally), so
+    // no .catch needed.
+    if (window.LeftWordleAuth && window.LeftWordleAuth.wasPreviouslyLoggedIn && window.LeftWordleAuth.wasPreviouslyLoggedIn()) {
+        window.LeftWordleAuth.ready.then(function() {
+            customElements.define("game-app", GameApp);
+        });
+    } else {
+        customElements.define("game-app", GameApp);
+    }
 
     var modalOverlayTemplate = document.getElementById("modal-overlay-template");
 
@@ -3332,6 +3372,7 @@
         migrateHardModeFromGameState: migrateHardModeFromGameState,
         getMigratedByVersion: StatisticsEngine.getMigratedByVersion,
         generateUuidV7: GameStateManager.generateUuidV7,
+        getInitialGameState: GameStateManager.getInitialGameState,
         getDeviceId: GameStateManager.getDeviceId,
         evaluateGuess: GameEvaluator.evaluateGuess,
         validateHardMode: GameEvaluator.validateHardMode,

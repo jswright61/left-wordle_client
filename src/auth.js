@@ -53,6 +53,13 @@
         try { return window.localStorage.getItem(AUTH_STATE_STORAGE_KEY) === "logged_in"; } catch (e) { return false; }
     }
 
+    // Exposed so wordle.js can gate defining <game-app> until
+    // LeftWordleAuth.ready resolves, but only on a device with a real
+    // chance of being online -- see GameStateManager.getInitialGameState.
+    // A device that's never logged in reads this as false and skips the
+    // gate entirely: zero delay, zero change from today.
+    LeftWordleAuth.wasPreviouslyLoggedIn = wasPreviouslyLoggedIn;
+
     function applyProfile(profile) {
         LeftWordleAuth.loggedIn = true;
         LeftWordleAuth.email = profile.email || null;

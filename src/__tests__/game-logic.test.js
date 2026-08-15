@@ -103,6 +103,7 @@ const buildShareText = testExports.buildShareText;          // IIFE -> buildShar
 const buildAccessibleRows = testExports.buildAccessibleRows; // ShareUtils.buildAccessibleRows
 const generateUuidV7 = testExports.generateUuidV7;
 const getDeviceId = testExports.getDeviceId;
+const getInitialGameState = testExports.getInitialGameState;
 
 // ============================================================================
 // TESTS
@@ -1035,6 +1036,45 @@ describe('getDeviceId', () => {
         dom.window.localStorage.setItem('device_id', existingV4);
 
         expect(getDeviceId()).toBe(existingV4);
+    });
+});
+
+// The constructor's initial board read -- used by GameApp only once,
+// gated by wordle.js's customElements.define check (a previously-logged-in
+// device waits for LeftWordleAuth.ready first, so cachedProfile is
+// already populated by the time this runs for real).
+describe('getInitialGameState', () => {
+    beforeEach(() => {
+        dom.window.localStorage.clear();
+    });
+
+    afterEach(() => {
+        delete dom.window.LeftWordleAuth;
+    });
+
+    test('falls back to the local read when not logged in', () => {
+        dom.window.localStorage.setItem('gameState', JSON.stringify({ puzzleNum: 5 }));
+        expect(getInitialGameState().puzzleNum).toBe(5);
+    });
+
+    test('returns the cached server game_state when online and non-empty', () => {
+        dom.window.LeftWordleAuth = {
+            isLoggedIn: () => true,
+            cachedProfile: { game_state: { puzzleNum: 9, rowIndex: 2 } }
+        };
+        expect(getInitialGameState()).toEqual({ puzzleNum: 9, rowIndex: 2 });
+    });
+
+    test('falls back to the local read when online but the cached game_state is empty', () => {
+        dom.window.localStorage.setItem('gameState', JSON.stringify({ puzzleNum: 3 }));
+        dom.window.LeftWordleAuth = { isLoggedIn: () => true, cachedProfile: { game_state: {} } };
+        expect(getInitialGameState().puzzleNum).toBe(3);
+    });
+
+    test('falls back to the local read when online but there is no cached profile yet', () => {
+        dom.window.localStorage.setItem('gameState', JSON.stringify({ puzzleNum: 7 }));
+        dom.window.LeftWordleAuth = { isLoggedIn: () => true, cachedProfile: null };
+        expect(getInitialGameState().puzzleNum).toBe(7);
     });
 });
 

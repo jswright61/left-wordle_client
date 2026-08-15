@@ -375,6 +375,28 @@ describe('handleSessionInvalidated', () => {
     });
 });
 
+// wordle.js's boot gate (customElements.define("game-app", ...)) reads
+// this directly to decide whether to wait for LeftWordleAuth.ready before
+// the board renders -- see GameStateManager.getInitialGameState.
+describe('wasPreviouslyLoggedIn', () => {
+    test('is false on a device that has never logged in', () => {
+        const dom = loadAuth();
+        expect(dom.window.LeftWordleAuth.wasPreviouslyLoggedIn()).toBe(false);
+    });
+
+    test('is true once logged in, false again after an explicit logout', async () => {
+        const logout = jest.fn(() => Promise.resolve());
+        const dom = loadAuth({ client: { logout } });
+        dom.window.localStorage.setItem('lastKnownAuthState', 'logged_in');
+
+        expect(dom.window.LeftWordleAuth.wasPreviouslyLoggedIn()).toBe(true);
+
+        await dom.window.LeftWordleAuth.logout();
+
+        expect(dom.window.LeftWordleAuth.wasPreviouslyLoggedIn()).toBe(false);
+    });
+});
+
 describe('syncNewUserSnapshot', () => {
     test('does nothing when not logged in', () => {
         const postLocalStorageSnapshot = jest.fn();
