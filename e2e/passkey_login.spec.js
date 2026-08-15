@@ -125,4 +125,57 @@ test.describe('Passkey login', () => {
         await first.context.close();
         await second.context.close();
     });
+
+    // Regression test for the bug behind this whole spec's existence:
+    // syncFromServerAndOverwriteLocal used to pull the server down and
+    // overwrite local storage on join, silently discarding a second
+    // device's own pre-existing history with no warning (manual_testing/
+    // README.md's Scenario 1). Under online_play_redesign.md there's no
+    // more pull-and-overwrite at all -- joining an account is pure
+    // authentication, so a device's local history should survive
+    // untouched.
+    test('a second device joining via link keeps its own pre-existing local history', async ({ browser }) => {
+        const first = await setupPasskeyPage(browser);
+        await freshLoad(first.page);
+        await dismissHelpModal(first.page);
+
+        await first.page.click('game-app #login-button');
+        await first.page.click('#login-register-button');
+        await expect(first.page.locator('#login-logged-in-section')).not.toHaveClass(/hidden/, { timeout: 10000 });
+
+        await first.page.click('#login-add-device-link-button');
+        await expect(first.page.locator('#login-device-link-modal')).not.toHaveClass(/hidden/, { timeout: 10000 });
+        const linkUrl = await first.page.locator('#login-device-link-url').inputValue();
+
+        const second = await setupPasskeyPage(browser);
+        await freshLoad(second.page);
+        await dismissHelpModal(second.page);
+
+        // This device's own offline play, seeded before it ever joins the
+        // account -- exactly what the old pull-and-overwrite discarded.
+        const seededHistory = {
+            50: {
+                puzzle_num: 50, date: '2021-08-08', result: 3, answer: 'CRANE',
+                mode: 'regular', starter: 'crane', completed_at: Date.now(),
+                updated_at: Date.now(), device_id: null, origin: 'played'
+            }
+        };
+        await second.page.evaluate((history) => {
+            localStorage.setItem('history', JSON.stringify(history));
+        }, seededHistory);
+
+        await second.page.goto(linkUrl.replace(/^https?:\/\/[^/]+/, ''));
+        await second.page.waitForSelector('#login-link-landing:not(.hidden)', { timeout: 10000 });
+        await second.page.click('#login-link-landing-button');
+        await second.page.waitForURL((url) => !url.searchParams.has('link_token'), { timeout: 10000 });
+        await second.page.waitForFunction(() => window.LeftWordleAuth && window.LeftWordleAuth.isLoggedIn(), { timeout: 10000 });
+
+        const historyAfterJoin = await second.page.evaluate(() => JSON.parse(localStorage.getItem('history') || '{}'));
+        expect(historyAfterJoin['50']).toBeDefined();
+        expect(historyAfterJoin['50'].result).toBe(3);
+        expect(historyAfterJoin['50'].starter).toBe('crane');
+
+        await first.context.close();
+        await second.context.close();
+    });
 });
