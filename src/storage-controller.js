@@ -42,16 +42,23 @@ var SCHEMA = {
         encryptedAnswer:            "string"
     },
     statistics: {
-        currentStreak:      "number",
-        maxStreak:          "number",
-        terminatedStreak:   "number",
-        guesses:            "object",
-        winPercentage:      "number",
-        gamesPlayed:        "number",
-        gamesWon:           "number",
-        averageGuesses:     "number",
-        versionNumber:      "number",
-        migratedBy:         "string"
+        currentStreak:              "number",
+        maxStreak:                  "number",
+        terminatedStreak:           "number",
+        guesses:                    "object",
+        winPercentage:              "number",
+        gamesPlayed:                "number",
+        gamesWon:                   "number",
+        averageGuesses:             "number",
+        versionNumber:              "number",
+        migratedBy:                 "string",
+        // Server-internal bookkeeping (see api/app.rb's
+        // apply_played_game_to_statistics!) that rides along in GET
+        // /profile's statistics blob. The client never reads it, but
+        // StorageController.statistics.replace() writes the whole blob
+        // back verbatim on every sync, so it has to be schema-known or
+        // syncFromServerAndOverwriteLocal throws on login.
+        currentStreakAnchorPuzzleNum: "number"
     }
 };
 
