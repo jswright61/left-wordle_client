@@ -12,6 +12,13 @@
 1. All history files are added to the played_games table. If we don't have all the guesses, use the starter word for guess 0. Also use the answer for the last guess if the status in WIN, any guesses we don't know get set to null. (if solved in 3, no null for array pos 3, 4, 5 just 0, 1, & 2) 
 
 ## Device / Browser Added to Online Account
+
+**Superseded by `online_play_redesign.md`.** The merge described below (pull
+server data down, push the device's missing history up) was never fully
+built and manual testing confirmed it silently drops data — see that doc
+for the replacement: two non-merging modes (offline/online) instead of a
+device-added reconciliation step. Left here for history.
+
 1. We add a row to storage_snapshots prior to anything else, user_id, and client_device_id are populated, event is "new device added" and local_storage is a hash object that copies as json the user's local storage.
 1. local storage preferences from the device are ignored (server is truth)
 1. we make note of the last played game for this user on the server, their stats and streaks are also noted from the server (these are the current rows for that user on the server, for the played games it is the played game with the highest puzzle_num)
