@@ -151,15 +151,42 @@
                     window.LeftWordleAuth.syncHistoryEntries(Object.values(window.StorageController.history.getAll() || {}))
                 ]);
 
-                var localStats = window.wordleStats.compute();
+                // getLocal(), not compute(): compute() replays history+legacy_stats
+                // from scratch, which undercounts (sometimes severely) whenever
+                // legacy_stats didn't fully capture pre-history play -- exactly the
+                // gap this check exists to catch, so comparing against it here would
+                // hide the very discrepancy it's meant to find. getLocal() is this
+                // device's actual incrementally-tracked totals, the best information
+                // available at the moment of migration.
+                var localStats = window.wordleStats.getLocal();
                 var discrepancy = await window.LeftWordleAuth.statsDiscrepancyAfterPush(localStats && localStats.gamesPlayed);
 
+                if (discrepancy) {
+                    // History import only counts puzzles it can chain contiguously
+                    // (see api/app.rb's apply_played_game_to_statistics!), so older
+                    // games this device already knew about -- pre-history play, or a
+                    // broken chain -- can't be recovered from played_games rows
+                    // alone. Push this device's own totals as-is rather than leaving
+                    // the account under-counted until someone notices and visits
+                    // Tools > Adjust Stats themselves.
+                    try {
+                        await window.LeftWordleApi.client.adjustStats(localStats);
+                    } catch (error) {
+                        discrepancy.applyFailed = true;
+                    }
+                }
+
                 if (app && typeof app.addToast === "function") {
-                    if (discrepancy) {
+                    if (discrepancy && !discrepancy.applyFailed) {
+                        app.addToast(
+                            "Account created — carried over your full local stats (" + discrepancy.local + " games played)",
+                            4000, true
+                        );
+                    } else if (discrepancy) {
                         app.addToast(
                             "Account created. Your local history shows " + discrepancy.local +
                             " games played, but only " + discrepancy.server + " could be matched to specific " +
-                            "puzzles — use Tools > Adjust Stats to correct the total if you'd like.",
+                            "puzzles, and carrying over your full total failed — use Tools > Adjust Stats to correct it.",
                             6000, true
                         );
                     } else {

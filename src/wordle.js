@@ -3319,7 +3319,12 @@
         recompute: StatisticsEngine.recomputeAndPersistStatistics,
         compute: StatisticsEngine.computeStatisticsFromHistoryAndLegacy,
         computeHistoryOnly: StatisticsEngine.computeHistoryOnlyStatistics,
-        preservePreHistory: StatisticsEngine.preservePreHistoryStats
+        preservePreHistory: StatisticsEngine.preservePreHistoryStats,
+        // The device's actual incrementally-tracked totals (StorageController.statistics,
+        // merged with defaults) -- as opposed to compute()'s from-scratch replay of
+        // history+legacy_stats, which undercounts whenever legacy_stats didn't fully
+        // capture pre-history play (see login_ui.js's pushLocalDataToNewAccount).
+        getLocal: StatisticsEngine.getStatistics
     };
 
     // Export pure functions for testing
