@@ -934,15 +934,20 @@ class ToolsMenu {
                         // Server keeps a before/after audit snapshot of every
                         // manual adjustment (see api/app.rb stats_adjust_response).
                         await window.LeftWordleApi.client.adjustStats(targetTotals);
+                        // GameStats reads auth.cachedProfile.statistics for a logged-in
+                        // user, never StorageController -- without this, the stats
+                        // screen opened immediately below would still show whatever
+                        // was cached at login/boot, making the adjustment look like a
+                        // no-op until the next full reload.
+                        await window.LeftWordleAuth.refreshCachedProfile();
                     } catch (err) {
                         setError("Failed to save to your account: " + (err && err.message ? err.message : "unknown error"));
                         return;
                     }
                 }
-                // Keep the local cache in step too, so the stats screen
-                // shown immediately after doesn't look like a no-op --
-                // drift vs. the server is expected over time, not right
-                // after the device that made the edit applies it.
+                // Offline path: GameStats falls back to StorageController.statistics
+                // when there's no logged-in cachedProfile, so the stats screen shown
+                // immediately after doesn't look like a no-op.
                 StorageController.statistics.replace(targetTotals);
 
                 self.closeAdjustStatsModal();
