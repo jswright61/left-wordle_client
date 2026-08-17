@@ -423,10 +423,14 @@
         init() {
             var self = this;
 
-            var headerButton = $("login-button");
-            if (headerButton) {
-                headerButton.addEventListener("click", function() { self.openOverlay(); });
-            }
+            // Delegated on document, not bound directly to the button: this
+            // script runs before wordle.js clones header-container's markup
+            // into the live <game-app>, so a direct listener here would bind
+            // to the display:none template-source node instead of the one
+            // players actually see and click.
+            document.addEventListener("click", function(e) {
+                if (e.target.closest("#login-button")) self.openOverlay();
+            });
             var closeIcon = $("login-close");
             if (closeIcon) {
                 closeIcon.addEventListener("click", function() { self.closeOverlay(); });
