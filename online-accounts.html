@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logins &amp; Passkeys</title>
+    <style>
+        body {
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+            background-color: #fff;
+            color: #1a1a1b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+        .page {
+            width: 100%;
+            max-width: 640px;
+        }
+        .back-link { display: inline-block; margin-bottom: 16px; color: #538d4e; font-size: 0.85rem; }
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 0.1rem;
+            text-transform: uppercase;
+            border-bottom: 1px solid #d3d6da;
+            padding-bottom: 16px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .subtitle {
+            font-size: 0.85rem;
+            color: #787c7e;
+            margin-bottom: 32px;
+            text-align: center;
+        }
+        h2 {
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.03rem;
+            margin: 32px 0 4px;
+        }
+        h2 .num {
+            display: inline-block;
+            color: #6aaa64;
+            margin-right: 6px;
+        }
+        p {
+            font-size: 0.9rem;
+            line-height: 1.55;
+            color: #3a3a3c;
+            margin: 8px 0;
+        }
+        ul {
+            margin: 8px 0;
+            padding-left: 1.2rem;
+        }
+        li {
+            font-size: 0.9rem;
+            line-height: 1.55;
+            color: #3a3a3c;
+            margin-bottom: 6px;
+        }
+        code {
+            background: #f4f4f4;
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-size: 0.85em;
+        }
+        .callout {
+            border: 2px solid #d3d6da;
+            border-radius: 6px;
+            padding: 14px 16px;
+            margin: 16px 0;
+            font-size: 0.85rem;
+            color: #3a3a3c;
+        }
+        .callout.good { border-color: #6aaa64; background: #f0faf0; }
+        .callout .callout-title {
+            font-weight: 700;
+            letter-spacing: 0.03rem;
+            text-transform: uppercase;
+            font-size: 0.72rem;
+            color: #538d4e;
+            margin-bottom: 6px;
+        }
+        .callout.good .callout-title { color: #538d4e; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin: 12px 0 24px;
+        }
+        th {
+            text-align: left;
+            padding: 6px 10px;
+            background: #f4f4f4;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.05rem;
+            text-transform: uppercase;
+            color: #787c7e;
+        }
+        td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: top;
+            color: #3a3a3c;
+        }
+        .inline-icon {
+            vertical-align: middle;
+            margin: 0 2px;
+            position: relative;
+            top: -1px;
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <a href="/" class="back-link">&larr; Back to Left Wordle</a>
+    <h1>Online Accounts</h1>
+
+    <h2>Background</h2>
+    <p>Online accounts are designed to allow a user to play Left Wordle on multiple devices and keep preferences, statistics, and history synced between them.</p>
+    <p>Without an online account, play on one device or browser affects only that device. For example, if you play on your laptop one day and your phone the next, your phone won't have any information from the laptop session. If you then go back to the laptop on day 3, it will still only know about your play from day 1 &mdash; not what you played on your phone.</p>
+
+    <h2>How They Work in Left Wordle</h2>
+    <p>The best way to think of online play in Left Wordle is that it's a completely separate set of your data (preferences, stats, history). When a browser (device) is logged in, play affects your online data; when not logged in, play affects the local browser (device) data. The only exception is when you first create an account: your current data from the browser you used to create the account is uploaded and becomes the starting point for your online data.</p>
+
+    <h2>How Do You Know When You're Playing Online vs. Locally?</h2>
+    <p>By default, you're prompted to log in or create an account whenever the system detects you're not logged in. In addition, the account icon on the far right of the header shows your status at a glance: a gray outline
+        <svg class="inline-icon" height="18" viewBox="0 0 24 24" width="18" aria-label="Logged out account icon">
+            <circle cx="12" cy="12" r="9.25" fill="none" stroke="#878a8c" stroke-width="1.3" />
+            <circle cx="12" cy="9.4" r="3" fill="none" stroke="#878a8c" stroke-width="1.3" />
+            <path d="M6.4 18.6C6.4 14.9 8.9 13.3 12 13.3C15.1 13.3 17.6 14.9 17.6 18.6" fill="none" stroke="#878a8c" stroke-width="1.3" stroke-linecap="round" />
+        </svg>
+        when you're not logged in, and a green filled icon
+        <svg class="inline-icon" height="18" viewBox="0 0 24 24" width="18" aria-label="Logged in account icon">
+            <circle cx="12" cy="12" r="10" fill="#6aaa64" />
+            <circle cx="12" cy="9.4" r="3" fill="none" stroke="#fff" stroke-width="1.3" />
+            <path d="M6.4 18.6C6.4 14.9 8.9 13.3 12 13.3C15.1 13.3 17.6 14.9 17.6 18.6" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round" />
+        </svg>
+        when you're logged in.</p>
+
+    <h2>Can I Disable the Login Prompt?</h2>
+    <p>Yes. On the account page &mdash; where you end up when not logged in &mdash; there's a "Don't ask me to login" link. Click it and you won't be prompted to log in on that browser again.</p>
+    <p>You can also toggle the prompt at any time using the "Suppress Login Prompt" preference on the preferences page (when the setting is on, prompts are suppressed).</p>
+
+</div>
+</body>
+</html>
