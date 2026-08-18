@@ -40,14 +40,14 @@
 </ol>
 
 <script>
-    fetch('things-to-test-tasks.html')
+    fetch('things-to-test-tasks')
         .then((resp) => resp.text())
         .then((html) => {
             document.getElementById('tasks-content').innerHTML = html;
         })
         .catch(() => {
             document.getElementById('tasks-content').textContent =
-                'Could not load the tasks list (things-to-test-tasks.html).';
+                'Could not load the tasks list (things-to-test-tasks).';
         });
 </script>
 
