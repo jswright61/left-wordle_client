@@ -269,6 +269,9 @@
               </section>
               <section id="login-logged-in-section" class="hidden">
                 <h2 class="tools-section-heading">Your Account</h2>
+                <div id="login-device-link-conflict-warning" class="tools-status-message hidden" style="color: #d64242;">
+                  This browser is already logged in to the account below, so a new passkey can't be created from the link you opened. Log out, then reopen the link to link this device.
+                </div>
                 <p class="description" id="login-account-email">No email on file</p>
                 <div class="tools-row">
                   <button class="tools-item-left tools-action-button" id="login-add-device-link-button" type="button">Add a Device (Link)</button>
@@ -352,11 +355,11 @@
         <div class="content-container">
           <div class="sections">
             <section>
-              <p class="description">Complete passkey setup to add this device to your account. This device's account data will be replaced with your account's.</p>
+              <p class="description">Give this device a name, then create a passkey for it to link it to your account.</p>
               <label class="field-label" for="login-link-landing-device-name-input">Device Name</label>
               <input id="login-link-landing-device-name-input" type="text" class="field-input" placeholder="e.g. My Phone" maxlength="60">
               <div class="tools-row">
-                <button class="tools-item-center tools-action-button" id="login-link-landing-button" type="button">Set Up Passkey</button>
+                <button class="tools-item-center tools-action-button" id="login-link-landing-button" type="button">Link this device with a new Passkey</button>
               </div>
               <div id="login-link-landing-status" class="tools-status-message"></div>
             </section>

@@ -18,7 +18,24 @@
     }
 
     class LoginUI {
+        constructor() {
+            // Set while a device-link landing (?link_token=) is active, so the
+            // generic register/login overlay can't be reached in parallel --
+            // going through it would register a passkey with no token attached
+            // and create a brand-new account instead of linking this device to
+            // the existing one.
+            this.pendingDeviceLinkToken = null;
+        }
+
         openOverlay() {
+            // Blocked only while logged out with a device-link pending: that's
+            // the state where the overlay's generic Create Passkey/Log In
+            // buttons would register/sign in with no link token attached
+            // instead of linking this device. Already-logged-in is fine to
+            // reach here -- it's exactly how the conflict warning gets
+            // reopened if the user dismisses it (see
+            // showDeviceLinkConflictWarning).
+            if (this.pendingDeviceLinkToken && !window.LeftWordleAuth.isLoggedIn()) return;
             var overlay = $("login");
             if (!overlay) return;
             overlay.classList.remove("hidden");
@@ -44,6 +61,8 @@
                         ? "Account email: " + window.LeftWordleAuth.email
                         : "No email on file";
                 }
+                var conflictWarning = $("login-device-link-conflict-warning");
+                if (conflictWarning) conflictWarning.classList.toggle("hidden", !this.pendingDeviceLinkToken);
             } else {
                 loggedOutSection.classList.remove("hidden");
                 loggedInSection.classList.add("hidden");
@@ -82,6 +101,10 @@
 
         async handleRegister() {
             var statusEl = $("login-status");
+            if (this.pendingDeviceLinkToken) {
+                setStatus(statusEl, "Finish adding this device using the link you opened, then try again.", true);
+                return;
+            }
             var emailInput = $("login-email-input");
             var email = emailInput ? emailInput.value.trim() : "";
             var deviceNameInput = $("login-device-name-input");
@@ -204,6 +227,15 @@
             var statusEl = $("login-account-status");
             try {
                 await window.LeftWordleAuth.logout();
+                if (this.pendingDeviceLinkToken) {
+                    // Logging out while a device-link is pending clears the
+                    // conflict this browser was in -- drop straight into the
+                    // clean "link this device" form instead of leaving the
+                    // user on the now-logged-out account overlay.
+                    this.closeOverlay();
+                    this.showDeviceLinkLandingForm();
+                    return;
+                }
                 this.render();
                 setStatus(statusEl, "Logged out.", false);
             } catch (error) {
@@ -385,6 +417,15 @@
             }
         }
 
+        // Entry point for a device-link (?link_token=) page load. Waits for
+        // the boot-time session check so it can tell "never logged in on
+        // this browser" apart from "already logged in as someone else" --
+        // the link's token isn't tied to *this* browser's session at all,
+        // so silently completing the passkey ceremony while already logged
+        // in would attach the new passkey to the link's account and swap
+        // this browser's session onto it with no warning. Routing that case
+        // through the normal account overlay instead surfaces the conflict
+        // and offers a way out (log out, then reopen the link).
         async maybeHandleDeviceLinkLanding() {
             var params = new URLSearchParams(window.location.search);
             var linkToken = params.get("link_token");
@@ -392,25 +433,49 @@
 
             var landing = $("login-link-landing");
             var button = $("login-link-landing-button");
-            var statusEl = $("login-link-landing-status");
-            var deviceNameInput = $("login-link-landing-device-name-input");
             if (!landing || !button) return;
 
+            this.pendingDeviceLinkToken = linkToken;
+
+            var config = window.LEFT_WORDLE_CONFIG || {};
+            if (config.passkeyAuthEnabled && window.LeftWordleAuth) {
+                await window.LeftWordleAuth.ready;
+            }
+
+            if (window.LeftWordleAuth.isLoggedIn()) {
+                this.showDeviceLinkConflictWarning();
+            } else {
+                this.showDeviceLinkLandingForm();
+            }
+        }
+
+        // The intended, common-case path: this browser has no session, so
+        // it gets a clean page with nothing but a device name and one
+        // button that performs the token-based registration.
+        showDeviceLinkLandingForm() {
+            var landing = $("login-link-landing");
+            var button = $("login-link-landing-button");
+            var statusEl = $("login-link-landing-status");
+            var deviceNameInput = $("login-link-landing-device-name-input");
+            var linkToken = this.pendingDeviceLinkToken;
+            if (!landing || !button || !linkToken) return;
+
             landing.classList.remove("hidden");
-            var headerContainer = $("header-container");
-            if (headerContainer) headerContainer.style.display = "none";
             if (deviceNameInput && !deviceNameInput.value && window.LeftWordleAuth.guessDeviceNickname) {
                 deviceNameInput.value = window.LeftWordleAuth.guessDeviceNickname();
             }
 
+            if (this._landingFormWired) return;
+            this._landingFormWired = true;
+
             button.addEventListener("click", async function() {
-                setStatus(statusEl, "Completing passkey setup...", false);
+                setStatus(statusEl, "Linking device...", false);
                 try {
                     var nickname = deviceNameInput ? deviceNameInput.value.trim() : "";
                     await window.LeftWordleAuth.registerViaDeviceLink(linkToken, nickname);
                     await window.leftWordleLoginUI.syncAndAnnounce();
                     window.leftWordleLoginUI.resetSuppressedLoginPrompt();
-                    setStatus(statusEl, "Device added. Reloading...", false);
+                    setStatus(statusEl, "Device linked. Reloading...", false);
                     var url = new URL(window.location.href);
                     url.searchParams.delete("link_token");
                     window.location.href = url.toString();
@@ -418,6 +483,22 @@
                     setStatus(statusEl, errorMessage(error), true);
                 }
             });
+        }
+
+        // The conflict path: this browser is already logged in to some
+        // account (possibly, but not necessarily, the same one the link
+        // belongs to). The link's token isn't consumed by looking at it --
+        // consume_device_link_token! only runs on a successful
+        // register/finish (see api/app.rb) -- so it's still safe to use
+        // once the user logs out and reopens it.
+        showDeviceLinkConflictWarning() {
+            var landing = $("login-link-landing");
+            if (landing) landing.classList.add("hidden");
+
+            var overlay = $("login");
+            if (!overlay) return;
+            overlay.classList.remove("hidden");
+            this.render();
         }
 
         init() {
