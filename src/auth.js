@@ -427,7 +427,14 @@
     LeftWordleAuth.syncCompletion = function(date, puzzleNum, mode, gameStatus, guesses) {
         if (!LeftWordleAuth.isLoggedIn()) return Promise.resolve();
         var payload = {date: date, puzzleNum: puzzleNum, mode: mode, gameStatus: gameStatus, guesses: guesses};
-        return syncWithRetry("completion:" + puzzleNum, "completion", payload).catch(function() {});
+        return syncWithRetry("completion:" + puzzleNum, "completion", payload)
+            // GameStats reads cachedProfile.statistics for a logged-in user
+            // (see toolsmenu.js's Adjust Stats fix), which otherwise stays
+            // stale from login/boot until the next full reload -- the just-
+            // finished game's board is locally correct, but the aggregate
+            // counters (games played, streak, distribution) wouldn't be.
+            .then(function() { return LeftWordleAuth.refreshCachedProfile(); })
+            .catch(function() {});
     };
 
     // One-time push of the current in-progress game, at registration only.
