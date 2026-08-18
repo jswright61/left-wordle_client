@@ -1471,7 +1471,7 @@ game-icon {
     transition: opacity 0.2s;
 }
 
-#tools .overlay, #login .overlay {
+#tools .overlay, #login .overlay, #login-link-landing .overlay {
     position: absolute;
     width: 100%;
     height: 100%;
@@ -1487,7 +1487,7 @@ game-icon {
     display: flex;
 }
 
-#tools .content, #login .content {
+#tools .content, #login .content, #login-link-landing .content {
     position: relative;
     color: var(--color-tone-1);
     padding: 0 32px;
@@ -1499,22 +1499,22 @@ game-icon {
     flex-direction: column;
 }
 
-#tools .content-container, #login .content-container {
+#tools .content-container, #login .content-container, #login-link-landing .content-container {
     height: 100%;
 }
 
-#tools .overlay.closing, #login .overlay.closing {
+#tools .overlay.closing, #login .overlay.closing, #login-link-landing .overlay.closing {
     animation: SlideOut 150ms linear;
 }
 
-#tools header, #login header {
+#tools header, #login header, #login-link-landing header {
     display: flex;
     justify-content: center;
     align-items: center;
     position: relative;
 }
 
-#tools h1, #login h1 {
+#tools h1, #login h1, #login-link-landing h1 {
     font-weight: 700;
     font-size: 16px;
     letter-spacing: 0.5px;
@@ -1531,7 +1531,7 @@ game-icon {
 }
 
 @media only screen and (min-device-width:320px) and (max-device-width:480px) {
-    #tools .content, #login .content {
+    #tools .content, #login .content, #login-link-landing .content {
         max-width: 100%;
         padding: 0;
     }
@@ -1562,7 +1562,7 @@ game-icon {
     padding-right: 8px;
 }
 
-#tools .description, #login .description, #login-passkeys-list .description {
+#tools .description, #login .description, #login-passkeys-list .description, #login-link-landing .description {
     font-size: 12px;
     color: var(--color-tone-2);
 }
@@ -1600,7 +1600,7 @@ game-icon {
     margin: 0;
 }
 
-#tools .tools-row, #login .tools-row {
+#tools .tools-row, #login .tools-row, #login-link-landing .tools-row {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     gap: 8px;
@@ -1613,7 +1613,7 @@ game-icon {
     justify-self: start;
 }
 
-#tools .tools-item-center, #login .tools-item-center {
+#tools .tools-item-center, #login .tools-item-center, #login-link-landing .tools-item-center {
     grid-column: 2;
     justify-self: center;
 }
@@ -1623,7 +1623,7 @@ game-icon {
     justify-self: end;
 }
 
-#tools .tools-action-button, #login .tools-action-button {
+#tools .tools-action-button, #login .tools-action-button, #login-link-landing .tools-action-button {
     background: var(--green);
     color: var(--color-tone-5);
     border: none;
@@ -1640,7 +1640,7 @@ game-icon {
     white-space: nowrap;
 }
 
-#tools .tools-action-button:hover:not(:disabled), #login .tools-action-button:hover:not(:disabled) {
+#tools .tools-action-button:hover:not(:disabled), #login .tools-action-button:hover:not(:disabled), #login-link-landing .tools-action-button:hover:not(:disabled) {
     opacity: 0.85;
 }
 
@@ -1664,7 +1664,7 @@ game-icon {
     display: none;
 }
 
-#tools .tools-status-message, #login .tools-status-message {
+#tools .tools-status-message, #login .tools-status-message, #login-link-landing .tools-status-message {
     font-size: 13px;
     color: var(--color-tone-2);
     padding: 12px 0 4px;
