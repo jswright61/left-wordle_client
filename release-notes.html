@@ -76,7 +76,23 @@
 <div class="page">
     <a href="/" class="back-link">&larr; Back to Left Wordle</a>
     <h1>Release Notes</h1>
-    <p class="subtitle">What's new in each release, most recent first.</p>
+    <p class="subtitle">What's new in each release, most recent first.<br>Version numbers increase but aren't always sequential — a number is sometimes skipped before release.</p>
+
+    <section id="v0-9-22">
+        <h2><a href="#v0-9-22">v0.9.22</a></h2>
+        <ul>
+            <li>Online accounts now sync in real time — every guess is pushed to the server as you play, replacing the old sync-on-login behavior. Fixes a bug where logging in on a second device with its own play history could silently wipe that history.</li>
+            <li>Starting a game on one logged-in device and then opening the app on another device now resumes the game in progress, instead of showing a stale or empty board.</li>
+            <li>The account icon now turns green while online (synced to your account), so you can tell at a glance that your play is being saved to the server.</li>
+            <li>If your online session expires or is revoked, you'll now get a one-time notice the next time you open the app, instead of quietly reverting to local-only play.</li>
+            <li>Fixed two device-link bugs: the "link this device" landing page could render invisible, and starting passkey registration while a device-link was pending could create a brand-new unlinked account instead of joining the one you meant to link.</li>
+            <li>The Stats screen now updates immediately after finishing a game or adjusting stats while logged in, instead of requiring a refresh.</li>
+            <li>Fixed a bug where a tab left open overnight could score a guess against the wrong day or incorrectly affect your streak; you'll now be warned and offered the choice to continue the stale puzzle or reload today's.</li>
+            <li>Newly created passkeys now correctly show a "last used" date right away instead of "Never."</li>
+            <li>Added an Online Accounts help page, linked from the Account menu, explaining how syncing across devices works.</li>
+            <li>Housekeeping: search-engine indexing rules and caching/deploy infrastructure updates — nothing else player-facing this release.</li>
+        </ul>
+    </section>
 
     <section id="v0-9-20">
         <h2><a href="#v0-9-20">v0.9.20</a></h2>
