@@ -179,8 +179,8 @@
             return this.request("/api/v2/history/import", options);
         }
 
-        async adjustStats(statistics, options) {
-            options = Object.assign({}, options, { body: statistics, method: "POST" });
+        async adjustStats(statistics, source, options) {
+            options = Object.assign({}, options, { body: { statistics: statistics, source: source }, method: "POST" });
             return this.request("/api/v2/stats/adjust", options);
         }
 

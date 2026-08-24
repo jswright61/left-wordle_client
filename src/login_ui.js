@@ -193,7 +193,7 @@
                     // the account under-counted until someone notices and visits
                     // Tools > Adjust Stats themselves.
                     try {
-                        await window.LeftWordleApi.client.adjustStats(localStats);
+                        await window.LeftWordleApi.client.adjustStats(localStats, "signup_reconciliation");
                     } catch (error) {
                         discrepancy.applyFailed = true;
                     }
