@@ -69,6 +69,14 @@ else
   echo "Deploying $VERSION → $ENV"
 fi
 
+echo "→ Checking release notes..."
+if ! bin/check-release-notes "$VERSION"; then
+  echo "" >&2
+  echo "✗ Release notes missing — aborting deploy." >&2
+  echo "Add a release-notes.html section with id=\"${VERSION//./-}\" before deploying." >&2
+  exit 1
+fi
+
 echo "→ Running tests..."
 if ! mise exec -- npm test; then
   echo "" >&2

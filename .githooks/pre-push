@@ -9,16 +9,10 @@ pushing_main=false
 while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
   if [[ "$local_ref" == refs/tags/* ]]; then
     tag="${local_ref#refs/tags/}"
-    # Only real release tags (vX.Y.Z) require release notes -- suffixed tags
-    # (vX.Y.Z-branch-name) are throwaway staging test deploys, not releases.
-    if [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-      slug="${tag//./-}"
-      commit="$(git rev-parse "${local_ref}^{commit}")"
-      if ! git show "${commit}:release-notes.html" 2>/dev/null | grep -q "id=\"${slug}\""; then
-        echo "pre-push: release-notes.html has no id=\"${slug}\" section in the commit tagged ${tag}." >&2
-        echo "pre-push: add the ${tag} release notes to that commit before pushing the tag." >&2
-        exit 1
-      fi
+    commit="$(git rev-parse "${local_ref}^{commit}")"
+    if ! bin/check-release-notes "$tag" "$commit"; then
+      echo "pre-push: add the ${tag} release notes to that commit before pushing the tag." >&2
+      exit 1
     fi
     continue
   fi

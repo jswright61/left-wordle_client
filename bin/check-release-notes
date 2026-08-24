@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Only real release tags (vX.Y.Z) require release notes -- suffixed tags
+# (vX.Y.Z-branch-name) are throwaway staging test deploys, not releases.
+tag="${1:?Usage: bin/check-release-notes <vX.Y.Z> [commit-ish]}"
+commit="${2:-$tag}"
+
+if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  exit 0
+fi
+
+slug="${tag//./-}"
+
+if ! git show "${commit}:release-notes.html" 2>/dev/null | grep -q "id=\"${slug}\""; then
+  echo "release-notes.html has no id=\"${slug}\" section for ${tag} (checked at ${commit})." >&2
+  exit 1
+fi
