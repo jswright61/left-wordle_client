@@ -933,7 +933,7 @@ class ToolsMenu {
                     try {
                         // Server keeps a before/after audit snapshot of every
                         // manual adjustment (see api/app.rb stats_adjust_response).
-                        await window.LeftWordleApi.client.adjustStats(targetTotals);
+                        await window.LeftWordleApi.client.adjustStats(targetTotals, "manual");
                         // GameStats reads auth.cachedProfile.statistics for a logged-in
                         // user, never StorageController -- without this, the stats
                         // screen opened immediately below would still show whatever
