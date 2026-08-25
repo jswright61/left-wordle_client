@@ -92,6 +92,15 @@ if ! bin/check-release-notes "$VERSION"; then
   exit 1
 fi
 
+echo "→ Checking api is tagged $VERSION..."
+if ! bin/check-sibling-release "$VERSION" "$BRANCH"; then
+  echo "" >&2
+  echo "✗ api not tagged $VERSION on $BRANCH — aborting deploy." >&2
+  echo "Tag api's $BRANCH before deploying client:" >&2
+  echo "  cd ../api && git tag -a $VERSION -m 'Release $VERSION' && git push paula-poundstone $VERSION" >&2
+  exit 1
+fi
+
 echo "→ Running tests..."
 if ! mise exec -- npm test; then
   echo "" >&2
