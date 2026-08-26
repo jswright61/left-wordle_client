@@ -157,3 +157,15 @@ echo "→ cap $ENV deploy..."
 "${cap_env[@]+"${cap_env[@]}"}" bundle exec cap "$ENV" deploy
 
 echo "✓ Deploy succeeded"
+
+if [[ "$ENV" == "production" ]]; then
+  echo "→ Marking $VERSION as the production release in release-notes.html..."
+  if ! bin/mark-production-release "$VERSION"; then
+    echo "" >&2
+    echo "⚠ Deploy succeeded, but marking $VERSION in release-notes.html failed." >&2
+    echo "  This is just bookkeeping for future readers -- it doesn't affect what's live." >&2
+    echo "  Retry it yourself:" >&2
+    echo "    bin/mark-production-release $VERSION" >&2
+    echo "" >&2
+  fi
+fi

@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Run after a successful `bin/deploy production`. Records, in a plain
+# commit to develop, which release-notes.html entry actually shipped --
+# so a reader who lands on this same file much later (on staging, or on
+# production after several more staging-only versions have piled up on
+# top) can scroll to the last "Production Release" badge instead of
+# having to recognize a version number from memory.
+#
+# Deliberately a *separate*, after-the-fact commit to develop -- never
+# baked into the tagged commit that was just deployed. Capistrano deploys
+# that tag's tree byte-for-byte (see
+# lib/capistrano/tasks/release_check.rake's check_release_tag task), so
+# editing it after the tag exists would never reach production anyway,
+# and staging already tested the tree exactly as tagged.
+#
+# Talks only to git (fetch/worktree/commit/push) -- no SSH to the deploy
+# host, so a failure here never means the deploy itself is in doubt.
+
+VERSION="${1:?Usage: bin/mark-production-release vX.Y.Z}"
+
+fail() {
+  local headline="$1"
+  shift
+  echo "" >&2
+  echo "✗ $headline" >&2
+  for line in "$@"; do
+    echo "  $line" >&2
+  done
+  echo "" >&2
+  exit 1
+}
+
+# Matches bin/check-release-notes: only real release tags (vX.Y.Z) get
+# release notes at all -- suffixed tags (vX.Y.Z-branch-name) are
+# throwaway staging test deploys, never production, so there's nothing
+# to mark.
+if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "→ '$VERSION' isn't a real release tag (vX.Y.Z) -- nothing to mark."
+  exit 0
+fi
+
+SLUG="${VERSION//./-}"
+CLIENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$CLIENT_DIR"
+
+echo "→ Fetching develop from origin..."
+if ! git fetch origin develop; then
+  fail "Could not fetch 'develop' from origin." \
+    "Check connectivity/auth to origin and that 'develop' still exists there, then rerun:" \
+    "  bin/mark-production-release $VERSION"
+fi
+
+# Sweeps up any worktree registration left behind by a run that died
+# before its own cleanup trap could fire (e.g. killed -9, machine lost
+# power mid-script).
+git worktree prune
+
+WORKDIR=$(mktemp -d)
+cleanup() {
+  git worktree remove --force "$WORKDIR" &>/dev/null || true
+  rm -rf "$WORKDIR" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+# --detach avoids "already checked out" errors against whatever local
+# 'develop' branch you may have checked out elsewhere -- this worktree
+# tracks the remote ref directly and never touches your local branch.
+if ! git worktree add --detach "$WORKDIR" origin/develop &>/dev/null; then
+  fail "Could not create a worktree from origin/develop." \
+    "Run 'git worktree add /tmp/debug-worktree origin/develop' yourself to see the underlying error," \
+    "then clean it up with 'git worktree remove /tmp/debug-worktree' and rerun:" \
+    "  bin/mark-production-release $VERSION"
+fi
+
+NOTES="$WORKDIR/release-notes.html"
+
+if [[ ! -f "$NOTES" ]]; then
+  fail "release-notes.html doesn't exist on develop." \
+    "This shouldn't be possible right after a successful deploy -- investigate develop before continuing." \
+    "Once it's back, rerun: bin/mark-production-release $VERSION"
+fi
+
+if ! grep -q "id=\"$SLUG\"" "$NOTES"; then
+  fail "No section id=\"$SLUG\" found in release-notes.html on develop." \
+    "That section should already exist -- bin/check-release-notes gates deploys on it -- so it may just not be" \
+    "merged to develop yet. Once it is, rerun:" \
+    "  bin/mark-production-release $VERSION"
+fi
+
+# Look only at the <h2> for THIS version's section, not the whole file --
+# other entries may already carry the badge from earlier releases.
+existing_h2=$(awk -v slug="$SLUG" '
+  $0 ~ "<section id=\"" slug "\">" { in_section=1 }
+  in_section && /<h2/ { print; exit }
+' "$NOTES")
+
+if [[ -z "$existing_h2" ]]; then
+  fail "Found section id=\"$SLUG\" but no <h2> inside it in release-notes.html." \
+    "The file's structure doesn't match what this script expects for that entry." \
+    "Mark it by hand: add <span class=\"prod-badge\">Production Release</span> inside that section's <h2>," \
+    "add a matching .prod-badge rule to the page's <style> block if one isn't there yet, then commit and push develop."
+fi
+
+if [[ "$existing_h2" == *prod-badge* ]]; then
+  echo "→ $VERSION is already marked as a Production Release. Nothing to do."
+  exit 0
+fi
+
+awk -v slug="$SLUG" '
+  $0 ~ "<section id=\"" slug "\">" { in_section=1 }
+  in_section && /<\/h2>/ && !done {
+    sub(/<\/h2>/, " <span class=\"prod-badge\">Production Release</span></h2>")
+    done=1
+  }
+  { print }
+' "$NOTES" > "$NOTES.tmp"
+
+if ! grep -q "prod-badge" "$NOTES.tmp"; then
+  rm -f "$NOTES.tmp"
+  fail "Tried to insert the Production Release badge but the result doesn't contain it -- refusing to write a broken file." \
+    "Mark it by hand: add <span class=\"prod-badge\">Production Release</span> inside id=\"$SLUG\"'s <h2>," \
+    "add a matching .prod-badge rule to the page's <style> block if one isn't there yet, then commit and push develop."
+fi
+
+mv "$NOTES.tmp" "$NOTES"
+
+# The badge's styling lives in this file's own inline <style> block,
+# matching how every other static content page (privacy.html,
+# logins-and-passkeys.html, etc.) styles itself -- unlike 404.html, none
+# of these share an external stylesheet. Added once, the first time any
+# entry gets marked; later runs just reuse it.
+if ! grep -q "\.prod-badge" "$NOTES"; then
+  awk '
+    /<\/style>/ && !done {
+      print "        .prod-badge {"
+      print "            display: inline-block;"
+      print "            margin-left: 8px;"
+      print "            padding: 2px 8px;"
+      print "            border-radius: 10px;"
+      print "            background: #f0faf0;"
+      print "            border: 1px solid #6aaa64;"
+      print "            color: #538d4e;"
+      print "            font-size: 0.65rem;"
+      print "            font-weight: 700;"
+      print "            letter-spacing: 0.03rem;"
+      print "            text-transform: uppercase;"
+      print "            vertical-align: middle;"
+      print "        }"
+      done=1
+    }
+    { print }
+  ' "$NOTES" > "$NOTES.tmp"
+
+  if ! grep -q "\.prod-badge" "$NOTES.tmp"; then
+    rm -f "$NOTES.tmp"
+    fail "Tried to add the .prod-badge style rule but the result doesn't contain it -- refusing to write a broken file." \
+      "Add a .prod-badge rule to release-notes.html's <style> block by hand, then commit and push develop." \
+      "The <h2> badge span for $VERSION was already written correctly; don't redo that part."
+  fi
+
+  mv "$NOTES.tmp" "$NOTES"
+fi
+
+git -C "$WORKDIR" add release-notes.html
+git -C "$WORKDIR" commit -m "Adds a Production Release Badge to $VERSION" --quiet
+
+echo "→ Pushing to origin..."
+if ! git -C "$WORKDIR" push origin HEAD:develop; then
+  fail "Committed the marker locally but could not push it to origin/develop." \
+    "This usually means someone else pushed to develop in the meantime (non-fast-forward), or origin is unreachable." \
+    "Nothing is lost -- just rerun, it re-fetches develop fresh each time:" \
+    "  bin/mark-production-release $VERSION"
+fi
+
+mirror_failures=()
+while IFS= read -r remote; do
+  [[ "$remote" == "origin" || "$remote" == "paula-poundstone" ]] && continue
+  echo "→ Pushing to $remote..."
+  if ! git -C "$WORKDIR" push "$remote" HEAD:develop; then
+    mirror_failures+=("$remote")
+  fi
+done < <(git remote)
+
+if [[ ${#mirror_failures[@]} -gt 0 ]]; then
+  echo "" >&2
+  echo "⚠ Marked $VERSION and pushed to origin, but failed to push to:" >&2
+  printf '  %s\n' "${mirror_failures[@]}" >&2
+  echo "origin/develop already has the marker; catch the others up when convenient, e.g.:" >&2
+  for remote in "${mirror_failures[@]}"; do
+    echo "  git push $remote origin/develop:develop" >&2
+  done
+  echo "" >&2
+fi
+
+echo "✓ Marked $VERSION as the Production Release on develop."
