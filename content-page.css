@@ -1,0 +1,148 @@
+/* Shared layout for the informational/legal content pages (privacy.html,
+   logins-and-passkeys.html, online-accounts.html): a centered article
+   column with a title, subtitle, numbered h2 sections, callouts, and
+   tables. Colors that exactly match a src/wordle.css token use it (so
+   these pages track the game's palette instead of a copy); colors with
+   no exact token (#3a3a3c, #f0faf0, etc.) are left literal rather than
+   forced onto the nearest token, which would quietly shift the color.
+   Requires src/wordle.css to be linked first for the color variables. */
+
+body {
+    font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+    background-color: var(--color-tone-7);
+    color: var(--color-tone-1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    margin: 0;
+}
+
+.page {
+    width: 100%;
+    max-width: 640px;
+}
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 16px;
+    color: var(--darkendGreen);
+    font-size: 0.85rem;
+}
+
+h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.1rem;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--color-tone-4);
+    padding-bottom: 16px;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.subtitle {
+    font-size: 0.85rem;
+    color: var(--color-tone-2);
+    margin-bottom: 32px;
+    text-align: center;
+}
+
+h2 {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.03rem;
+    margin: 32px 0 4px;
+}
+
+h2 .num {
+    display: inline-block;
+    color: var(--green);
+    margin-right: 6px;
+}
+
+p {
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: #3a3a3c;
+    margin: 8px 0;
+}
+
+ul {
+    margin: 8px 0;
+    padding-left: 1.2rem;
+}
+
+li {
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: #3a3a3c;
+    margin-bottom: 6px;
+}
+
+code {
+    background: #f4f4f4;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 0.85em;
+}
+
+a { color: var(--darkendGreen); }
+
+/* Two-tier: .callout alone is neutral; add .good for the green variant.
+   (privacy.html's single callout is always the green/good style.) */
+.callout {
+    border: 2px solid var(--color-tone-4);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin: 16px 0;
+    font-size: 0.85rem;
+    color: #3a3a3c;
+}
+
+.callout.good {
+    border-color: var(--green);
+    background: #f0faf0;
+}
+
+.callout .callout-title {
+    font-weight: 700;
+    letter-spacing: 0.03rem;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    color: var(--darkendGreen);
+    margin-bottom: 6px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin: 12px 0 24px;
+}
+
+th {
+    text-align: left;
+    padding: 6px 10px;
+    background: #f4f4f4;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05rem;
+    text-transform: uppercase;
+    color: var(--color-tone-2);
+}
+
+td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: top;
+    color: #3a3a3c;
+}
+
+/* Used by online-accounts.html for inline account-status SVG icons. */
+.inline-icon {
+    vertical-align: middle;
+    margin: 0 2px;
+    position: relative;
+    top: -1px;
+}
