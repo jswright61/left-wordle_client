@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Page Not Found &mdash; Left Wordle</title>
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="stylesheet" type="text/css" href="/src/wordle.css">
+    <link rel="stylesheet" type="text/css" href="/404.css">
+    <script>
+        // Matches the dark-mode preference the game itself uses (see
+        // GameThemeManager in src/wordle.js), applied to <html> (rather
+        // than waiting for <body>) so there's no flash of the light theme.
+        // wordle.css's .nightmode rules aren't scoped to body specifically,
+        // so the custom properties cascade the same way either way.
+        (function () {
+            var dark;
+            try {
+                var stored = JSON.parse(window.localStorage.getItem("preferences") || "{}");
+                dark = stored.darkTheme;
+            } catch (e) {}
+            if (typeof dark !== "boolean") {
+                dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+            }
+            if (dark) document.documentElement.classList.add("nightmode");
+        })();
+    </script>
+</head>
+<body>
+<div class="page">
+    <a href="/" class="back-link">&larr; Back to Left Wordle</a>
+
+    <div class="not-found-tiles">
+        <game-tile><div class="tile" data-state="correct" data-animation="pop">4</div></game-tile>
+        <game-tile><div class="tile" data-state="absent" data-animation="pop">0</div></game-tile>
+        <game-tile><div class="tile" data-state="present" data-animation="pop">4</div></game-tile>
+    </div>
+
+    <h1>Page Not Found</h1>
+    <p>That page doesn't exist &mdash; and this word isn't in today's puzzle either.</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,59 @@
+/* Layout for 404.html. Colors, fonts, and tile visuals come from
+   src/wordle.css (custom properties + game-tile styles) so this page
+   stays in sync with the live game's look, including dark mode. */
+
+body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 64px 20px;
+    font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+    color: var(--color-tone-1);
+}
+
+.page {
+    width: 100%;
+    max-width: 480px;
+    text-align: center;
+}
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 40px;
+    color: var(--darkendGreen);
+    font-size: 0.85rem;
+}
+
+.not-found-tiles {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 28px;
+}
+
+.not-found-tiles game-tile {
+    width: 52px;
+    height: 52px;
+}
+
+/* animation-fill-mode: backwards holds each tile at PopIn's "from" state
+   (scale 0.8, opacity 0) through its delay, instead of flashing fully
+   visible and then popping. */
+.not-found-tiles game-tile:nth-child(1) .tile { animation-delay: 0ms; animation-fill-mode: backwards; }
+.not-found-tiles game-tile:nth-child(2) .tile { animation-delay: 150ms; animation-fill-mode: backwards; }
+.not-found-tiles game-tile:nth-child(3) .tile { animation-delay: 300ms; animation-fill-mode: backwards; }
+
+h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.1rem;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+p {
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--color-tone-2);
+    margin: 8px 0 0;
+}
