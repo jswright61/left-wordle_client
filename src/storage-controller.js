@@ -19,7 +19,9 @@ var SCHEMA = {
         showRemainingInShareText: "boolean",
         goofProtectionMode:     "boolean",
         hardMode:               "boolean",
-        insaneMode:             "boolean"
+        insaneMode:             "boolean",
+        warnGuessNotInAnswerList:          "boolean",
+        warnGuessNotInAnswerListStartLine: "number"
     },
     gameState: {
         puzzleNum:                  "number",

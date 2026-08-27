@@ -1034,6 +1034,61 @@ game-settings .description {
     color: var(--color-tone-2);
 }
 
+game-settings .setting.disabled .text {
+    opacity: 0.5;
+}
+
+game-settings .stepper {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--color-tone-4);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+game-settings .stepper input {
+    width: 32px;
+    border: none;
+    background: transparent;
+    color: var(--color-tone-1);
+    text-align: center;
+    font-size: 16px;
+    font-weight: 700;
+    pointer-events: none;
+}
+
+game-settings .setting.disabled .stepper input {
+    color: var(--color-tone-2);
+}
+
+game-settings .stepper-buttons {
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--color-tone-4);
+}
+
+game-settings .stepper-buttons button {
+    border: none;
+    background: transparent;
+    color: var(--color-tone-2);
+    width: 24px;
+    height: 15px;
+    line-height: 1;
+    font-size: 9px;
+    padding: 0;
+    cursor: pointer;
+}
+
+game-settings .stepper-buttons button:first-child {
+    border-bottom: 1px solid var(--color-tone-4);
+}
+
+game-settings .setting.disabled .stepper-buttons button {
+    cursor: not-allowed;
+    color: var(--color-tone-4);
+    pointer-events: none;
+}
+
 game-settings a, game-settings a:visited {
     color: var(--color-tone-2);
 }
@@ -1442,6 +1497,36 @@ game-toast .toast.dismissible {
        opt back in here so the close icon is actually clickable. */
     pointer-events: auto;
     padding-right: 48px;
+}
+
+game-toast .toast.with-actions {
+    /* Same opt-back-in as .dismissible -- the action buttons need clicks. */
+    pointer-events: auto;
+    text-align: center;
+}
+
+game-toast .toast-actions {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+game-toast .toast-actions button {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--color-tone-7);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--color-tone-7);
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+game-toast .toast-actions button.primary {
+    background-color: var(--color-tone-7);
+    color: var(--color-tone-1);
 }
 
 game-toast .close-icon {

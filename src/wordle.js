@@ -21,6 +21,14 @@
         return _allValidWordsSet;
     }
 
+    var _answerListSet = null;
+    function getAnswerListSet() {
+        if (!_answerListSet) {
+            _answerListSet = new Set(typeof sorted_answer_words !== "undefined" ? sorted_answer_words : []);
+        }
+        return _answerListSet;
+    }
+
     class GameTile extends HTMLElement {
         _letter = "";
         _state = "empty";
@@ -433,6 +441,14 @@
                     StorageController.preferences.set("remainingAnswersMode", event.target.value);
                 });
             });
+            // Handle "warn if guess is not in answer list" starting-line stepper
+            var startLineInput = this.querySelector("#warn-not-in-answer-list-start-line input");
+            this.querySelector("#warn-not-in-answer-list-start-line .stepper-up").addEventListener("click", () => {
+                this.setWarnStartLine(parseInt(startLineInput.value, 10) + 1);
+            });
+            this.querySelector("#warn-not-in-answer-list-start-line .stepper-down").addEventListener("click", () => {
+                this.setWarnStartLine(parseInt(startLineInput.value, 10) - 1);
+            });
             // Handle gameplay mode radio changes
             this.querySelectorAll('input[name="gameplay-mode"]').forEach((radio) => {
                 radio.addEventListener("change", (event) => {
@@ -460,6 +476,12 @@
                 afterGrid: afterGridVal
             };
             StorageController.preferences.set("shareTextAdditions", additions);
+        }
+
+        setWarnStartLine(value) {
+            value = Math.min(6, Math.max(1, value));
+            StorageController.preferences.set("warnGuessNotInAnswerListStartLine", value);
+            this.querySelector("#warn-not-in-answer-list-start-line input").value = value;
         }
 
         render() {
@@ -525,12 +547,29 @@
             var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
             var remainingModeRadio = this.querySelector('input[name="remaining-answers-mode"][value="' + remainingAnswersMode + '"]');
             if (remainingModeRadio) remainingModeRadio.checked = true;
+            // Warn-if-guess-not-in-answer-list preference (default off; normalize null to false)
+            var warnNotInAnswerList = StorageController.preferences.get("warnGuessNotInAnswerList");
+            if (warnNotInAnswerList === null) {
+                warnNotInAnswerList = false;
+                StorageController.preferences.set("warnGuessNotInAnswerList", false);
+            }
+            warnNotInAnswerList
+                ? this.querySelector("#warn-not-in-answer-list").setAttribute("checked", "")
+                : this.querySelector("#warn-not-in-answer-list").removeAttribute("checked");
+            this.querySelector("#warn-not-in-answer-list-line-setting").classList.toggle("disabled", !warnNotInAnswerList);
+            var warnStartLine = StorageController.preferences.get("warnGuessNotInAnswerListStartLine");
+            if (warnStartLine === null) {
+                warnStartLine = 1;
+                StorageController.preferences.set("warnGuessNotInAnswerListStartLine", 1);
+            }
+            this.querySelector("#warn-not-in-answer-list-start-line input").value = warnStartLine;
         }
     }
     customElements.define("game-settings", GameSettings);
 
     class GameToast extends HTMLElement {
         _duration;
+        actions;
 
         connectedCallback() {
             var toastDiv = document.createElement("div");
@@ -538,10 +577,29 @@
             this.appendChild(toastDiv);
             toastDiv.textContent = this.getAttribute("text");
 
-            // Dismissible toasts (errors the user may need time to read and
-            // copy) never auto-fade -- they wait for an explicit close-icon
-            // click instead of a timer race the user can lose.
-            if (this.hasAttribute("dismissible")) {
+            // Action toasts (the player must choose how to proceed) never
+            // auto-fade and never expose a bare close icon -- one of the
+            // action buttons is the only way to dismiss them.
+            if (this.actions && this.actions.length) {
+                toastDiv.classList.add("with-actions");
+                var actionsDiv = document.createElement("div");
+                actionsDiv.classList.add("toast-actions");
+                this.actions.forEach((action) => {
+                    var button = document.createElement("button");
+                    button.type = "button";
+                    button.textContent = action.label;
+                    action.primary && button.classList.add("primary");
+                    button.addEventListener("click", () => {
+                        toastDiv.classList.add("fade");
+                        action.handler && action.handler();
+                    });
+                    actionsDiv.appendChild(button);
+                });
+                toastDiv.appendChild(actionsDiv);
+            } else if (this.hasAttribute("dismissible")) {
+                // Dismissible toasts (errors the user may need time to read
+                // and copy) never auto-fade -- they wait for an explicit
+                // close-icon click instead of a timer race the user can lose.
                 toastDiv.classList.add("dismissible");
                 var closeIcon = document.createElement("div");
                 closeIcon.classList.add("close-icon");
@@ -1706,6 +1764,34 @@
                 }
             }
 
+            var rowNumber = evaluatedRowIndex + 1;
+            if (StorageController.preferences.get("warnGuessNotInAnswerList")
+                && rowNumber >= (StorageController.preferences.get("warnGuessNotInAnswerListStartLine") || 1)
+                && !getAnswerListSet().has(guess)) {
+                this._showNotInAnswerListToast(evaluatedRowIndex, guess, row, mode, prevGuesses);
+                return;
+            }
+
+            this._finishEvaluateRow(evaluatedRowIndex, guess, row, mode, prevGuesses);
+        }
+
+        _showNotInAnswerListToast(evaluatedRowIndex, guess, row, mode, prevGuesses) {
+            this.addActionToast(
+                guess.toUpperCase() + " is a legal word, but it's not in the list of possible answers.",
+                [
+                    { label: "Change my guess" },
+                    {
+                        label: "Use anyway",
+                        primary: true,
+                        handler: () => {
+                            this._finishEvaluateRow(evaluatedRowIndex, guess, row, mode, prevGuesses);
+                        }
+                    }
+                ]
+            );
+        }
+
+        _finishEvaluateRow(evaluatedRowIndex, guess, row, mode, prevGuesses) {
             this.canInput = false;
 
             var rawEvaluation = GameEvaluator.evaluateGuess(guess, this.answer);
@@ -1845,6 +1931,19 @@
             } else {
                 this.querySelector("#game-toaster").prepend(toast);
             }
+        }
+
+        // Like addToast, but presents one or more action buttons instead of
+        // auto-fading -- used when the player must choose how to proceed
+        // rather than just being informed of something. Goes into
+        // #system-toaster (not #game-toaster) so its buttons stay clickable
+        // above the login prompt, settings page, and other overlays that
+        // outrank the regular toast layer.
+        addActionToast(text, actions) {
+            var toast = document.createElement("game-toast");
+            toast.setAttribute("text", text);
+            toast.actions = actions;
+            this.querySelector("#system-toaster").prepend(toast);
         }
 
         sizeBoard() {
@@ -2367,6 +2466,9 @@
                     return;
                 case "suppress-login-prompt":
                     StorageController.preferences.set("suppressLoginPrompt", checked);
+                    return;
+                case "warn-not-in-answer-list":
+                    StorageController.preferences.set("warnGuessNotInAnswerList", checked);
                     return;
                 }
             });
@@ -3359,6 +3461,8 @@
             goofProtectionMode: true,
             hardMode: false,
             insaneMode: false,
+            warnGuessNotInAnswerList: false,
+            warnGuessNotInAnswerListStartLine: 1,
         },
         ICON_PATHS: ICON_PATHS,
         aggregateLetterEvaluations: GameEvaluator.aggregateLetterEvaluations,

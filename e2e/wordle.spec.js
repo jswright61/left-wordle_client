@@ -884,6 +884,104 @@ test.describe('Wordle E2E Tests', () => {
     });
   });
 
+  // ─── 11b. Warn If Guess Is Not In Answer List ───────────────────────────────
+  test.describe('Warn If Guess Is Not In Answer List', () => {
+    // Legal (in valid_guesses) but never an actual answer -- safe stand-ins
+    // for "guess is legal but not in the answer list" regardless of the day.
+    const NOT_ANSWER_WORD_1 = 'aahed';
+    const NOT_ANSWER_WORD_2 = 'aalii';
+
+    // Seeds localStorage before the app boots so the passkey login prompt
+    // never races with typing/submitting -- it opens asynchronously on load
+    // and, left unsuppressed, can swallow keystrokes or sit on top of the
+    // toast the same way it would for a real logged-out visitor.
+    async function freshGameWithPreferences(page, prefs) {
+      await page.addInitScript((p) => {
+        localStorage.setItem('preferences', JSON.stringify(Object.assign({ suppressLoginPrompt: true }, p)));
+      }, prefs);
+      await freshGame(page);
+    }
+
+    test('does not warn when the preference is off (default)', async ({ page }) => {
+      await freshGameWithPreferences(page, {});
+      await dismissHelpModal(page);
+
+      await submitWord(page, NOT_ANSWER_WORD_1);
+      await waitForTileReveal(page, 0);
+
+      expect(await page.locator('#system-toaster game-toast .toast-actions').count()).toBe(0);
+      expect(await getRowTileStates(page, 0)).not.toEqual(['tbd', 'tbd', 'tbd', 'tbd', 'tbd']);
+    });
+
+    test('shows a toast with Change my guess / Use anyway when enabled and past the starting line', async ({ page }) => {
+      await freshGameWithPreferences(page, { warnGuessNotInAnswerList: true, warnGuessNotInAnswerListStartLine: 1 });
+      await dismissHelpModal(page);
+
+      await submitWord(page, NOT_ANSWER_WORD_1);
+
+      const toast = page.locator('#system-toaster game-toast .toast-actions');
+      await expect(toast).toHaveCount(1, { timeout: 5000 });
+      await expect(page.getByRole('button', { name: 'Change my guess' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Use anyway' })).toBeVisible();
+
+      // Not evaluated yet -- the row is still awaiting the player's choice.
+      expect(await page.evaluate(() => document.querySelector('game-app').rowIndex)).toBe(0);
+      expect(await getRowTileStates(page, 0)).toEqual(['tbd', 'tbd', 'tbd', 'tbd', 'tbd']);
+      expect(await getRowTileLetters(page, 0)).toEqual(NOT_ANSWER_WORD_1.split(''));
+    });
+
+    test('Change my guess dismisses the toast and leaves the guess unsubmitted', async ({ page }) => {
+      await freshGameWithPreferences(page, { warnGuessNotInAnswerList: true, warnGuessNotInAnswerListStartLine: 1 });
+      await dismissHelpModal(page);
+
+      await submitWord(page, NOT_ANSWER_WORD_1);
+      await page.getByRole('button', { name: 'Change my guess' }).click();
+      await expect(page.locator('#system-toaster game-toast')).toHaveCount(0, { timeout: 5000 });
+
+      // Guess remains on the board exactly as typed, still unsubmitted.
+      expect(await page.evaluate(() => document.querySelector('game-app').rowIndex)).toBe(0);
+      expect(await getRowTileStates(page, 0)).toEqual(['tbd', 'tbd', 'tbd', 'tbd', 'tbd']);
+      expect(await getRowTileLetters(page, 0)).toEqual(NOT_ANSWER_WORD_1.split(''));
+
+      // The player can still edit the row -- it was never submitted.
+      for (let i = 0; i < 5; i++) await page.keyboard.press('Backspace');
+      await typeWord(page, 'crane');
+      expect(await page.evaluate(() => document.querySelector('game-app').rowIndex)).toBe(0);
+      expect(await getRowTileLetters(page, 0)).toEqual('crane'.split(''));
+    });
+
+    test('Use anyway proceeds with normal evaluation', async ({ page }) => {
+      await freshGameWithPreferences(page, { warnGuessNotInAnswerList: true, warnGuessNotInAnswerListStartLine: 1 });
+      await dismissHelpModal(page);
+
+      await submitWord(page, NOT_ANSWER_WORD_1);
+      await expect(page.locator('#system-toaster game-toast .toast-actions')).toHaveCount(1, { timeout: 5000 });
+      await page.getByRole('button', { name: 'Use anyway' }).click();
+      await waitForRowEvaluation(page);
+
+      expect(await getRowTileStates(page, 0)).not.toEqual(['tbd', 'tbd', 'tbd', 'tbd', 'tbd']);
+      expect(await page.evaluate(() => document.querySelector('game-app').rowIndex)).toBe(1);
+    });
+
+    test('starting line gates which rows trigger the warning', async ({ page }) => {
+      await freshGameWithPreferences(page, { warnGuessNotInAnswerList: true, warnGuessNotInAnswerListStartLine: 2 });
+      await dismissHelpModal(page);
+
+      // Line 1 is below the starting line -- evaluates normally, no toast.
+      await submitWord(page, NOT_ANSWER_WORD_1);
+      // canInput (not just the tile flip animation) is the signal that the
+      // board is ready for the next row's input -- see waitForRowEvaluation.
+      await waitForRowEvaluation(page);
+      expect(await page.locator('#system-toaster game-toast .toast-actions').count()).toBe(0);
+      expect(await page.evaluate(() => document.querySelector('game-app').rowIndex)).toBe(1);
+
+      // Line 2 meets the starting line -- the warning fires.
+      await submitWord(page, NOT_ANSWER_WORD_2);
+      await expect(page.locator('#system-toaster game-toast .toast-actions')).toHaveCount(1, { timeout: 5000 });
+      expect(await page.evaluate(() => document.querySelector('game-app').rowIndex)).toBe(1);
+    });
+  });
+
   // ─── 12. Dark Mode ─────────────────────────────────────────────────────────
   test.describe('Dark Mode', () => {
     test('toggling dark mode applies nightmode class', async ({ page }) => {
