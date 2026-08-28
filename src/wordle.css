@@ -1039,8 +1039,10 @@ game-settings .setting.disabled .text {
 }
 
 game-settings .stepper {
-    display: flex;
+    display: inline-flex;
+    vertical-align: middle;
     align-items: stretch;
+    margin: 0 2px;
     border: 1px solid var(--color-tone-4);
     border-radius: 4px;
     overflow: hidden;

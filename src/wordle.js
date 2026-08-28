@@ -556,11 +556,11 @@
             warnNotInAnswerList
                 ? this.querySelector("#warn-not-in-answer-list").setAttribute("checked", "")
                 : this.querySelector("#warn-not-in-answer-list").removeAttribute("checked");
-            this.querySelector("#warn-not-in-answer-list-line-setting").classList.toggle("disabled", !warnNotInAnswerList);
+            this.querySelector("#warn-not-in-answer-list-setting").classList.toggle("disabled", !warnNotInAnswerList);
             var warnStartLine = StorageController.preferences.get("warnGuessNotInAnswerListStartLine");
             if (warnStartLine === null) {
-                warnStartLine = 1;
-                StorageController.preferences.set("warnGuessNotInAnswerListStartLine", 1);
+                warnStartLine = 3;
+                StorageController.preferences.set("warnGuessNotInAnswerListStartLine", 3);
             }
             this.querySelector("#warn-not-in-answer-list-start-line input").value = warnStartLine;
         }
@@ -1766,7 +1766,7 @@
 
             var rowNumber = evaluatedRowIndex + 1;
             if (StorageController.preferences.get("warnGuessNotInAnswerList")
-                && rowNumber >= (StorageController.preferences.get("warnGuessNotInAnswerListStartLine") || 1)
+                && rowNumber >= (StorageController.preferences.get("warnGuessNotInAnswerListStartLine") || 3)
                 && !getAnswerListSet().has(guess)) {
                 this._showNotInAnswerListToast(evaluatedRowIndex, guess, row, mode, prevGuesses);
                 return;
@@ -3462,7 +3462,7 @@
             hardMode: false,
             insaneMode: false,
             warnGuessNotInAnswerList: false,
-            warnGuessNotInAnswerListStartLine: 1,
+            warnGuessNotInAnswerListStartLine: 3,
         },
         ICON_PATHS: ICON_PATHS,
         aggregateLetterEvaluations: GameEvaluator.aggregateLetterEvaluations,

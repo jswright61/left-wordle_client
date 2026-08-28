@@ -443,28 +443,22 @@
               <game-switch id="suppress-login-prompt" name="suppress-login-prompt"></game-switch>
             </div>
           </div>
-          <div class="setting">
+          <div class="setting" id="warn-not-in-answer-list-setting">
             <div class="text">
-              <div class="title">Warn if Guess Is Not in Answer List</div>
+              <div class="title">
+                Warn on Non-Answers, Starting Line:
+                <span class="stepper" id="warn-not-in-answer-list-start-line">
+                  <input type="text" inputmode="none" readonly value="3" aria-label="Starting line">
+                  <span class="stepper-buttons">
+                    <button type="button" class="stepper-up" aria-label="Increase starting line">&#9650;</button>
+                    <button type="button" class="stepper-down" aria-label="Decrease starting line">&#9660;</button>
+                  </span>
+                </span>
+              </div>
               <div class="description">Before submitting a legal guess that isn't a possible answer, ask whether to change it or use it anyway</div>
             </div>
             <div class="control">
               <game-switch id="warn-not-in-answer-list" name="warn-not-in-answer-list"></game-switch>
-            </div>
-          </div>
-          <div class="setting" id="warn-not-in-answer-list-line-setting">
-            <div class="text">
-              <div class="title">Starting Line</div>
-              <div class="description">Only warn starting on this line</div>
-            </div>
-            <div class="control">
-              <div class="stepper" id="warn-not-in-answer-list-start-line">
-                <input type="text" inputmode="none" readonly value="1" aria-label="Starting line">
-                <div class="stepper-buttons">
-                  <button type="button" class="stepper-up" aria-label="Increase starting line">&#9650;</button>
-                  <button type="button" class="stepper-down" aria-label="Decrease starting line">&#9660;</button>
-                </div>
-              </div>
             </div>
           </div>
           <h3 class="section-heading">Show Remaining Answers</h3>
