@@ -1873,6 +1873,50 @@
             }
         }
 
+        // answersRemaining is only ever populated live, per guess, gated on
+        // whichever remainingAnswersMode was active at that exact moment
+        // (see evaluateRow's _fireRemainingCountRequest call). Switching to a
+        // mode that needs it -- e.g. going to share a game that was played
+        // under "neither" -- leaves already-evaluated rows permanently null
+        // otherwise, since nothing re-fetches them after the fact. This
+        // recomputes any missing ones from the guesses already on the board,
+        // the same way evaluateRow does live, sequentially so each row's
+        // prevGuesses reflects the ones backfilled just before it.
+        async backfillAnswersRemaining() {
+            var completedState = GameStateManager.getGameState();
+            var isHardMode = completedState.completedInHardMode != null ? completedState.completedInHardMode : this.hardMode;
+            var isInsaneMode = completedState.completedInInsaneMode != null ? completedState.completedInInsaneMode : this.insaneMode;
+            var mode = isInsaneMode ? "insane" : isHardMode ? "hard" : "regular";
+            var evaluatedRows = this.evaluations.reduce(function(count, ev) { return ev ? count + 1 : count; }, 0);
+            var changed = false;
+            for (var i = 0; i < evaluatedRows; i++) {
+                if (typeof this.answersRemaining[i] === "number") continue;
+                if (this.gameStatus === GAME_STATUS_WIN && i === this.rowIndex - 1) {
+                    this.answersRemaining[i] = 0;
+                    changed = true;
+                    continue;
+                }
+                try {
+                    var result = await window.LeftWordleApi.gameplay.evaluate({
+                        date: DateUtils.formatLocalDate(this.today),
+                        guess: this.boardState[i],
+                        puzzleNum: this.dayOffset,
+                        rowIndex: i + 1,
+                        mode: mode,
+                        prevGuesses: this.buildPrevGuesses(i),
+                        returnRemainingCount: true
+                    });
+                    if (typeof result.answersRemaining === "number") {
+                        this.answersRemaining[i] = result.answersRemaining;
+                        changed = true;
+                    }
+                } catch (e) {}
+            }
+            if (changed && !this.isHistoryPlay) {
+                GameStateManager.saveGameState({ answersRemaining: this.answersRemaining });
+            }
+        }
+
         addLetter(letter) {
             if (this.gameStatus !== GAME_STATUS_IN_PROGRESS) return;
             if (!this.canInput || this.awaitingOnlineProgressSync) return;
@@ -3198,6 +3242,7 @@
             var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
             var shareAnswersRemaining = null;
             if (remainingAnswersMode === "sharetext" || remainingAnswersMode === "both") {
+                await this.gameApp.backfillAnswersRemaining();
                 shareAnswersRemaining = this.gameApp.answersRemaining;
             }
             var completedState = GameStateManager.getGameState();
