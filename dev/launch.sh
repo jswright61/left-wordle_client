@@ -12,6 +12,7 @@ repo_root="$(cd "$script_dir/.." && pwd)"
 custom="$repo_root/devbin/launch.rb"
 
 if [[ -f "$custom" ]]; then
+    echo "Executing custom launch from devbin/"
     exec ruby "$custom" "$@"
 fi
 
