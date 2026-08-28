@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "optparse"
+require "tmpdir"
 
 # Bare-bones launcher for the API (rackup) and Caddy together, so the client
 # is reachable at https://left-wordle.test -- see
@@ -70,11 +71,35 @@ end
 
 # pid => label, for both the cleanup trap and the "who died" message below.
 names = {}
+tail_pid = nil
+
+# sudo always runs caddy in its own pty (see `sudo -V`: "Always run commands
+# in a pseudo-tty") and relays it to ours -- for caddy's whole run, not just
+# around the sudo prompt. That relay puts *our* real terminal into raw mode
+# for as long as caddy is up, which mangles rackup's plain \n writes (no \r
+# added) the entire time. Redirecting caddy's own output to a file instead
+# of our terminal keeps sudo's relay off our terminal entirely; a plain
+# `tail -f` (writing straight to our terminal, no pty of its own) streams
+# caddy's log back to us instead.
+caddy_log = File.join(Dir.tmpdir, "left_wordle_caddy_dev_#{port}.log")
+File.write(caddy_log, "")
 
 at_exit do
   names.each_key do |pid|
     Process.kill("TERM", pid)
   rescue Errno::ESRCH
+    nil
+  end
+
+  begin
+    Process.kill("TERM", tail_pid) if tail_pid
+  rescue Errno::ESRCH
+    nil
+  end
+
+  begin
+    File.delete(caddy_log)
+  rescue Errno::ENOENT
     nil
   end
 end
@@ -95,17 +120,39 @@ Dir.chdir(API_DIR) do
   # -E carries LEFT_WORDLE_API_PORT through sudo so the Caddyfile's
   # reverse_proxy target (see config/caddy/dev/Caddyfile) matches rackup's
   # actual port when it isn't the default.
-  names[Process.spawn(
-    {"LEFT_WORDLE_API_PORT" => port.to_s},
-    "sudo", "-E", "caddy", "run", "--config", "config/caddy/dev/Caddyfile"
-  )] = "caddy"
+  #
+  # sudo always runs its command in its own pty (see `sudo -V`: "Always run
+  # commands in a pseudo-tty") and, to forward keystrokes into it faithfully,
+  # puts *our* controlling terminal into raw mode for as long as sudo runs --
+  # via its inherited stdin, independent of where its stdout points.
+  # Redirecting stdout/stderr to caddy_log alone doesn't stop that. Forking
+  # and calling Process.setsid before exec detaches this process from our
+  # session entirely, so it has no controlling terminal left to raw-mode.
+  caddy_pid = fork do
+    Process.setsid
+    $stdin.reopen(File::NULL)
+    $stdout.reopen(caddy_log, "a")
+    $stderr.reopen(caddy_log, "a")
+    Kernel.exec(
+      {"LEFT_WORDLE_API_PORT" => port.to_s},
+      "sudo", "-E", "caddy", "run", "--config", "config/caddy/dev/Caddyfile"
+    )
+  end
+  names[caddy_pid] = "caddy"
 end
+
+tail_pid = Process.spawn("tail", "-n", "+1", "-f", caddy_log)
 
 # Whichever of the two exits first (crash, port conflict inside rackup,
 # sudo/caddy failing to bind, etc.) takes the other down with it via the
-# at_exit trap above -- neither is meant to run without the other.
-exited_pid, status = Process.wait2
-name = names.delete(exited_pid)
-detail = status.exited? ? "exit status #{status.exitstatus}" : "signal #{status.termsig}"
-warn "#{name} exited (#{detail}) -- stopping the other process."
-exit(status.success? ? 0 : 1)
+# at_exit trap above -- neither is meant to run without the other. Loops
+# past tail_pid exiting (untracked -- not one of the two that matter here).
+loop do
+  exited_pid, status = Process.wait2
+  next unless names.key?(exited_pid)
+
+  name = names.delete(exited_pid)
+  detail = status.exited? ? "exit status #{status.exitstatus}" : "signal #{status.termsig}"
+  warn "#{name} exited (#{detail}) -- stopping the other process."
+  exit(status.success? ? 0 : 1)
+end
