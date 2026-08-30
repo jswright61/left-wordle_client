@@ -1,9 +1,25 @@
 "use strict";
 
 class PuzzleResolver {
+    // answerList is play-ordered (index == puzzle_num) and OPTIONAL: the
+    // client bundle deliberately stopped shipping answer_list.js (only the
+    // alphabetized answer_list_sorted.js, so the bundle can't reveal the
+    // puzzle_num -> word sequence), so in the browser this starts null and
+    // is populated lazily from the API via ToolsMenu#ensureAnswerList.
+    // Every method that consults it must degrade gracefully when it's
+    // absent: derivation/cross-validation of `answer` is skipped rather
+    // than thrown on.
     constructor(answerList, puzzleStartDate) {
-        this.answerList = answerList;
+        this.answerList = Array.isArray(answerList) ? answerList : null;
         this.puzzleStartDate = puzzleStartDate;
+    }
+
+    hasAnswerList() {
+        return Array.isArray(this.answerList) && this.answerList.length > 0;
+    }
+
+    setAnswerList(list) {
+        if (Array.isArray(list) && list.length) this.answerList = list;
     }
 
     formatLocalDate(date) {
@@ -31,14 +47,20 @@ class PuzzleResolver {
     }
 
     answerToPuzzleNum(answer) {
+        if (!this.hasAnswerList()) return null;
         if (!answer || typeof answer !== "string") return null;
         var idx = this.answerList.indexOf(answer.toLowerCase());
         return idx >= 0 ? idx : null;
     }
 
+    // No modulo wrap: the API-fetched list only covers published (previous
+    // days') puzzles, so an index past its end is an unpublished/unknown
+    // answer, not a wrapped repeat -- the server's prev_answers data
+    // already includes any wrapped words in sequence.
     puzzleNumToAnswer(puzzleNum) {
+        if (!this.hasAnswerList()) return null;
         if (!Number.isFinite(puzzleNum) || puzzleNum < 0) return null;
-        return this.answerList[puzzleNum % this.answerList.length];
+        return this.answerList[puzzleNum] !== undefined ? this.answerList[puzzleNum] : null;
     }
 
     safeParseJSON(str, fallback) {
@@ -287,9 +309,12 @@ class PuzzleResolver {
             }
         }
 
+        // Answer cross-checks are skipped (expected === null) when the
+        // answer list is unavailable or doesn't cover this puzzle yet --
+        // "can't verify" must not flag an otherwise-valid row.
         if (hasPuzzleNum && hasAnswer) {
             var expectedAnswer = this.puzzleNumToAnswer(puzzleNum);
-            if (expectedAnswer !== answer) {
+            if (expectedAnswer !== null && expectedAnswer !== answer) {
                 flag = "puzzle_num " + puzzleNum + " maps to answer \"" + expectedAnswer + "\", not \"" + answer + "\"";
             }
         }
@@ -300,7 +325,7 @@ class PuzzleResolver {
                 flag = "date " + date + " is before puzzle start";
             } else {
                 var expectedFromDate = this.puzzleNumToAnswer(derivedFromDate);
-                if (expectedFromDate !== answer) {
+                if (expectedFromDate !== null && expectedFromDate !== answer) {
                     flag = "date " + date + " (puzzle #" + derivedFromDate + ") maps to answer \"" + expectedFromDate + "\", not \"" + answer + "\"";
                 }
             }
@@ -320,7 +345,12 @@ class PuzzleResolver {
         if (!hasPuzzleNum && !hasDate && hasAnswer) {
             puzzleNum = this.answerToPuzzleNum(answer);
             if (puzzleNum === null) {
-                return { entry: null, flag: "answer \"" + answer + "\" not found in answer list" };
+                return {
+                    entry: null,
+                    flag: this.hasAnswerList()
+                        ? "answer \"" + answer + "\" not found in answer list"
+                        : "answer \"" + answer + "\" can't be resolved (answer list unavailable) — include puzzle_num or date"
+                };
             }
         }
         if (!hasDate) {
@@ -579,6 +609,39 @@ class ToolsMenu {
         this.resolver = historyManager.resolver;
     }
 
+    // The play-ordered answer list is deliberately not shipped in the
+    // client bundle (only the alphabetized answer_list_sorted.js is, so
+    // the bundle can't reveal the puzzle_num -> word sequence). Import and
+    // account-export still want it -- to cross-validate/derive `answer`
+    // fields -- so fetch the published sequence (previous days only, never
+    // today's still-active answer) from the API on first use. Best-effort:
+    // on any failure the resolver simply stays list-less and degrades
+    // gracefully (see PuzzleResolver), which keeps import/export working
+    // offline for puzzle_num/date-keyed rows.
+    async ensureAnswerList() {
+        if (this.resolver.hasAnswerList()) return;
+        if (typeof fetch !== "function") return;
+        try {
+            var config = window.LEFT_WORDLE_CONFIG || {};
+            var baseUrl = String(config.apiBaseUrl || "").replace(/\/+$/, "");
+            var dateStr = this.resolver.formatLocalDate(new Date());
+            var response = await fetch(baseUrl + "/api/v1/ref/prev_answers?date=" + dateStr);
+            if (!response.ok) return;
+            var records = await response.json();
+            if (!Array.isArray(records)) return;
+            var list = [];
+            records.forEach(function(record) {
+                var num = record ? Number(record.puzzle_number) : NaN;
+                if (Number.isFinite(num) && num >= 0 && typeof record.word === "string") {
+                    list[num] = record.word.toLowerCase();
+                }
+            });
+            this.resolver.setAnswerList(list);
+        } catch (e) {
+            // Offline or blocked -- the resolver degrades gracefully.
+        }
+    }
+
     static showStatus(element, message, isError) {
         if (!element) return;
         element.textContent = message;
@@ -722,6 +785,7 @@ class ToolsMenu {
         ToolsMenu.flashElement(loadButtonElement);
 
         try {
+            await this.ensureAnswerList();
             var text = await file.text();
             var rawRecords = this.resolver.parseImportRecords(text, file.name);
             if (!rawRecords.length) {
@@ -1028,6 +1092,9 @@ class ToolsMenu {
             var loggedIn = this.isLoggedIn();
             var exportData;
             if (loggedIn) {
+                // The account export re-derives `answer` from puzzle_num
+                // (serverHistoryToExportEntries) -- needs the fetched list.
+                await this.ensureAnswerList();
                 var serverHistory = await window.LeftWordleApi.client.getHistory();
                 var entries = this.serverHistoryToExportEntries(serverHistory);
                 exportData = (format === "csv")

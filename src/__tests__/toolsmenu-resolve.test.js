@@ -78,9 +78,12 @@ describe('puzzleNumToAnswer', () => {
         expect(resolver.puzzleNumToAnswer(1)).toBe('rebut');
     });
 
-    test('wraps around answer list', () => {
+    test('returns null past the end of the list (unpublished answers are unknown, not wrapped)', () => {
+        // The production list comes from /api/v1/ref/prev_answers, which
+        // already bakes any wrap into the sequence and only covers
+        // published days -- an out-of-range index means "unknown".
         var listLen = dom.window.answer_list.length;
-        expect(resolver.puzzleNumToAnswer(listLen)).toBe('cigar');
+        expect(resolver.puzzleNumToAnswer(listLen)).toBeNull();
     });
 
     test('returns null for invalid input', () => {
@@ -220,6 +223,118 @@ describe('resolveAndValidateEntry', () => {
     test('flags empty string for all deterministic fields', () => {
         var res = resolver.resolveAndValidateEntry({ puzzle_num: '', date: '', answer: '', result: 3 }, 0);
         expect(res.flag).toBe('missing puzzle_num, date, and answer');
+    });
+});
+
+// In the browser, answer_list.js is NOT loaded (index.html deliberately
+// ships only the alphabetized answer_list_sorted.js), so the bootstrap
+// constructs PuzzleResolver with window.answer_list === undefined and the
+// list arrives later, if at all, via ToolsMenu#ensureAnswerList. This
+// suite exercises that production condition -- the earlier suites, which
+// hand the resolver a full list, must never be the only coverage (that's
+// exactly what masked the import/export crash this guards against).
+describe('PuzzleResolver without an answer list (production condition)', () => {
+    var listlessResolver = new dom.window.toolsmenuTestExports.PuzzleResolver(undefined, dom.window.PUZZLE_START_DATE);
+
+    test('hasAnswerList is false', () => {
+        expect(listlessResolver.hasAnswerList()).toBe(false);
+    });
+
+    test('answerToPuzzleNum and puzzleNumToAnswer return null instead of throwing', () => {
+        expect(listlessResolver.answerToPuzzleNum('cigar')).toBeNull();
+        expect(listlessResolver.puzzleNumToAnswer(0)).toBeNull();
+    });
+
+    test('resolves a puzzle_num row, leaving answer null', () => {
+        var res = listlessResolver.resolveAndValidateEntry({ puzzle_num: 0, result: 3 }, 0);
+        expect(res.flag).toBeNull();
+        expect(res.entry.puzzle_num).toBe(0);
+        expect(res.entry.date).toBe('2021-06-19');
+        expect(res.entry.answer).toBeNull();
+    });
+
+    test('resolves a date row, leaving answer null', () => {
+        var res = listlessResolver.resolveAndValidateEntry({ date: '2021-06-20', result: 4 }, 0);
+        expect(res.flag).toBeNull();
+        expect(res.entry.puzzle_num).toBe(1);
+        expect(res.entry.answer).toBeNull();
+    });
+
+    test('keeps a provided answer without flagging (cross-validation is skipped, not failed)', () => {
+        var res = listlessResolver.resolveAndValidateEntry({ puzzle_num: 0, answer: 'cigar', result: 3 }, 0);
+        expect(res.flag).toBeNull();
+        expect(res.entry.answer).toBe('cigar');
+    });
+
+    test('flags an answer-only row as unresolvable, with a message that explains why', () => {
+        var res = listlessResolver.resolveAndValidateEntry({ answer: 'cigar', result: 3 }, 0);
+        expect(res.entry).toBeNull();
+        expect(res.flag).toContain('answer list unavailable');
+    });
+
+    test('importRecords imports puzzle_num/date rows end-to-end without throwing', () => {
+        dom.window.localStorage.clear();
+        var manager = new dom.window.toolsmenuTestExports.HistoryManager(listlessResolver);
+        var result = manager.importRecords([
+            { puzzle_num: 0, result: 3 },
+            { date: '2021-06-20', result: 7 }
+        ]);
+        expect(result.addedCount).toBe(2);
+        expect(result.flaggedRows).toHaveLength(0);
+    });
+});
+
+describe('ToolsMenu#ensureAnswerList', () => {
+    var { ToolsMenu, HistoryManager, PuzzleResolver } = dom.window.toolsmenuTestExports;
+    var menu, resolver;
+
+    beforeEach(() => {
+        dom.window.localStorage.clear();
+        resolver = new PuzzleResolver(undefined, dom.window.PUZZLE_START_DATE);
+        menu = new ToolsMenu(new HistoryManager(resolver));
+        dom.window.LEFT_WORDLE_CONFIG = { apiBaseUrl: 'https://api.example' };
+    });
+
+    afterEach(() => {
+        delete dom.window.LEFT_WORDLE_CONFIG;
+        delete dom.window.fetch;
+    });
+
+    test('fetches the published sequence from prev_answers and populates the resolver', async () => {
+        dom.window.fetch = jest.fn(() => Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve([
+                { puzzle_number: 0, date: '2021-06-19', word: 'cigar' },
+                { puzzle_number: 1, date: '2021-06-20', word: 'rebut' }
+            ])
+        }));
+
+        await menu.ensureAnswerList();
+
+        expect(dom.window.fetch).toHaveBeenCalledTimes(1);
+        expect(dom.window.fetch.mock.calls[0][0]).toMatch(/^https:\/\/api\.example\/api\/v1\/ref\/prev_answers\?date=\d{4}-\d{2}-\d{2}$/);
+        expect(resolver.hasAnswerList()).toBe(true);
+        expect(resolver.puzzleNumToAnswer(1)).toBe('rebut');
+        expect(resolver.answerToPuzzleNum('CIGAR')).toBe(0);
+    });
+
+    test('does not re-fetch once the resolver has a list', async () => {
+        resolver.setAnswerList(['cigar']);
+        dom.window.fetch = jest.fn();
+        await menu.ensureAnswerList();
+        expect(dom.window.fetch).not.toHaveBeenCalled();
+    });
+
+    test('degrades gracefully when the fetch fails', async () => {
+        dom.window.fetch = jest.fn(() => Promise.reject(new Error('offline')));
+        await expect(menu.ensureAnswerList()).resolves.toBeUndefined();
+        expect(resolver.hasAnswerList()).toBe(false);
+    });
+
+    test('degrades gracefully on a non-OK response', async () => {
+        dom.window.fetch = jest.fn(() => Promise.resolve({ ok: false }));
+        await menu.ensureAnswerList();
+        expect(resolver.hasAnswerList()).toBe(false);
     });
 });
 
