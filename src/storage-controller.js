@@ -24,6 +24,13 @@ var SCHEMA = {
         warnGuessNotInAnswerListStartLine: "number"
     },
     gameState: {
+        // Client-minted UUIDv7, one per game, created when the game starts
+        // (see wordle.js). Captured now so that history entries carry a
+        // stable per-game identity ahead of the server-side ownership
+        // rework; nothing is sent to the API for it yet. UUIDv7 sorts by
+        // creation time, so an imported backup keeps true play order rather
+        // than collapsing to server-arrival order.
+        gameId:                     "string",
         puzzleNum:                  "number",
         date:                       "string",
         rowIndex:                   "number",

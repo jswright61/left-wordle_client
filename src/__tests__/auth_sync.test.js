@@ -59,6 +59,7 @@ describe('serverHistoryToLocalHistory', () => {
             completed_at: '2021-09-27T14:00:00Z',
             updated_at: null,
             device_id: null,
+            game_id: null,
             origin: 'server'
         });
         expect(local['101'].result).toBe(7);

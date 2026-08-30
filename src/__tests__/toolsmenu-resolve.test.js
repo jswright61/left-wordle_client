@@ -233,6 +233,32 @@ describe('resolveAndValidateEntry', () => {
 // suite exercises that production condition -- the earlier suites, which
 // hand the resolver a full list, must never be the only coverage (that's
 // exactly what masked the import/export crash this guards against).
+describe('game_id preservation through import', () => {
+    test('preserves a game_id from the import file', () => {
+        var out = resolver.resolveAndValidateEntry({
+            puzzle_num: 100, result: 3, game_id: '019287e4-0f00-7a1b-9c3d-1f2e3d4c5b6a'
+        }, 0);
+        expect(out.entry.game_id).toBe('019287e4-0f00-7a1b-9c3d-1f2e3d4c5b6a');
+    });
+
+    test('accepts the camelCase spelling too', () => {
+        var out = resolver.resolveAndValidateEntry({
+            puzzle_num: 101, result: 4, gameId: '019287e4-0f00-7a1b-9c3d-1f2e3d4c5b6b'
+        }, 0);
+        expect(out.entry.game_id).toBe('019287e4-0f00-7a1b-9c3d-1f2e3d4c5b6b');
+    });
+
+    test('is null when the file has no game_id -- never invented', () => {
+        var out = resolver.resolveAndValidateEntry({ puzzle_num: 102, result: 5 }, 0);
+        expect(out.entry.game_id).toBeNull();
+    });
+
+    test('ignores a blank or non-string game_id', () => {
+        expect(resolver.resolveAndValidateEntry({ puzzle_num: 103, result: 2, game_id: '  ' }, 0).entry.game_id).toBeNull();
+        expect(resolver.resolveAndValidateEntry({ puzzle_num: 104, result: 2, game_id: 42 }, 0).entry.game_id).toBeNull();
+    });
+});
+
 describe('PuzzleResolver without an answer list (production condition)', () => {
     var listlessResolver = new dom.window.toolsmenuTestExports.PuzzleResolver(undefined, dom.window.PUZZLE_START_DATE);
 

@@ -63,6 +63,11 @@ class PuzzleResolver {
         return this.answerList[puzzleNum] !== undefined ? this.answerList[puzzleNum] : null;
     }
 
+    normalizeGameId(raw) {
+        var value = raw && (raw.game_id !== undefined ? raw.game_id : raw.gameId);
+        return (typeof value === "string" && value.trim()) ? value.trim() : null;
+    }
+
     safeParseJSON(str, fallback) {
         try {
             return JSON.parse(str);
@@ -371,6 +376,10 @@ class PuzzleResolver {
                 completed_at: null,
                 updated_at: null,
                 device_id: null,
+                // Preserved, never derived: a game_id in an import file was
+                // minted by the device that played the game, and re-minting
+                // one here would invent a play time that never happened.
+                game_id: this.normalizeGameId(raw),
                 origin: null
             },
             flag: null
@@ -395,6 +404,7 @@ class HistoryManager {
             "completed_at",
             "updated_at",
             "device_id",
+            "game_id",
             "origin"
         ];
     }
@@ -1082,6 +1092,7 @@ class ToolsMenu {
                 completed_at: entry.completed_at || null,
                 updated_at: null,
                 device_id: null,
+                game_id: null,
                 origin: "server"
             };
         });

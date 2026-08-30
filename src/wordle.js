@@ -202,6 +202,7 @@
 
     class GameStateManager {
         static DEFAULT_GAME_STATE = {
+            gameId: null,
             boardState: null,
             evaluations: null,
             rowIndex: null,
@@ -1342,6 +1343,11 @@
                 completed_at: completedAt,
                 updated_at: Date.now(),
                 device_id: GameStateManager.getDeviceId(),
+                // Read from the game being completed rather than threaded
+                // through every caller. Null for an online device, which
+                // doesn't write game data to local storage at all -- those
+                // ids will come from the server once it stores them.
+                game_id: GameStateManager.getGameState().gameId || null,
                 origin: "played"
             };
 
@@ -1580,7 +1586,11 @@
                     if (GameStateManager.isNewUser() && StorageController.preferences.get("shareFormat") === null) {
                         StorageController.preferences.set("shareFormat", "both");
                     }
+                    // A game's identity, minted once at the moment play
+                    // starts so its UUIDv7 timestamp is the real play time.
+                    this.gameId = GameStateManager.generateUuidV7();
                     GameStateManager.saveGameState({
+                        gameId: this.gameId,
                         rowIndex: this.rowIndex,
                         boardState: this.boardState,
                         evaluations: this.evaluations,
@@ -1596,6 +1606,12 @@
                     });
                 }
             } else {
+                // A game already in progress when this shipped has no id;
+                // mint one now and persist it once so it still gets captured.
+                // Its timestamp is later than the true start, which only
+                // affects ordering against games played the same day.
+                this.gameId = state.gameId || GameStateManager.generateUuidV7();
+                if (!state.gameId) GameStateManager.saveGameState({gameId: this.gameId});
                 this.boardState = state.boardState;
                 this.evaluations = state.evaluations;
                 this.rowIndex = state.rowIndex;

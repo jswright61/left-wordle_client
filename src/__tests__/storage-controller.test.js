@@ -142,6 +142,35 @@ describe('StorageController', () => {
         expect(storage.deviceId.get()).toBe('device-1');
     });
 
+    // gameState is schema-validated, so an unknown key throws rather than
+    // being stored -- these guard the game_id capture against silently
+    // failing to persist.
+    describe('gameState.gameId', () => {
+        test('accepts a gameId through set, merge and replace', () => {
+            const dom = loadController();
+            const id = '019287e4-0f00-7a1b-9c3d-1f2e3d4c5b6a';
+            expect(() => dom.window.StorageController.gameState.set('gameId', id)).not.toThrow();
+            expect(dom.window.StorageController.gameState.get('gameId')).toBe(id);
+
+            expect(() => dom.window.StorageController.gameState.merge({ gameId: id })).not.toThrow();
+            expect(() => dom.window.StorageController.gameState.replace({ gameId: id })).not.toThrow();
+            expect(dom.window.StorageController.gameState.getAll()).toEqual({ gameId: id });
+        });
+
+        test('rejects a non-string gameId', () => {
+            const dom = loadController();
+            expect(() => dom.window.StorageController.gameState.set('gameId', 12345)).toThrow();
+        });
+
+        test('survives a round trip through raw localStorage', () => {
+            const dom = loadController();
+            const id = '019287e4-0f00-7a1b-9c3d-1f2e3d4c5b6a';
+            dom.window.StorageController.gameState.set('gameId', id);
+            const raw = JSON.parse(dom.window.localStorage.getItem('gameState'));
+            expect(raw.gameId).toBe(id);
+        });
+    });
+
     describe('settingsBackup', () => {
         test('uses appVersion-pre as key when no version is stored', () => {
             const dom = loadController((storage) => {

@@ -293,6 +293,9 @@
                 completed_at: entry.completed_at || null,
                 updated_at: null,
                 device_id: null,
+                // The server doesn't store game_id yet; the key is present
+                // so every history entry has one consistent shape.
+                game_id: null,
                 origin: "server"
             };
         });
