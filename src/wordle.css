@@ -9,6 +9,11 @@
     --darkGray: #939598;
     --white: #fff;
     --black: #212121;
+    /* Error/destructive text. Not a --color-tone-*: it doesn't flip with
+       the light/dark palette. Was hardcoded in four places (this file's
+       #adjust-stats-error, index.html's device-link warning, login_ui.js's
+       setStatus, and the admin tool pages) before being named here. */
+    --color-error: #d64242;
     /* Colorblind colors */
     --orange: #f5793a;
     --blue: #85c0f9;
@@ -1758,6 +1763,22 @@ game-icon {
     min-height: 20px;
 }
 
+/* setStatus() in login_ui.js and ToolsMenu.showStatus() toggle this instead
+   of assigning element.style.color, so the error red lives here with the
+   rest of the palette rather than being duplicated in JS.
+
+   The id-prefixed selectors are load-bearing, not decoration: the base rule
+   above is `#tools .tools-status-message` (0,1,1,0), so a bare
+   `.tools-status-message.is-error` (0,0,2,0) loses to it and the error color
+   silently never applies. Verified in-browser, not assumed. */
+#tools .tools-status-message.is-error,
+#login .tools-status-message.is-error,
+#login-link-landing .tools-status-message.is-error,
+.tools-status-message.is-error,
+.is-error {
+    color: var(--color-error);
+}
+
 .tools-inline-modal {
     position: fixed;
     inset: 0;
@@ -2013,7 +2034,7 @@ game-icon {
 #adjust-stats-error {
     min-height: 18px;
     margin-top: 10px;
-    color: #d64242;
+    color: var(--color-error);
 }
 
 .stats-adjust-link-row {

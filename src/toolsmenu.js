@@ -655,7 +655,7 @@ class ToolsMenu {
     static showStatus(element, message, isError) {
         if (!element) return;
         element.textContent = message;
-        element.style.color = isError ? "#d64242" : "";
+        element.classList.toggle("is-error", !!isError);
     }
 
     static flashElement(element) {

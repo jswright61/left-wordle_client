@@ -146,3 +146,66 @@ td {
     position: relative;
     top: -1px;
 }
+
+/* release-notes.html only. Scoped to .release-notes because <section> is
+   plain grouping markup the other content pages are free to use without
+   inheriting this page's dividers -- and because the h2 here is a version
+   number heading a block, not content-page.css's numbered section heading,
+   so it needs a different size and no top margin. */
+.release-notes section {
+    padding: 20px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.release-notes section:first-of-type {
+    padding-top: 0;
+}
+
+.release-notes h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.03rem;
+    margin: 0;
+}
+
+.release-notes h2 a {
+    color: var(--color-tone-1);
+    text-decoration: none;
+}
+
+.release-notes h2 a:hover {
+    text-decoration: underline;
+}
+
+/* Highlights the version a #v1-0-4 style deep link points at. */
+.release-notes section:target h2 a {
+    color: var(--darkendGreen);
+}
+
+/* Group label within a release ("All players" / "Online play"): a quiet
+   caption, deliberately lighter than the version heading above it. */
+.release-notes h3 {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08rem;
+    text-transform: uppercase;
+    color: var(--color-tone-2);
+    margin: 16px 0 0;
+}
+
+.release-notes ul {
+    margin: 10px 0 0;
+    padding-left: 1.2rem;
+}
+
+/* The old inline stylesheet had no bare `p` rule, so this page's subtitle
+   used the browser's default line-height and top margin. content-page.css
+   does have one, which would silently retype it -- pinned to the original
+   values so adopting the shared sheet changes nothing visually. It's only
+   visible here because this subtitle wraps to two lines via <br>; the other
+   content pages' subtitles are single-line. Deleting this rule is all it
+   would take to bring it in line with them. */
+.release-notes .subtitle {
+    line-height: normal;
+    margin-top: 1em;
+}

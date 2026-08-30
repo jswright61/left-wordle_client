@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Restore from Backup</title>
     <link rel="stylesheet" type="text/css" href="/src/wordle.css">
-    <link rel="stylesheet" type="text/css" href="/seed-legacy.css">
+    <link rel="stylesheet" type="text/css" href="/admin-tool.css">
 </head>
 <body>
     <a href="/" class="back-link">&larr; Back to Left Wordle</a>
@@ -16,7 +16,7 @@
     <div id="phase-upload">
         <div id="upload-zone">
             <p>Drag &amp; drop a .json backup file here, or</p>
-            <label class="file-btn" for="file-input">Choose File</label>
+            <label class="btn file-btn" for="file-input">Choose File</label>
             <input type="file" id="file-input" accept=".json" />
         </div>
     </div>
@@ -26,7 +26,7 @@
         <p class="section-label">Choose restore source</p>
         <div id="source-list"></div>
 
-        <p class="section-label" style="margin-top:20px;">Keys to restore</p>
+        <p class="section-label section-label-spaced">Keys to restore</p>
         <div id="preview-wrap">
             <table id="preview-table">
                 <thead><tr><th>Key</th><th>Value</th></tr></thead>
@@ -39,8 +39,8 @@
         </div>
 
         <div class="btn-row">
-            <button class="primary" id="confirm-btn">Restore Now</button>
-            <button class="secondary" id="reset-btn">Upload Different File</button>
+            <button class="btn" id="confirm-btn">Restore Now</button>
+            <button class="btn btn-secondary" id="reset-btn">Upload Different File</button>
         </div>
     </div>
 

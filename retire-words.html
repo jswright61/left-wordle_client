@@ -5,32 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Retire Words</title>
     <link rel="stylesheet" type="text/css" href="/src/wordle.css">
-    <link rel="stylesheet" type="text/css" href="/retire-words.css">
+    <link rel="stylesheet" type="text/css" href="/admin-tool.css">
 </head>
-<body>
+<body class="admin-wide">
     <h1>Retire Words</h1>
     <p class="subtitle">Review words and mark any that should be retired from the answer list.</p>
 
     <div class="name-row">
         <label for="name">Your Name:</label>
-        <input id="name" type="text" placeholder="Enter your name" autocomplete="off" spellcheck="false">
+        <input id="name" class="admin-field" type="text" placeholder="Enter your name" autocomplete="off" spellcheck="false">
     </div>
 
     <div class="search-row">
         <label for="search">Search:</label>
-        <input id="search" type="text" placeholder="e.g. *ER or *ER*" maxlength="10" autocomplete="off" spellcheck="false">
+        <input id="search" class="admin-field" type="text" placeholder="e.g. *ER or *ER*" maxlength="10" autocomplete="off" spellcheck="false">
         <span class="search-hint">Partial match by default &nbsp;·&nbsp; ^ = start &nbsp;·&nbsp; $ = end &nbsp;·&nbsp; * = any chars</span>
     </div>
 
     <div class="controls">
         <label for="filter">Show:</label>
-        <select id="filter">
+        <select id="filter" class="admin-field">
             <option value="all">All Words</option>
             <option value="marked">Marked for Retirement</option>
             <option value="unmarked">Unmarked Only</option>
         </select>
-        <button class="btn-export" id="btn-export" onclick="exportJSON()" disabled>Export JSON</button>
-        <button class="btn-clear" onclick="clearAll()">Clear All</button>
+        <button class="btn" id="btn-export" onclick="exportJSON()" disabled>Export JSON</button>
+        <button class="btn btn-secondary" onclick="clearAll()">Clear All</button>
         <span class="count" id="count"></span>
     </div>
 
@@ -45,7 +45,7 @@
         <tbody id="table-body"></tbody>
     </table>
 
-    <p class="error" id="error" style="display:none"></p>
+    <p class="error" id="error" hidden></p>
 
     <script>
         const state = {};
@@ -91,7 +91,7 @@
                 render();
             } catch (e) {
                 document.getElementById('error').textContent = `Failed to load words_to_eval.json: ${e.message}`;
-                document.getElementById('error').style.display = '';
+                document.getElementById('error').hidden = false;
             }
         }
 
