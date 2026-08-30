@@ -1096,3 +1096,156 @@ describe('escapeHtml', () => {
         expect(escapeHtml(42)).toBe('42');
     });
 });
+
+describe('backfillAnswersRemaining', () => {
+    const backfillAnswersRemaining = testExports.backfillAnswersRemaining;
+    const buildPrevGuesses = testExports.buildPrevGuesses;
+
+    function makeApp(overrides) {
+        return Object.assign({
+            evaluations: new Array(6).fill(null),
+            boardState: new Array(6).fill(''),
+            answersRemaining: new Array(6).fill(null),
+            gameStatus: GAME_STATUS_FAIL,
+            rowIndex: 6,
+            hardMode: false,
+            insaneMode: false,
+            isHistoryPlay: true, // keep saveGameState out of these tests
+            today: new Date(2021, 5, 25),
+            dayOffset: 6,
+            buildPrevGuesses: buildPrevGuesses
+        }, overrides);
+    }
+
+    beforeEach(() => {
+        localStorage.clear();
+    });
+
+    afterEach(() => {
+        delete dom.window.LeftWordleApi;
+    });
+
+    // Regression: this used to send 1-based row indexes; the API rejects
+    // row_index 6, so the final row of a lost game could never backfill.
+    test('requests every row of a lost game with 0-based row indexes, including the final row', async () => {
+        const evaluate = jest.fn((request) => Promise.resolve({ answersRemaining: 100 - request.rowIndex }));
+        dom.window.LeftWordleApi = { gameplay: { evaluate } };
+
+        const app = makeApp({
+            evaluations: new Array(6).fill([ABSENT, ABSENT, ABSENT, ABSENT, ABSENT]),
+            boardState: ['crane', 'moist', 'gluey', 'ready', 'pours', 'light'],
+            gameStatus: GAME_STATUS_FAIL,
+            rowIndex: 6
+        });
+
+        await backfillAnswersRemaining.call(app);
+
+        expect(evaluate).toHaveBeenCalledTimes(6);
+        const sentRowIndexes = evaluate.mock.calls.map(function(call) { return call[0].rowIndex; });
+        expect(sentRowIndexes).toEqual([0, 1, 2, 3, 4, 5]);
+        expect(app.answersRemaining).toEqual([100, 99, 98, 97, 96, 95]);
+    });
+
+    test('sends each row its own prior guesses as prevGuesses', async () => {
+        const evaluate = jest.fn(() => Promise.resolve({ answersRemaining: 5 }));
+        dom.window.LeftWordleApi = { gameplay: { evaluate } };
+
+        const app = makeApp({
+            evaluations: [
+                [ABSENT, ABSENT, ABSENT, ABSENT, ABSENT],
+                [ABSENT, PRESENT, ABSENT, ABSENT, ABSENT],
+                null, null, null, null
+            ],
+            boardState: ['crane', 'moist', '', '', '', ''],
+            gameStatus: GAME_STATUS_IN_PROGRESS,
+            rowIndex: 2
+        });
+
+        await backfillAnswersRemaining.call(app);
+
+        expect(evaluate).toHaveBeenCalledTimes(2);
+        expect(evaluate.mock.calls[0][0].prevGuesses).toEqual([]);
+        expect(evaluate.mock.calls[1][0].prevGuesses).toEqual([['crane', '00000']]);
+    });
+
+    test('fills the winning row with 0 locally, without a request', async () => {
+        const evaluate = jest.fn(() => Promise.resolve({ answersRemaining: 12 }));
+        dom.window.LeftWordleApi = { gameplay: { evaluate } };
+
+        const app = makeApp({
+            evaluations: [
+                [ABSENT, ABSENT, ABSENT, ABSENT, ABSENT],
+                [CORRECT, CORRECT, CORRECT, CORRECT, CORRECT],
+                null, null, null, null
+            ],
+            boardState: ['crane', 'moist', '', '', '', ''],
+            gameStatus: GAME_STATUS_WIN,
+            rowIndex: 2
+        });
+
+        await backfillAnswersRemaining.call(app);
+
+        expect(evaluate).toHaveBeenCalledTimes(1);
+        expect(evaluate.mock.calls[0][0].rowIndex).toBe(0);
+        expect(app.answersRemaining[1]).toBe(0);
+    });
+
+    test('leaves already-known counts alone and only fills the gaps', async () => {
+        const evaluate = jest.fn(() => Promise.resolve({ answersRemaining: 42 }));
+        dom.window.LeftWordleApi = { gameplay: { evaluate } };
+
+        const app = makeApp({
+            evaluations: [
+                [ABSENT, ABSENT, ABSENT, ABSENT, ABSENT],
+                [ABSENT, PRESENT, ABSENT, ABSENT, ABSENT],
+                null, null, null, null
+            ],
+            boardState: ['crane', 'moist', '', '', '', ''],
+            answersRemaining: [87, null, null, null, null, null],
+            gameStatus: GAME_STATUS_IN_PROGRESS,
+            rowIndex: 2
+        });
+
+        await backfillAnswersRemaining.call(app);
+
+        expect(evaluate).toHaveBeenCalledTimes(1);
+        expect(evaluate.mock.calls[0][0].rowIndex).toBe(1);
+        expect(app.answersRemaining[0]).toBe(87);
+        expect(app.answersRemaining[1]).toBe(42);
+    });
+});
+
+describe('getEraseBlockReason', () => {
+    const getEraseBlockReason = testExports.getEraseBlockReason;
+
+    function makeApp(overrides) {
+        return Object.assign({
+            isHistoryPlay: false,
+            rowIndex: 1,
+            gameStatus: GAME_STATUS_IN_PROGRESS,
+            dayOffset: 0
+        }, overrides);
+    }
+
+    afterEach(() => {
+        delete dom.window.LeftWordleAuth;
+    });
+
+    test('blocks erasing while logged in -- the server, not local storage, holds the account history', () => {
+        dom.window.LeftWordleAuth = { isLoggedIn: () => true };
+        const reason = getEraseBlockReason.call(makeApp());
+        expect(reason).toMatch(/unavailable while playing online/i);
+    });
+
+    test('the logged-in block takes precedence over every other reason', () => {
+        dom.window.LeftWordleAuth = { isLoggedIn: () => true };
+        const reason = getEraseBlockReason.call(makeApp({ isHistoryPlay: true }));
+        expect(reason).toMatch(/unavailable while playing online/i);
+    });
+
+    test('still blocks history play when logged out', () => {
+        dom.window.LeftWordleAuth = { isLoggedIn: () => false };
+        const reason = getEraseBlockReason.call(makeApp({ isHistoryPlay: true }));
+        expect(reason).toMatch(/historical puzzle/i);
+    });
+});

@@ -1897,11 +1897,15 @@
                     continue;
                 }
                 try {
+                    // rowIndex is 0-based, same as the live path in
+                    // _fireRemainingCountRequest -- the API rejects
+                    // row_index 6, so 1-based here would 400 on the final
+                    // row of a lost game and its count could never backfill.
                     var result = await window.LeftWordleApi.gameplay.evaluate({
                         date: DateUtils.formatLocalDate(this.today),
                         guess: this.boardState[i],
                         puzzleNum: this.dayOffset,
-                        rowIndex: i + 1,
+                        rowIndex: i,
                         mode: mode,
                         prevGuesses: this.buildPrevGuesses(i),
                         returnRemainingCount: true
@@ -2017,6 +2021,14 @@
         }
 
         _getEraseBlockReason() {
+            // Online, the server already recorded the completion and drives
+            // the stats the player sees (cachedProfile) -- a local-only
+            // erase would look like it worked while changing nothing, and
+            // the server's streak anchor makes the replay a stats no-op.
+            // Same treatment as Import/Restore: unavailable while online.
+            if (window.LeftWordleAuth && window.LeftWordleAuth.isLoggedIn()) {
+                return "Erase is unavailable while playing online — your account’s history lives on the server.";
+            }
             if (this.isHistoryPlay) return "This is a historical puzzle — only today’s game can be erased.";
             var now = new Date();
             if (now.getHours() * 100 + now.getMinutes() >= 2345) return "It’s past 11:45 PM — too late to erase today’s game.";
@@ -3538,5 +3550,11 @@
         getHistoryCompletionForPuzzle: HistoryManager.getHistoryCompletionForPuzzle,
         isContinuingStreak: HistoryManager.isContinuingStreak,
         buildLegacySnapshot: HistoryManager.buildLegacySnapshot,
+        // GameApp instance methods, exported unbound so tests can .call()
+        // them with a crafted `this` (GameApp itself needs the full DOM
+        // harness to construct).
+        backfillAnswersRemaining: GameApp.prototype.backfillAnswersRemaining,
+        buildPrevGuesses: GameApp.prototype.buildPrevGuesses,
+        getEraseBlockReason: GameApp.prototype._getEraseBlockReason,
     };
 })();
