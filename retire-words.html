@@ -5,26 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Retire Words</title>
     <link rel="stylesheet" type="text/css" href="/src/wordle.css">
-    <link rel="stylesheet" type="text/css" href="/admin-tool.css">
+    <link rel="stylesheet" type="text/css" href="/src/tool-page.css">
 </head>
-<body class="admin-wide">
+<body class="tool-wide">
     <h1>Retire Words</h1>
     <p class="subtitle">Review words and mark any that should be retired from the answer list.</p>
 
     <div class="name-row">
         <label for="name">Your Name:</label>
-        <input id="name" class="admin-field" type="text" placeholder="Enter your name" autocomplete="off" spellcheck="false">
+        <input id="name" class="tool-field" type="text" placeholder="Enter your name" autocomplete="off" spellcheck="false">
     </div>
 
     <div class="search-row">
         <label for="search">Search:</label>
-        <input id="search" class="admin-field" type="text" placeholder="e.g. *ER or *ER*" maxlength="10" autocomplete="off" spellcheck="false">
+        <input id="search" class="tool-field" type="text" placeholder="e.g. *ER or *ER*" maxlength="10" autocomplete="off" spellcheck="false">
         <span class="search-hint">Partial match by default &nbsp;·&nbsp; ^ = start &nbsp;·&nbsp; $ = end &nbsp;·&nbsp; * = any chars</span>
     </div>
 
     <div class="controls">
         <label for="filter">Show:</label>
-        <select id="filter" class="admin-field">
+        <select id="filter" class="tool-field">
             <option value="all">All Words</option>
             <option value="marked">Marked for Retirement</option>
             <option value="unmarked">Unmarked Only</option>

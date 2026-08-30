@@ -13,7 +13,7 @@ namespace :deploy do
     on roles(:app) do
       execute :rm, "-f",
         release_path.join("things-to-test.html"),
-        release_path.join("things-to-test.css"),
+        release_path.join("src", "things-to-test.css"),
         release_path.join("things-to-test-tasks.html")
     end
   end

@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wordle Stats Checker — Left Wordle</title>
+<meta name="description" content="Wordle and Left Wordle stats from any public Mastodon account.">
+<link rel="stylesheet" type="text/css" href="/src/wordle.css">
+<link rel="stylesheet" type="text/css" href="/src/tool-page.css">
+<link rel="stylesheet" type="text/css" href="/src/stats-checker.css">
+</head>
+<body>
+<div class="wrap">
+  <a href="/" class="back-link">&larr; Back to Left Wordle</a>
+  <header>
+    <h1>Wordle Stats</h1>
+    <p class="subtitle">Wordle and Left Wordle results from any public Mastodon account.</p>
+  </header>
+
+  <form id="f" class="tool-form">
+    <div>
+      <label for="handle">Mastodon handle</label>
+      <input id="handle" class="tool-field" name="handle" placeholder="@you@your.instance" autocomplete="off"
+             autocapitalize="off" spellcheck="false" required>
+    </div>
+    <div>
+      <label for="since">Range</label>
+      <select id="since" class="tool-field" name="since">
+        <option value="7d">Last 7 days</option>
+        <option value="30d" selected>Last 30 days</option>
+        <option value="90d">Last 90 days</option>
+        <option value="180d">Last 180 days</option>
+        <option value="365d">Last year</option>
+        <option value="custom">Custom…</option>
+      </select>
+    </div>
+    <div><button class="btn go" id="go" type="submit">Get stats</button></div>
+    <div class="opt">
+      <label class="check" for="replies">
+        <input type="checkbox" id="replies">
+        <span>Include replies to other people
+          <em>— much slower, and only needed if you post results as replies rather than as posts</em></span>
+      </label>
+    </div>
+    <div class="custom-dates" id="customDates">
+      <div><label for="from">From</label><input type="date" id="from" class="tool-field"></div>
+      <div><label for="to">To</label><input type="date" id="to" class="tool-field"></div>
+    </div>
+  </form>
+
+  <div id="status" role="status" aria-live="polite"></div>
+  <div class="games" id="games" hidden></div>
+  <div class="tools" id="tools" hidden>
+    <button type="button" class="btn btn-secondary" id="copyCsv">Copy CSV</button>
+    <button type="button" class="btn btn-secondary" id="copyLink">Copy link to this report</button>
+  </div>
+
+  <footer>
+    <p>Runs entirely in your browser — requests go straight from your device to the
+       Mastodon instance. Nothing is sent to this site's server.</p>
+  </footer>
+</div>
+
+<script type="module">
+// Parser inlined from web/wordle_parser.js by `rake web:build`.
+// Edit that file, not this one, then rebuild.
+const LOSS_SCORE = 7;
+
+// Puzzle 1,898 was published 2026-08-30; both games share the numbering.
+const ANCHOR_NUMBER = 1898;
+const ANCHOR_DATE = Date.UTC(2026, 7, 30);
+const DAY_MS = 86400000;
+
+// "wordle", optionally behind a recognised prefix, then a puzzle number and an
+// n/6 score. The lookbehind stops the "Wordle" inside an unknown word being
+// read as a result; known prefixes get in by matching from their own letter.
+const RESULT =
+  /(?<![a-z])(?:(?<left>left)|nyt|nytimes|the)?[\s\-_]*wordle\s*[:\-]?\s*(?<number>\d{1,3}(?:[.,]\d{3})+|\d+)\s+(?<score>[1-6X])\s*\/\s*6(?<flags>\*{0,3})/gi;
+
+// A hashtag, a parenthetical, or the game's domain. Deliberately excludes bare
+// prose, so "no time for the Left Wordle today" cannot hijack a plain result.
+const LEFT_MARKER =
+  /#\s*left[\s\-_]*wordle|left[\s\-_]*wordle\.com|\(\s*left[\s\-_]*wordle\s*\)|\(\s*LW\s*\)/i;
+
+// Mirrors Ruby's CGI.unescapeHTML. Done by hand rather than via DOMParser so
+// this file behaves identically in a browser and under node, where the parity
+// check runs.
+const ENTITIES = {amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: "\u00a0"};
+
+function unescapeHTML(text) {
+  return text.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (whole, body) => {
+    if (body[0] === "#") {
+      const code =
+        body[1] === "x" || body[1] === "X"
+          ? parseInt(body.slice(2), 16)
+          : parseInt(body.slice(1), 10);
+      return Number.isFinite(code) && code > 0 && code <= 0x10ffff
+        ? String.fromCodePoint(code)
+        : whole;
+    }
+    const named = ENTITIES[body.toLowerCase()];
+    return named === undefined ? whole : named;
+  });
+}
+
+// Strips Mastodon's HTML. Inline tags vanish without leaving a gap, so the
+// markup around a hashtag collapses to "#LeftWordle", not "# LeftWordle".
+// Only block breaks become newlines.
+function plainText(html) {
+  if (!html) return "";
+  const text = html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(?:p|div|li|h[1-6])>/gi, "\n")
+    .replace(/<[^>]+>/g, "");
+  return unescapeHTML(text).replace(/[ \t]+/g, " ");
+}
+
+function puzzleDate(number) {
+  if (!Number.isInteger(number) || number < 1 || number > 20000) return null;
+  return new Date(ANCHOR_DATE + (number - ANCHOR_NUMBER) * DAY_MS);
+}
+
+function isoDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+// Each match owns the text from its own start to the start of the next one.
+// That containment is what stops a trailing "(Left Wordle)" being credited to
+// the result above it in a post carrying both games.
+function isLeft(match, text, matches, index) {
+  if (match.groups.left) return true;
+
+  const start = match.index;
+  const finish = index + 1 < matches.length ? matches[index + 1].index : text.length;
+  if (LEFT_MARKER.test(text.slice(start, finish))) return true;
+
+  // A lone result whose post is flagged elsewhere -- typically a #leftwordle
+  // hashtag opening the post, ahead of the score line.
+  return matches.length === 1 && LEFT_MARKER.test(text);
+}
+
+function parseStatus(status) {
+  const text = plainText(status.content);
+  const matches = [...text.matchAll(RESULT)];
+  if (matches.length === 0) return [];
+
+  const out = [];
+  matches.forEach((match, index) => {
+    const number = parseInt(match.groups.number.replace(/[.,]/g, ""), 10);
+    const date = puzzleDate(number);
+    if (!date) return;
+
+    const raw = match.groups.score.toUpperCase();
+    out.push({
+      game: isLeft(match, text, matches, index) ? "left" : "wordle",
+      number,
+      score: raw === "X" ? LOSS_SCORE : parseInt(raw, 10),
+      hard_mode: match.groups.flags.length > 0,
+      date,
+      url: status.url || status.uri,
+    });
+  });
+  return out;
+}
+
+{ LOSS_SCORE };
+
+const $ = (id) => document.getElementById(id);
+// DAY_MS, LOSS_SCORE, isoDate, puzzleDate and parseStatus come from the
+// parser inlined above -- do not redeclare them here.
+const PAGE_LIMIT = 40;
+const MAX_PAGES = 400;
+
+const els = {
+  form: $("f"), handle: $("handle"), since: $("since"), go: $("go"),
+  custom: $("customDates"), from: $("from"), to: $("to"), replies: $("replies"),
+  status: $("status"), games: $("games"), tools: $("tools"),
+};
+
+let lastReport = null;
+
+function today() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+}
+
+function say(message, isError = false) {
+  els.status.textContent = message;
+  els.status.classList.toggle("err", isError);
+}
+
+// Accepts "@user@host", "user@host", or "https://host/@user".
+function splitHandle(raw) {
+  const value = (raw || "").trim();
+  const url = value.match(/^https?:\/\/([^/]+)\/@([^/@?#]+)/i);
+  if (url) return {user: url[2], host: url[1]};
+
+  const at = value.match(/^@?([^@\s]+)@([^@\s]+)$/);
+  if (!at) throw new Error("Use @you@your.instance, or a link to your profile.");
+  return {user: at[1], host: at[2].toLowerCase()};
+}
+
+async function getJSON(url) {
+  const resp = await fetch(url, {headers: {Accept: "application/json"}});
+  if (resp.status === 404) throw new Error("No such account on that instance.");
+  if (resp.status === 429) throw new Error("That instance is rate limiting us. Wait a minute and try again.");
+  if (!resp.ok) throw new Error(`The instance replied ${resp.status}.`);
+  return resp.json();
+}
+
+// Pages backwards through the timeline until posts predate the window.
+// Replies to other people are filtered server-side by default, which cuts the
+// number of requests by roughly an order of magnitude. Mastodon keeps
+// self-replies under that filter, so results posted into your own thread still
+// come through either way.
+async function collect({user, host, from, to, includeReplies, onProgress}) {
+  const account = await getJSON(
+    `https://${host}/api/v1/accounts/lookup?acct=${encodeURIComponent(user)}`
+  );
+  if (!account || !account.id) throw new Error("No such account on that instance.");
+
+  const found = {wordle: [], left: []};
+  let maxId = null;
+  let scanned = 0;
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      limit: String(PAGE_LIMIT), exclude_reblogs: "true",
+    });
+    if (!includeReplies) params.set("exclude_replies", "true");
+    if (maxId) params.set("max_id", maxId);
+
+    const batch = await getJSON(
+      `https://${host}/api/v1/accounts/${account.id}/statuses?${params}`
+    );
+    if (!Array.isArray(batch) || batch.length === 0) break;
+
+    let reachedStart = false;
+    for (const status of batch) {
+      const created = new Date(status.created_at);
+      if (created < from) { reachedStart = true; break; }
+      scanned++;
+      if (created > new Date(to.getTime() + DAY_MS)) continue;
+
+      for (const result of parseStatus(status)) {
+        // A post can carry a result for a day outside the window -- someone
+        // catching up. Judge by the puzzle's own day.
+        if (result.date < from || result.date > to) continue;
+        found[result.game].push(result);
+      }
+    }
+    onProgress(scanned);
+    if (reachedStart) break;
+    maxId = batch[batch.length - 1].id;
+  }
+
+  return {account, found, scanned};
+}
+
+function summarise(results, from, to) {
+  const seen = new Set();
+  const unique = [];
+  for (const r of results.sort((a, b) => a.number - b.number)) {
+    if (seen.has(r.number)) continue;      // an edit or repost counts once
+    seen.add(r.number);
+    unique.push(r);
+  }
+
+  const played = unique.length;
+  const wins = unique.filter((r) => r.score !== LOSS_SCORE);
+  const days = Math.round((to - from) / DAY_MS) + 1;
+  const dist = {};
+  for (let s = 1; s <= 7; s++) dist[s] = unique.filter((r) => r.score === s).length;
+
+  const byDate = new Map(unique.map((r) => [isoDate(r.date), r]));
+  let streak = 0;
+  for (let d = to.getTime(); d >= from.getTime(); d -= DAY_MS) {
+    const hit = byDate.get(isoDate(new Date(d)));
+    if (!hit || hit.score === LOSS_SCORE) break;
+    streak++;
+  }
+
+  return {
+    played, days, byDate, dist, streak,
+    won: wins.length,
+    lost: played - wins.length,
+    missed: days - played,
+    average: played ? unique.reduce((sum, r) => sum + r.score, 0) / played : null,
+    averageOfWins: wins.length ? wins.reduce((sum, r) => sum + r.score, 0) / wins.length : null,
+    best: wins.length ? Math.min(...wins.map((r) => r.score)) : null,
+    results: unique,
+  };
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function renderGame(label, s, from, to) {
+  const panel = el("section", "game");
+  panel.append(el("h2", null, label));
+  panel.append(el("p", "range", `${isoDate(from)} → ${isoDate(to)} · ${s.days} days`));
+
+  if (!s.played) {
+    panel.append(el("p", "empty", "No results found in this window."));
+    return panel;
+  }
+
+  const headline = el("div", "headline");
+  headline.append(el("span", "big", s.average.toFixed(2)));
+  headline.append(el("span", "cap", "average · a loss counts as 7"));
+  panel.append(headline);
+
+  const stats = el("div", "stats");
+  [
+    [s.played, "played"], [s.won, "won"], [s.lost, "lost"], [s.streak, "streak"],
+  ].forEach(([value, name]) => {
+    const box = el("div", "stat");
+    box.append(el("b", null, String(value)));
+    box.append(el("span", null, name));
+    stats.append(box);
+  });
+  panel.append(stats);
+
+  const detail = el("p", "range");
+  detail.textContent =
+    `Win rate ${((s.won / s.played) * 100).toFixed(0)}% · ` +
+    `wins-only average ${s.averageOfWins ? s.averageOfWins.toFixed(2) : "—"} · ` +
+    `best ${s.best ? s.best + "/6" : "—"} · ${s.missed} day${s.missed === 1 ? "" : "s"} with no result`;
+  panel.append(detail);
+
+  panel.append(el("h3", null, "Guess distribution"));
+  const dist = el("div", "dist");
+  const peak = Math.max(1, ...Object.values(s.dist));
+  for (let score = 1; score <= 7; score++) {
+    const count = s.dist[score];
+    const row = el("div", "row");
+    row.append(el("span", "k", score === 7 ? "X" : String(score)));
+    const bar = el("span", `bar${count === 0 ? " zero" : score === 7 ? " loss" : ""}`, String(count));
+    bar.style.width = count === 0 ? "auto" : `${Math.max(8, (count / peak) * 100)}%`;
+    row.append(bar);
+    dist.append(row);
+  }
+  panel.append(dist);
+
+  panel.append(el("h3", null, "Day by day"));
+  const days = el("div", "days");
+  for (let d = from.getTime(); d <= to.getTime(); d += DAY_MS) {
+    const date = new Date(d);
+    const hit = s.byDate.get(isoDate(date));
+    const cell = el("div", hit ? `day s${hit.score}` : "day none", hit ? (hit.score === 7 ? "X" : String(hit.score)) : "·");
+    cell.title = hit
+      ? `${isoDate(date)} — puzzle ${hit.number}, ${hit.score === 7 ? "X" : hit.score}/6${hit.hard_mode ? " (hard)" : ""}`
+      : `${isoDate(date)} — no result`;
+    days.append(cell);
+  }
+  panel.append(days);
+  return panel;
+}
+
+function toCSV(report) {
+  const rows = ["game,date,puzzle,score,outcome,hard_mode"];
+  for (const [key, label] of [["wordle", "Wordle"], ["left", "Left Wordle"]]) {
+    for (const r of report.stats[key].results) {
+      rows.push([label, isoDate(r.date), r.number, r.score,
+                 r.score === LOSS_SCORE ? "loss" : "win", r.hard_mode].join(","));
+    }
+  }
+  return rows.join("\n");
+}
+
+function resolveRange() {
+  const choice = els.since.value;
+  const to = today();
+  if (choice === "custom") {
+    if (!els.from.value) throw new Error("Pick a start date.");
+    const from = new Date(`${els.from.value}T00:00:00Z`);
+    const end = els.to.value ? new Date(`${els.to.value}T00:00:00Z`) : to;
+    if (from > end) throw new Error("The start date is after the end date.");
+    return {from, to: end};
+  }
+  const days = parseInt(choice, 10);
+  return {from: new Date(to.getTime() - (days - 1) * DAY_MS), to};
+}
+
+els.since.addEventListener("change", () => {
+  els.custom.classList.toggle("on", els.since.value === "custom");
+});
+
+els.form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  els.games.hidden = true;
+  els.tools.hidden = true;
+  els.go.disabled = true;
+
+  try {
+    const {user, host} = splitHandle(els.handle.value);
+    const {from, to} = resolveRange();
+    localStorage.setItem("wordleStatsHandle", els.handle.value.trim());
+
+    say("Looking up the account…");
+    const includeReplies = els.replies.checked;
+    const {found, scanned} = await collect({
+      user, host, from, to, includeReplies,
+      onProgress: (n) => say(`Scanning posts… ${n}`),
+    });
+
+    const stats = {
+      wordle: summarise(found.wordle, from, to),
+      left: summarise(found.left, from, to),
+    };
+    lastReport = {handle: `@${user}@${host}`, from, to, stats, scanned};
+
+    els.games.replaceChildren(
+      renderGame("Wordle", stats.wordle, from, to),
+      renderGame("Left Wordle", stats.left, from, to)
+    );
+    els.games.hidden = false;
+    els.tools.hidden = false;
+    say(`@${user}@${host} · ${scanned} posts scanned`);
+
+    const link = new URL(location.href);
+    const query = new URLSearchParams({handle: `@${user}@${host}`, since: els.since.value});
+    if (includeReplies) query.set("replies", "1");
+    link.search = query;
+    history.replaceState(null, "", link);
+  } catch (error) {
+    say(error.message || String(error), true);
+  } finally {
+    els.go.disabled = false;
+  }
+});
+
+async function copy(text, button, done) {
+  try {
+    await navigator.clipboard.writeText(text);
+    const original = button.textContent;
+    button.textContent = done;
+    setTimeout(() => { button.textContent = original; }, 1600);
+  } catch {
+    say("Could not reach the clipboard — your browser blocked it.", true);
+  }
+}
+
+$("copyCsv").addEventListener("click", (e) => lastReport && copy(toCSV(lastReport), e.target, "Copied!"));
+$("copyLink").addEventListener("click", (e) => copy(location.href, e.target, "Copied!"));
+
+// Prefill from the URL, then from whatever was used last.
+const params = new URLSearchParams(location.search);
+const preset = params.get("handle") || localStorage.getItem("wordleStatsHandle");
+if (preset) els.handle.value = preset;
+if (params.get("since")) {
+  const wanted = params.get("since");
+  if ([...els.since.options].some((o) => o.value === wanted)) els.since.value = wanted;
+}
+if (params.get("replies") === "1") els.replies.checked = true;
+if (params.get("handle")) els.form.requestSubmit();
+</script>
+</body>
+</html>

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Release Notes — Left Wordle</title>
     <link rel="stylesheet" type="text/css" href="/src/wordle.css">
-    <link rel="stylesheet" type="text/css" href="/content-page.css">
+    <link rel="stylesheet" type="text/css" href="/src/content-page.css">
 </head>
 <body class="release-notes">
 <div class="page">
@@ -19,6 +19,7 @@
     <ul>
         <li>New preference: get a warning when you guess a valid word that can't be the answer. You choose which guess it starts on, so you can explore freely early and only be warned once it matters.</li>
         <li>Fixed History import and Export History, which were failing for everyone. Importing a backup file and exporting your history both work again.</li>
+        <li>New page: the <a href="/stats-checker">Wordle Stats Checker</a> reads the Wordle and Left Wordle results any public Mastodon account has posted and works out the stats — averages, guess distribution, and a day-by-day view. It runs entirely in your browser: the requests go straight from your device to the Mastodon instance, and nothing is sent to this site.</li>
         <li>Added a proper styled 404 page.</li>
     </ul>
     <h3>Online play</h3>
