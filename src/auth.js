@@ -397,11 +397,22 @@
     // import_history_row!): {puzzle_num, date, mode, game_status
     // ("WIN"/"FAIL"), completed_at}.
     function toHistoryImportPayload(entry) {
+        // result is 1-6 (win in N), 7 (fail), or null/unknown -- e.g. a
+        // server-originated WIN with no recorded guesses that came back
+        // through a backup restore (see serverHistoryToLocalHistory).
+        // Unknown must NOT default to FAIL: pushing a real win as a loss
+        // corrupts the server-derived stats and streak. Send it with no
+        // game_status instead -- the server still preserves the row, but
+        // applies no stats for it (see api/app.rb import_history_row!).
+        var result = Number(entry.result);
+        var gameStatus = null;
+        if (result >= 1 && result <= 6) gameStatus = "WIN";
+        else if (result === 7) gameStatus = "FAIL";
         return {
             puzzle_num: entry.puzzle_num,
             date: entry.date,
             mode: entry.mode || "regular",
-            game_status: (entry.result >= 1 && entry.result <= 6) ? "WIN" : "FAIL",
+            game_status: gameStatus,
             completed_at: entry.completed_at || null
         };
     }
@@ -495,6 +506,14 @@
                     LeftWordleAuth.handleSessionInvalidated(gameStateSnapshot);
                     return;
                 }
+                // Only transient failures (network/timeout/5xx -- the
+                // ApiClientError retryable flag) are worth retrying in
+                // place. Anything permanent (a 4xx) would loop forever
+                // here with the caller blocking all input on this promise
+                // (wordle.js's awaitingOnlineProgressSync) -- give up and
+                // drop this beat instead; the queued pushGameState still
+                // carries the full board.
+                if (!error || error.retryable !== true) return;
                 await delay(PROGRESS_RETRY_DELAY_MS);
             }
         }

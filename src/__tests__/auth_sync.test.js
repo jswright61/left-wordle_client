@@ -159,6 +159,34 @@ describe('syncHistoryEntry', () => {
             puzzle_num: 101, date: '2021-09-28', mode: 'regular', game_status: 'FAIL', completed_at: null
         }]);
     });
+
+    // A null result is a real state, not a corrupt one: a server-originated
+    // WIN with no recorded guesses (see serverHistoryToLocalHistory) that
+    // came back through a backup restore. It must push with NO game_status
+    // -- defaulting to FAIL recorded real wins as losses server-side.
+    test('an unknown (null) result pushes with game_status null, never FAIL', () => {
+        const importHistory = jest.fn(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { importHistory } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        dom.window.LeftWordleAuth.syncHistoryEntry({ puzzle_num: 50, date: '2021-08-08', result: null });
+
+        expect(importHistory).toHaveBeenCalledWith([{
+            puzzle_num: 50, date: '2021-08-08', mode: 'regular', game_status: null, completed_at: null
+        }]);
+    });
+
+    test('a missing result also pushes with game_status null', () => {
+        const importHistory = jest.fn(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { importHistory } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        dom.window.LeftWordleAuth.syncHistoryEntry({ puzzle_num: 51, date: '2021-08-09' });
+
+        expect(importHistory).toHaveBeenCalledWith([{
+            puzzle_num: 51, date: '2021-08-09', mode: 'regular', game_status: null, completed_at: null
+        }]);
+    });
 });
 
 describe('syncHistoryEntries', () => {
@@ -314,12 +342,15 @@ describe('pushGameProgress', () => {
         expect(reportProgress).toHaveBeenCalledTimes(1);
     });
 
-    test('retries a network failure in place until it lands, while logged in', async () => {
+    test('retries a transient (retryable) failure in place until it lands, while logged in', async () => {
         jest.useFakeTimers();
         let attempt = 0;
+        // ApiClientError marks network/timeout/5xx failures retryable: true
+        // -- only those are worth retrying in place.
+        const transient = Object.assign(new Error('network down'), { retryable: true });
         const reportProgress = jest.fn(() => {
             attempt += 1;
-            return attempt < 3 ? Promise.reject(new Error('network down')) : Promise.resolve({ status: 'recorded' });
+            return attempt < 3 ? Promise.reject(transient) : Promise.resolve({ status: 'recorded' });
         });
         const dom = loadAuth({ client: { reportProgress } });
         dom.window.LeftWordleAuth.loggedIn = true;
@@ -330,6 +361,21 @@ describe('pushGameProgress', () => {
         await pushPromise;
 
         expect(reportProgress).toHaveBeenCalledTimes(3);
+    });
+
+    // The caller (wordle.js) blocks ALL input on this promise while online
+    // -- a permanent failure retried forever would freeze the game, so a
+    // non-retryable error gives up after one attempt instead.
+    test('a permanent (non-retryable) failure gives up after one attempt and stays logged in', async () => {
+        const error = Object.assign(new Error('bad request'), { status: 400, retryable: false });
+        const reportProgress = jest.fn(() => Promise.reject(error));
+        const dom = loadAuth({ client: { reportProgress } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        await dom.window.LeftWordleAuth.pushGameProgress('2021-09-27', 'regular', [['crane', '01000']]);
+
+        expect(reportProgress).toHaveBeenCalledTimes(1);
+        expect(dom.window.LeftWordleAuth.isLoggedIn()).toBe(true);
     });
 
     test('a 401 invalidates the session (with the given snapshot) instead of retrying, while logged in', async () => {
