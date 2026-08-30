@@ -179,6 +179,38 @@ class PreferencesStorage extends NamespacedStorage {
         if (this._onChange) this._onChange();
     }
 
+    // Server-authoritative hydrate, used by auth.js's applyAccountPreferences
+    // when a session is established or confirmed. Every key the account has an
+    // opinion about wins; keys only this device knows about are left alone, so
+    // a preference introduced by a newer client isn't wiped by an account blob
+    // that predates it.
+    //
+    // Unlike merge(), an unknown or wrong-typed key is skipped rather than
+    // thrown: this blob is whatever client version last pushed it, and one
+    // stale key must not be able to break login (see the statistics schema's
+    // currentStreakAnchorPuzzleNum note above for the same hazard).
+    //
+    // Does not fire onChange, same reasoning as replace() -- this data just
+    // came from the server, pushing it straight back would be a wasted trip.
+    mergeFromServer(obj) {
+        if (!obj || typeof obj !== "object" || Array.isArray(obj)) return;
+        var self = this;
+        var stored = this._read();
+        var applied = false;
+        Object.keys(obj).forEach(function(key) {
+            if (!self._validKeys.has(key)) return;
+            var value = obj[key];
+            if (value === undefined) return;
+            if (value !== null) {
+                var actual = Array.isArray(value) ? "array" : typeof value;
+                if (actual !== self._schema[key]) return;
+            }
+            stored[key] = value;
+            applied = true;
+        });
+        if (applied) this._write(stored);
+    }
+
     _read() {
         try {
             var raw = window.localStorage.getItem(this._storageKey);

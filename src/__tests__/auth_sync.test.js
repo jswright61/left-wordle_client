@@ -126,6 +126,82 @@ describe('syncPreferences', () => {
     });
 });
 
+describe('applyAccountPreferences', () => {
+    function loggedInWithServerPrefs(preferences) {
+        const dom = loadAuth({ client: { putPreferences: jest.fn(() => Promise.resolve({})) } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+        dom.window.LeftWordleAuth.cachedProfile = { preferences, game_state: {}, statistics: {} };
+        return dom;
+    }
+
+    test('applies account preferences the device has never had', () => {
+        const dom = loggedInWithServerPrefs({ darkTheme: true, hardMode: true });
+
+        dom.window.LeftWordleAuth.applyAccountPreferences();
+
+        expect(dom.window.StorageController.preferences.getAll())
+            .toEqual({ darkTheme: true, hardMode: true });
+    });
+
+    test('server wins over a conflicting local value', () => {
+        const dom = loggedInWithServerPrefs({ darkTheme: true });
+        dom.window.StorageController.preferences.replace({ darkTheme: false });
+
+        dom.window.LeftWordleAuth.applyAccountPreferences();
+
+        expect(dom.window.StorageController.preferences.get('darkTheme')).toBe(true);
+    });
+
+    test('leaves device-only preferences the account has no opinion about', () => {
+        const dom = loggedInWithServerPrefs({ darkTheme: true });
+        dom.window.StorageController.preferences.replace({ insaneMode: true });
+
+        dom.window.LeftWordleAuth.applyAccountPreferences();
+
+        expect(dom.window.StorageController.preferences.getAll())
+            .toEqual({ insaneMode: true, darkTheme: true });
+    });
+
+    test('suppressLoginPrompt is synced like any other preference', () => {
+        const dom = loggedInWithServerPrefs({ suppressLoginPrompt: true });
+
+        dom.window.LeftWordleAuth.applyAccountPreferences();
+
+        expect(dom.window.StorageController.preferences.get('suppressLoginPrompt')).toBe(true);
+    });
+
+    test('skips unknown and wrong-typed keys instead of throwing', () => {
+        const dom = loggedInWithServerPrefs({
+            darkTheme: true,
+            somePrefFromANewerClient: 'whatever',
+            hardMode: 'not-a-boolean'
+        });
+
+        expect(() => dom.window.LeftWordleAuth.applyAccountPreferences()).not.toThrow();
+        expect(dom.window.StorageController.preferences.getAll()).toEqual({ darkTheme: true });
+    });
+
+    test('does not push the just-pulled values back to the server', () => {
+        const putPreferences = jest.fn(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { putPreferences } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+        dom.window.LeftWordleAuth.cachedProfile = { preferences: { darkTheme: true }, game_state: {}, statistics: {} };
+
+        dom.window.LeftWordleAuth.applyAccountPreferences();
+
+        expect(putPreferences).not.toHaveBeenCalled();
+    });
+
+    test('is a no-op with no cached profile', () => {
+        const dom = loadAuth({ client: {} });
+        dom.window.StorageController.preferences.replace({ darkTheme: false });
+
+        dom.window.LeftWordleAuth.applyAccountPreferences();
+
+        expect(dom.window.StorageController.preferences.get('darkTheme')).toBe(false);
+    });
+});
+
 describe('syncHistoryEntry', () => {
     test('does nothing when not logged in', () => {
         const importHistory = jest.fn();

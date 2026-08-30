@@ -91,6 +91,63 @@ play won't be part of your online account.* Not a merge offer, not a
 choice with consequences to weigh — just making sure nobody is surprised
 later that a device's local history didn't "come with" them.
 
+## Preferences are the one exception (added after v1.0.3)
+
+Principles 3 and 5 above are about **game data** -- history, statistics,
+and the in-progress board. Preferences are explicitly carved out: going
+online writes the account's preferences into local storage, server wins per
+key, keys only the new device knows about are left alone
+(`LeftWordleAuth.applyAccountPreferences` ->
+`StorageController.preferences.mergeFromServer`).
+
+The no-merge rule exists because reconciling two independent gameplay
+timelines is intractable -- contiguity, streaks, arrival order, legacy
+aggregates. None of that applies here. The preferences blob is already
+whole-object last-writer-wins server-side (`put_preferences_response`), so
+there is nothing to reconcile, and a player signing in on a new device
+reasonably expects their settings to come with them rather than silently
+reverting to that device's defaults.
+
+Two consequences, both accepted deliberately:
+
+- Preferences persist in local storage after a logout, so an account's
+  theme / hard mode stay in effect on a device that has since gone offline.
+  Settings are not gameplay data; principle 6 still holds for everything
+  else.
+- `suppressLoginPrompt` syncs with the rest of the blob. Every login path
+  then forces it back to `false` (`resetSuppressedLoginPrompt`), on the
+  reasoning that logging in is a positive signal the player wants to play
+  online, so a later logout should not go unnoticed.
+
+Applied at session establishment (login) and confirmation (boot) only --
+*not* from `syncCompletion`'s `refreshCachedProfile`, which refreshes the
+cache after every finished game for the stats counters and would otherwise
+be able to revert a local toggle whose push hadn't landed yet.
+
+## Showing the account after going online
+
+Going online mid-session has to reload the page. The board reads the
+server's in-progress game only in `GameApp`'s constructor
+(`getInitialGameState`), and the `customElements.define("game-app", ...)`
+gate waits for the profile only when `wasPreviouslyLoggedIn()` -- which is
+false on precisely the device that is signing in for the first time. So
+`<game-app>` has already upgraded against local storage by the time the
+passkey ceremony finishes. `game-theme-manager` is worse: it is defined
+unconditionally and reads `darkTheme` before the profile fetch can have
+resolved.
+
+Rather than build a rehydrate-in-place path for a once-per-device moment,
+`handleSignIn` and the `joined_existing_account` branch of `handleRegister`
+reload after a successful sync, exactly as the device-link flow always has
+(it needed a reload anyway to strip `link_token`, which is why that path
+showed today's game correctly while plain sign-in did not). On the second
+boot `rememberLoggedIn()` has been called, so the gate applies and the
+account's game and preferences paint from the start.
+
+A brand-new account does not reload: its local data *is* the account data,
+the board is already correct, and `pushLocalDataToNewAccount`'s
+stats-discrepancy toast needs to survive long enough to be read.
+
 ## Playing online
 
 Every guess and completion goes straight to the server, synchronously,

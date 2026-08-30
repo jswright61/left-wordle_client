@@ -87,10 +87,14 @@ Regenerating recomputes every `puzzle_num`, `date`, `completed_at`, and
    browser with some history."
 5. Still in Browser B, paste in the device-link URL from step 3 and
    complete passkey setup. This calls `registerViaDeviceLink` then
-   `syncAndAnnounce`, which fully overwrites B's local storage with
-   whatever the server has for the account. **Watch this step closely** --
-   it's the exact repro path for the original bug and the main thing each
-   scenario below is designed to reveal.
+   `syncAndAnnounce`, then reloads. B's local history and stats are *not*
+   overwritten and *not* merged -- B simply starts reading the account's
+   data from the server (see `docs/online_play_redesign.md`); the one thing
+   that does get written into B's local storage is the account's
+   preferences. **Watch this step closely** -- it's the exact repro path for
+   the original bug and the main thing each scenario below is designed to
+   reveal. After the reload, B should be showing the account's in-progress
+   game and the account's settings, not its own.
 6. If a scenario has a `browser_c` (or `browser_d`) file, repeat steps 3-5
    using Browser A's (or the most-recently-linked device's) "Add a Device"
    link to bring it in too.

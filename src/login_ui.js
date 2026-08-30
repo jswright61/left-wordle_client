@@ -114,12 +114,20 @@
                 var result = await window.LeftWordleAuth.register({ email: email || undefined, nickname: nickname || undefined });
                 this.render();
                 setStatus(statusEl, "Passkey created.", false);
+                // joined_existing_account means this passkey attached to an
+                // account that already has data elsewhere -- same situation as
+                // a plain sign-in, so it needs the same reload. A genuinely
+                // new account does not: its local data *is* the account data,
+                // the board is already right, and pushLocalDataToNewAccount's
+                // stats-discrepancy toast must survive to be read.
+                var loaded = false;
                 if (result.joined_existing_account) {
-                    await this.syncAndAnnounce();
+                    loaded = await this.syncAndAnnounce({ reloadOnSuccess: true });
                 } else {
                     await this.pushLocalDataToNewAccount();
                 }
                 this.resetSuppressedLoginPrompt();
+                if (loaded) await this.reloadIntoOnlineSession(statusEl);
             } catch (error) {
                 setStatus(statusEl, errorMessage(error), true);
             }
@@ -131,29 +139,70 @@
             try {
                 await window.LeftWordleAuth.login();
                 this.render();
-                await this.syncAndAnnounce();
+                var loaded = await this.syncAndAnnounce({ reloadOnSuccess: true });
                 this.resetSuppressedLoginPrompt();
+                if (loaded) await this.reloadIntoOnlineSession(statusEl);
             } catch (error) {
                 setStatus(statusEl, errorMessage(error), true);
             }
         }
 
-        // Pure authentication + display cache, not a data merge: online
-        // play never writes account data into local storage (see
-        // online_play_redesign.md), so this only populates
-        // LeftWordleAuth.cachedProfile for the Stats screen etc. to read.
-        async syncAndAnnounce() {
+        // Authentication + display cache, plus the one deliberate write into
+        // local storage: the account's preferences (see auth.js's
+        // applyAccountPreferences). History, stats and the board still never
+        // come down here -- they're read from LeftWordleAuth.cachedProfile.
+        //
+        // Returns whether the profile actually loaded, so a caller that means
+        // to reload can decline to do so on failure and leave the user with
+        // the error toast instead of a silent reboot.
+        async syncAndAnnounce(options) {
+            var reloadOnSuccess = !!(options && options.reloadOnSuccess);
             var app = document.querySelector("game-app");
             try {
                 await window.LeftWordleAuth.refreshCachedProfile();
-                if (app && typeof app.addToast === "function") {
+                window.LeftWordleAuth.applyAccountPreferences();
+                // The caller is about to navigate; a 3-second toast would be
+                // destroyed before it could be read.
+                if (!reloadOnSuccess && app && typeof app.addToast === "function") {
                     app.addToast("Logged in — your account data is now loaded", 3000, true);
                 }
+                return true;
             } catch (error) {
                 if (app && typeof app.addToast === "function") {
                     app.addToast("Logged in, but syncing your account data failed — try reopening the app", null, true, true);
                 }
+                return false;
             }
+        }
+
+        // How a device that has just gone online actually *shows* the
+        // account. The board reads the server's in-progress game only in
+        // GameApp's constructor (wordle.js's getInitialGameState), and its
+        // boot gate waits for the profile only on a device that was already
+        // logged in as of its last visit -- so on the device where this
+        // matters most, the one signing in for the first time, <game-app>
+        // upgraded against empty local storage long before the passkey
+        // ceremony finished. Preferences have the same shape of problem,
+        // worse: game-theme-manager is defined unconditionally and reads
+        // darkTheme before the profile fetch can possibly have resolved.
+        //
+        // Rebooting the page settles both at once instead of building a
+        // rehydrate-in-place path for a once-per-device moment:
+        // rememberLoggedIn() has now been called, so the second boot takes
+        // the gated branch and paints the account's game and preferences
+        // from the start. This is what the device-link flow below has always
+        // done, via the reload it needed anyway to strip link_token -- which
+        // is exactly why that path shows today's game and plain sign-in
+        // didn't.
+        async reloadIntoOnlineSession(statusEl) {
+            setStatus(statusEl, "Logged in. Loading your account…", false);
+            // resetSuppressedLoginPrompt() has just fired a preferences PUT
+            // through the onChange hook; reload() would cancel it in flight
+            // and leave suppressLoginPrompt true on the account, silencing
+            // the prompt after a future logout. Never rejects -- a failure
+            // queues for retry instead.
+            await window.LeftWordleAuth.syncPreferences();
+            window.location.reload();
         }
 
         // Counterpart to syncAndAnnounce for a brand-new account (as opposed
@@ -473,7 +522,7 @@
                 try {
                     var nickname = deviceNameInput ? deviceNameInput.value.trim() : "";
                     await window.LeftWordleAuth.registerViaDeviceLink(linkToken, nickname);
-                    await window.leftWordleLoginUI.syncAndAnnounce();
+                    await window.leftWordleLoginUI.syncAndAnnounce({ reloadOnSuccess: true });
                     window.leftWordleLoginUI.resetSuppressedLoginPrompt();
                     setStatus(statusEl, "Device linked. Reloading...", false);
                     var url = new URL(window.location.href);

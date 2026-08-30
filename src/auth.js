@@ -111,6 +111,16 @@
             var profile = await api().getProfile();
             applyProfile(profile);
             cacheProfile(profile);
+            // Deliberately before flushPendingSync, not after: the queued
+            // "preferences" job re-reads local storage at flush time (see
+            // PENDING_RUNNERS below), so hydrating first means a retry
+            // pushes the account's own values back up instead of fighting
+            // them. The cost is that a pref change which never reached the
+            // server before this boot loses to the server's copy -- that's
+            // the same server-wins rule applied consistently, not a special
+            // case, and it keeps local and remote in agreement immediately
+            // rather than converging over the next couple of loads.
+            LeftWordleAuth.applyAccountPreferences();
             // A successful call here proves the session and connectivity are
             // both good -- exactly the moment anything left over from a
             // previous offline stretch (see PENDING_RUNNERS below) should
@@ -136,6 +146,34 @@
         var profile = await api().getProfile();
         cacheProfile(profile);
         return profile;
+    };
+
+    // The one part of an account that going online *does* write into local
+    // storage. History, statistics and the in-progress board deliberately do
+    // not (see online_play_redesign.md) -- those are the ones where merging
+    // two independent timelines is intractable, and where a device's local
+    // play quietly becoming account data is the surprise that design exists
+    // to prevent. Preferences have neither problem: the blob is already
+    // whole-object last-writer-wins server-side (api/app.rb's
+    // put_preferences_response), there is nothing to reconcile, and a setting
+    // the account holds an opinion about should follow the player onto a new
+    // device rather than silently reverting to that device's defaults.
+    //
+    // Consequence worth knowing: these values stay in local storage after a
+    // logout, so an account's theme/hard mode remain in effect on a device
+    // that has since gone offline. That's intended -- settings are not
+    // gameplay data -- but it is a real difference from the "logout drops
+    // straight back to the prior offline state" rule that still holds for
+    // everything else.
+    //
+    // Called at session establishment (login) and confirmation (boot), NOT
+    // from every refreshCachedProfile -- syncCompletion refreshes the cache
+    // after each finished game purely for the stats counters, and re-pulling
+    // preferences there could revert a local toggle whose push hasn't landed
+    // yet.
+    LeftWordleAuth.applyAccountPreferences = function() {
+        if (!LeftWordleAuth.cachedProfile) return;
+        StorageController.preferences.mergeFromServer(LeftWordleAuth.cachedProfile.preferences);
     };
 
     // One-shot: login_ui.js calls this at boot to decide whether to
