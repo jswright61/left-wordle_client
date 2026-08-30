@@ -59,6 +59,14 @@
         h2 a:hover {
             text-decoration: underline;
         }
+        h3 {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.08rem;
+            text-transform: uppercase;
+            color: #787c7e;
+            margin: 16px 0 0;
+        }
         ul {
             margin: 10px 0 0;
             padding-left: 1.2rem;
@@ -77,6 +85,24 @@
     <a href="/" class="back-link">&larr; Back to Left Wordle</a>
     <h1>Release Notes</h1>
     <p class="subtitle">What's new in each release, most recent first.<br>Version numbers increase but aren't always sequential — a number is sometimes skipped before release.</p>
+
+    <section id="v1-0-4">
+    <h2><a href="#v1-0-4">v1.0.4</a></h2>
+    <h3>All players</h3>
+    <ul>
+        <li>New preference: get a warning when you guess a valid word that can't be the answer. You choose which guess it starts on, so you can explore freely early and only be warned once it matters.</li>
+        <li>Fixed History import and Export History, which were failing for everyone. Importing a backup file and exporting your history both work again.</li>
+        <li>Added a proper styled 404 page.</li>
+    </ul>
+    <h3>Online play</h3>
+    <ul>
+        <li>Signing in on a new device now shows the game you already have in progress, instead of a blank board. Your account's settings come with you too, rather than the new device falling back to its own defaults.</li>
+        <li>Fixed a bug where restoring a backup while signed in could report finished games as losses, throwing off your stats and streak.</li>
+        <li>Fixed a bug where the board could stop accepting input and need a reload if a save failed while you were playing online.</li>
+        <li>Fixed the remaining-answers count for the last row of a lost game, so share text is complete when you switch remaining-answer modes after finishing.</li>
+        <li>Hardened how games are attributed to accounts, so only your own account can ever change your game history.</li>
+    </ul>
+    </section>
 
     <section id="v1-0-3">
     <h2><a href="#v1-0-3">v1.0.3</a></h2>

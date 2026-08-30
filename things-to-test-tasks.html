@@ -80,3 +80,75 @@
   <li>Reload the page again</li>
   <li>Verify the login prompt automatically reappears this time — logging in on a device resets the "don't ask" setting so a future logout doesn't leave you stranded on a signed-out device</li>
 </ol>
+
+<h2>Warn on Non-Answers (new in v1.0.4)</h2>
+<p>A legal word isn't always a <em>possible answer</em> — the answer list is much smaller than the list of words you're allowed to guess. This preference asks you to confirm before you spend a guess on a word that can't be the answer, starting from whichever line you choose. It's off by default.</p>
+<p>Useful words for testing (verified against the shipped lists):</p>
+<ul>
+  <li><strong>CRANE</strong> — legal <em>and</em> a possible answer, so it should never warn</li>
+  <li><strong>ADIEU</strong>, <strong>SLATS</strong>, <strong>TARES</strong> — legal but <em>not</em> possible answers, so these should warn</li>
+</ul>
+
+<p>Turning it on and setting the starting line</p>
+<ol>
+  <li>Open the settings modal (gear icon in header)</li>
+  <li>Find "Warn on Non-Answers, Starting Line:" and verify the toggle is off and the stepper reads 3 by default</li>
+  <li>Click the stepper's up arrow and verify the number increases; hold at the top and verify it stops at 6</li>
+  <li>Click the down arrow repeatedly and verify it stops at 1 (it should never go to 0 or negative)</li>
+  <li>Set the starting line to 3 and turn the toggle on</li>
+  <li>Close and reopen the settings modal and verify both the toggle and the number were remembered</li>
+</ol>
+
+<p>The warning itself</p>
+<ol>
+  <li>With the setting on and the starting line at 3, start today's puzzle</li>
+  <li>On line 1, guess <strong>ADIEU</strong> — verify you are <em>not</em> warned, because line 1 is before the starting line</li>
+  <li>On line 2, guess <strong>SLATS</strong> — verify you are still not warned</li>
+  <li>On line 3, guess <strong>TARES</strong> — verify a message appears saying it's a legal word but not in the list of possible answers, with "Change my guess" and "Use anyway"</li>
+  <li>Click "Change my guess" and verify the guess is <em>not</em> submitted — the word stays on the board for you to edit, and you have not lost a turn</li>
+  <li>Guess <strong>TARES</strong> again on the same line and this time click "Use anyway"</li>
+  <li>Verify the guess is submitted normally and scores as usual</li>
+  <li>On the next line, guess <strong>CRANE</strong> and verify no warning appears — it's a possible answer</li>
+</ol>
+
+<p>Starting line and off-switch behave</p>
+<ol>
+  <li>Set the starting line to 1, then start a fresh puzzle (or use a new browser profile)</li>
+  <li>Guess <strong>ADIEU</strong> on line 1 and verify you are warned immediately this time</li>
+  <li>Turn the setting off, then guess another non-answer such as <strong>SLATS</strong></li>
+  <li>Verify no warning appears at all and the guess submits directly</li>
+</ol>
+
+<h2>History Import and Export (fixed in v1.0.4)</h2>
+<p>Both of these were failing for everyone before this release, so they need a real pass rather than a spot check.</p>
+<ol>
+  <li>Open the Tools modal (wrench icon) and under "Backup &amp; Restore" click "Export History"</li>
+  <li>Try both formats if offered (JSON and CSV) and verify a file downloads without an error message</li>
+  <li>Open the file and verify it contains your games, one row per puzzle</li>
+  <li>Repeat the export while <em>signed in</em> — this path fetches from the server and was broken separately</li>
+  <li>Now use "Import History" and select the file you just exported</li>
+  <li>Verify it reports how many rows were valid and how many were added, with no crash and no "History import failed" message</li>
+  <li>Since every puzzle already exists locally, expect rows to be flagged as duplicates rather than added — that's correct, not an error</li>
+  <li>Verify your stats and history list are unchanged afterwards</li>
+</ol>
+
+<h2>Signing In on a Second Device (fixed in v1.0.4)</h2>
+<p>Previously, signing in on a device that had never been logged in showed a blank board and that device's own settings, instead of your account's game and preferences. Needs two devices or two browser profiles.</p>
+<ol>
+  <li>On device A (signed in), play at least one guess of today's puzzle but do <em>not</em> finish it</li>
+  <li>On device A, change a visible preference — turn on dark theme, or hard mode</li>
+  <li>On device B, which has never been signed in to this account, sign in</li>
+  <li>Verify the page reloads on its own after sign-in</li>
+  <li>Verify today's board on device B shows the guesses you made on device A, not a blank board</li>
+  <li>Verify the preference you changed on device A is now in effect on device B</li>
+  <li>Open settings on device B and confirm the setting is actually shown as on, not just visually applied</li>
+  <li>Reload device B once more and verify both the board and the settings persist</li>
+</ol>
+
+<h2>Erase While Signed In (fixed in v1.0.4)</h2>
+<ol>
+  <li>Sign in, then finish today's puzzle</li>
+  <li>Try to erase today's game</li>
+  <li>Verify you get a clear message that erase is unavailable while playing online, rather than the erase appearing to succeed</li>
+  <li>Log out, and verify erase becomes available again for a locally-played game</li>
+</ol>
