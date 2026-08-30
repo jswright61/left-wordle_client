@@ -1,5 +1,6 @@
-/* Shared chrome for the admin/tool pages: retire-words.html and
-   seed-legacy.html. Requires src/wordle.css first, for the color tokens.
+/* Shared chrome for this site's tool pages: retire-words.html,
+   seed-legacy.html and stats-checker.html -- form controls, buttons, status
+   text and tables. Requires src/wordle.css first, for the color tokens.
 
    These two pages previously had a stylesheet each, both generated to
    "match the existing pages" and drifting from each other as a result:
@@ -19,13 +20,13 @@
    these two pages.
 
    Spacing and placement are deliberately unchanged -- only color, font and
-   weight were in scope. The one structural change is --admin-width, which
+   weight were in scope. The one structural change is --tool-width, which
    replaces the same max-width repeated a dozen times across both files. */
 
 body {
     /* The pages' only real layout difference. seed-legacy is a narrow
        single-column flow; retire-words needs room for its word table. */
-    --admin-width: 560px;
+    --tool-width: 560px;
     font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
     background-color: var(--color-tone-7);
     color: var(--color-tone-1);
@@ -36,8 +37,8 @@ body {
     margin: 0;
 }
 
-body.admin-wide {
-    --admin-width: 700px;
+body.tool-wide {
+    --tool-width: 700px;
 }
 
 h1 {
@@ -49,7 +50,7 @@ h1 {
     padding-bottom: 16px;
     margin-bottom: 8px;
     width: 100%;
-    max-width: var(--admin-width);
+    max-width: var(--tool-width);
     text-align: center;
 }
 
@@ -59,7 +60,7 @@ h1 {
     font-size: 0.85rem;
     color: var(--color-tone-2);
     width: 100%;
-    max-width: var(--admin-width);
+    max-width: var(--tool-width);
     margin-bottom: 24px;
     text-align: center;
 }
@@ -82,7 +83,8 @@ h1 {
 .section-label,
 .name-row label,
 .controls label,
-.search-row label {
+.search-row label,
+.tool-form label {
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.08rem;
@@ -93,7 +95,7 @@ h1 {
 
 .section-label {
     width: 100%;
-    max-width: var(--admin-width);
+    max-width: var(--tool-width);
     margin-bottom: 8px;
 }
 
@@ -104,7 +106,7 @@ h1 {
 
 /* -- Form controls ----------------------------------------------------- */
 
-.admin-field {
+.tool-field {
     font-family: inherit;
     font-size: 0.95rem;
     padding: 6px 10px;
@@ -114,7 +116,7 @@ h1 {
     background: var(--color-tone-7);
 }
 
-.admin-field:focus {
+.tool-field:focus {
     outline: none;
     border-color: var(--color-tone-3);
 }
@@ -159,7 +161,7 @@ h1 {
     font-size: 13px;
     color: var(--color-tone-2);
     width: 100%;
-    max-width: var(--admin-width);
+    max-width: var(--tool-width);
     min-height: 20px;
     text-align: center;
 }
@@ -187,7 +189,7 @@ h1 {
 
 table {
     width: 100%;
-    max-width: var(--admin-width);
+    max-width: var(--tool-width);
     border-collapse: collapse;
 }
 
@@ -219,7 +221,7 @@ td {
     align-items: center;
     gap: 10px;
     width: 100%;
-    max-width: var(--admin-width);
+    max-width: var(--tool-width);
 }
 
 .name-row {
@@ -235,7 +237,7 @@ td {
     gap: 12px;
     margin-bottom: 20px;
     width: 100%;
-    max-width: var(--admin-width);
+    max-width: var(--tool-width);
     align-items: center;
     flex-wrap: wrap;
 }
@@ -331,7 +333,7 @@ td.col-reason input[type="text"]:focus {
 
 #upload-zone {
     width: 100%;
-    max-width: var(--admin-width);
+    max-width: var(--tool-width);
     border: 2px dashed var(--color-tone-4);
     border-radius: 8px;
     padding: 40px 20px;
@@ -366,7 +368,7 @@ td.col-reason input[type="text"]:focus {
 
 .source-card {
     width: 100%;
-    max-width: var(--admin-width);
+    max-width: var(--tool-width);
     border: 2px solid var(--color-tone-4);
     border-radius: 6px;
     padding: 12px 16px;
@@ -403,7 +405,7 @@ td.col-reason input[type="text"]:focus {
 
 #preview-wrap {
     width: 100%;
-    max-width: var(--admin-width);
+    max-width: var(--tool-width);
     margin-bottom: 16px;
 }
 
@@ -442,7 +444,7 @@ td.col-reason input[type="text"]:focus {
     border-radius: 6px;
     padding: 10px 14px;
     width: 100%;
-    max-width: var(--admin-width);
+    max-width: var(--tool-width);
     margin-bottom: 16px;
     font-size: 0.82rem;
     color: #856404;
@@ -453,7 +455,7 @@ td.col-reason input[type="text"]:focus {
     display: flex;
     gap: 10px;
     width: 100%;
-    max-width: var(--admin-width);
+    max-width: var(--tool-width);
     margin-bottom: 12px;
 }
 

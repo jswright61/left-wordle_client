@@ -162,7 +162,12 @@ body {
     flex-direction: column;
 }
 
-header {
+/* Scoped to a class, not the bare `header` element: this file is loaded by
+   every page on the site, and an unscoped element rule here silently
+   restyled any static page that used <header> for its own masthead. The
+   modal and page-overlay headers below used to inherit height/color/border
+   from this rule and now declare what they need themselves. */
+.game-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -238,7 +243,7 @@ header {
     opacity: 1;
 }
 
-header .title {
+.game-header .title {
     font-weight: 700;
     font-size: 36px;
     letter-spacing: 0.2rem;
@@ -251,14 +256,14 @@ header .title {
 }
 
 @media (max-width: 360px) {
-    header .title {
+    .game-header .title {
         font-size: 22px;
         letter-spacing: 0.1rem;
     }
 }
 
 @media (max-width: 330px) {
-    header .title {
+    .game-header .title {
         font-size: 19px;
         letter-spacing: 0.085rem;
     }
@@ -986,6 +991,8 @@ game-page .page-content header {
     justify-content: center;
     align-items: center;
     position: relative;
+    /* Was inherited from the old bare `header` rule. */
+    color: var(--color-tone-1);
     border-bottom: none;
     height: auto;
 }
@@ -1604,6 +1611,10 @@ game-icon {
     justify-content: center;
     align-items: center;
     position: relative;
+    /* All three were inherited from the old bare `header` rule. */
+    height: var(--header-height);
+    color: var(--color-tone-1);
+    border-bottom: 1px solid var(--color-tone-4);
 }
 
 #tools h1, #login h1, #login-link-landing h1 {

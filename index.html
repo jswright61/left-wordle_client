@@ -62,10 +62,10 @@
          Every other device never sees this; connectedCallback runs before
          any paint would show it. -->
     <game-app><div style="display:flex;align-items:center;justify-content:center;height:100vh;color:var(--color-tone-3);font-family:'Clear Sans','Helvetica Neue',Arial,sans-serif;font-size:16px;">Loading your game&hellip;</div></game-app>
-    <div id='header-container' style='display: none;'>
+    <div id="header-container" hidden>
         <game-theme-manager>
             <div id="game">
-                <header>
+                <header class="game-header">
                     <div class="menu">
                         <button id="help-button" class="icon" aria-label="help" title="Help">
                             <game-icon icon="help"></game-icon>
