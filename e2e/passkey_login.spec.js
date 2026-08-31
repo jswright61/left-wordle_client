@@ -1,11 +1,41 @@
 const { test, expect } = require('@playwright/test');
 
-// Points at a throwaway API instance started for this verification run
-// (RACK_ENV=test, its own port, not the developer's normal local API) --
-// see the task notes for how it was started. Not part of the normal
-// `npm run test:e2e` webServer (which only serves the static client);
-// running this spec requires that API instance to be up separately.
+// Points at a throwaway API instance (RACK_ENV=test, its own port, not the
+// developer's normal local API). It is NOT part of `npm run test:e2e` --
+// playwright's webServer only serves the static client -- so this spec
+// needs that instance brought up separately, and skips itself when it
+// isn't reachable rather than failing (see the beforeEach gate below; a
+// permanently red suite is one nobody reads).
+//
+// Bringing it up takes more than `rackup -p 9377`: api/app.rb reads
+// webauthn_origin from its one hardcoded config/app_config.yml, and a
+// local dev setup normally has that set to the Caddy origin
+// (https://left-wordle.test, see client/app_config.js). WebAuthn compares
+// that against the *client* origin, so a ceremony driven from
+// http://localhost:3000 fails on mismatch even once the port is listening.
+// Running it therefore means a config whose webauthn_origin/webauthn_rp_id
+// match wherever the client is served from.
+//
+// Longer term the cleaner home for this spec is the Caddy dev environment
+// itself, where client and API share one HTTPS origin exactly as
+// production does -- which would retire the port-9377/credentials-include
+// workaround below instead of documenting it.
 const API_BASE_URL = process.env.LEFT_WORDLE_E2E_API_BASE_URL || 'http://localhost:9377';
+
+// Any HTTP response means the API is up and this spec should run. Status is
+// deliberately ignored: an Origin-less request like this one is answered with
+// 401 "Authorization required" (see api/app.rb's server-token check), so
+// gating on response.ok would skip the whole spec against a perfectly healthy
+// server -- making the gate permanent instead of conditional. Only a
+// network-level failure (nothing listening, DNS, timeout) counts as absent.
+async function apiIsReachable() {
+    try {
+        await fetch(API_BASE_URL + '/api/v1/health', { signal: AbortSignal.timeout(2000) });
+        return true;
+    } catch {
+        return false;
+    }
+}
 
 async function setupPasskeyPage(browser) {
     const context = await browser.newContext();
@@ -86,6 +116,18 @@ async function waitForGuessToLand(page) {
 }
 
 test.describe('Passkey login', () => {
+    let reachable = false;
+
+    test.beforeAll(async () => {
+        reachable = await apiIsReachable();
+    });
+
+    test.beforeEach(() => {
+        test.skip(!reachable,
+            `Passkey API not reachable at ${API_BASE_URL} — see this file's header for what it needs. ` +
+            'Override with LEFT_WORDLE_E2E_API_BASE_URL.');
+    });
+
     test('register a new passkey, log out, and log back in on the same device', async ({ browser }) => {
         const { context, page } = await setupPasskeyPage(browser);
         await freshLoad(page);

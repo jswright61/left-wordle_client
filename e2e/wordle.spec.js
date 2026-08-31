@@ -28,12 +28,21 @@ async function dismissHelpModal(page) {
   }
 }
 
-// Helper: get the solution from the game-app element
+// Helper: get the day's answer from the game-app element.
+//
+// The app fetches an *encrypted* answer once per game and decrypts it into
+// `app.answer` (see wordle.js's _fetchAnswer). `app.solution` is a different
+// property that stays null until the game actually ends, so reading it
+// mid-game yields null -- which silently turns "pick a word that isn't the
+// answer" into "always pick crane" and makes those tests pass only until
+// crane is the answer. Waits for the async fetch to land rather than
+// assuming it already has.
 async function getSolution(page) {
-  return page.evaluate(() => {
+  await page.waitForFunction(() => {
     const app = document.querySelector('game-app');
-    return app.solution;
-  });
+    return app && typeof app.answer === 'string' && app.answer.length === 5;
+  }, { timeout: 10000 });
+  return page.evaluate(() => document.querySelector('game-app').answer);
 }
 
 // Helper: type a word using the keyboard
@@ -175,7 +184,7 @@ test.describe('Wordle E2E Tests', () => {
       expect(keys).toContain('←');
     });
 
-    test('header shows title and 4 buttons', async ({ page }) => {
+    test('header shows the title and its action buttons', async ({ page }) => {
       await freshGame(page);
       await dismissHelpModal(page);
 
@@ -191,10 +200,15 @@ test.describe('Wordle E2E Tests', () => {
         const buttons = header.querySelectorAll('button');
         return Array.from(buttons).map(b => b.id);
       });
+      // Named individually rather than counted, so adding a header button
+      // doesn't fail this test the way the old exact-count did. ("save" was
+      // renamed to "tools"; downloads and login arrived later.)
       expect(buttonIds).toContain('help-button');
-      expect(buttonIds).toContain('save-button');
+      expect(buttonIds).toContain('downloads-button');
+      expect(buttonIds).toContain('tools-button');
       expect(buttonIds).toContain('statistics-button');
       expect(buttonIds).toContain('settings-button');
+      expect(buttonIds).toContain('login-button');
     });
   });
 
@@ -336,85 +350,86 @@ test.describe('Wordle E2E Tests', () => {
 
   // ─── 6. Valid Guess Evaluation ────────────────────────────────────────────
   test.describe('Valid Guess Evaluation', () => {
-    test('uses API evaluations as authoritative when enabled', async ({ page }) => {
-      await page.addInitScript(() => {
-        window.LEFT_WORDLE_CONFIG = {
-          apiGameplayEnabled: true,
-          apiGameplayShadowMode: false,
-          localGameplayFallbackEnabled: true
-        };
+    // These four tests used to cover a dual-gameplay path (an API-authoritative
+    // evaluator with a local fallback, plus a shadow mode) configured by
+    // apiGameplayEnabled / apiGameplayShadowMode / localGameplayFallbackEnabled.
+    // "Evaluates Guesses Client-Side Using Encrypted Answer" and "Removes Dual
+    // Gameplay Path and Feature Flags" replaced all of it: the app now fetches
+    // one *encrypted* answer per game, decrypts it, and evaluates every guess
+    // locally. /api/v1/game/guess survives only to compute remaining-answer
+    // counts. Rewritten to cover that architecture instead.
+
+    test('fetches the encrypted answer once and evaluates guesses locally', async ({ page }) => {
+      const answerRequests = [];
+      const guessRequests = [];
+      await page.route('http://localhost:9292/api/v1/game/answer**', async route => {
+        answerRequests.push(route.request().url());
+        await route.fallback();
       });
       await page.route('http://localhost:9292/api/v1/game/guess', async route => {
-        const payload = route.request().postDataJSON();
-        const epoch = Date.parse('2021-06-19T00:00:00Z');
-        const puzzleNum = Math.floor((Date.parse(payload.date + 'T00:00:00Z') - epoch) / 86400000);
-        await route.fulfill({
-          contentType: 'application/json',
-          body: JSON.stringify({
-            date: payload.date,
-            evaluation: ['correct', 'correct', 'correct', 'correct', 'correct'],
-            game_status: 'WIN',
-            puzzle_num: puzzleNum,
-            row_index: payload.row_index + 1,
-            solution: payload.guess
-          })
-        });
+        guessRequests.push(route.request().postDataJSON());
+        await route.fallback();
       });
       await freshGame(page);
       await dismissHelpModal(page);
 
-      const localSolution = await getSolution(page);
-      const guess = VALID_WORDS.find(word => word !== localSolution);
+      const solution = await getSolution(page);
+      // freshGame loads the page twice (load, clear storage, reload), so the
+      // count so far is per-load; what matters is that playing the game adds
+      // no further fetches -- the answer is fetched per game, not per guess.
+      const answerRequestsBeforePlay = answerRequests.length;
+      expect(answerRequestsBeforePlay).toBeGreaterThan(0);
+
+      const guess = VALID_WORDS.find(word => word !== solution);
       await submitWord(page, guess);
       await waitForRowEvaluation(page);
       await waitForTileReveal(page, 0);
 
-      expect(await getRowTileStates(page, 0)).toEqual([
-        'correct', 'correct', 'correct', 'correct', 'correct'
-      ]);
-      expect(await page.evaluate(() => document.querySelector('game-app').gameStatus)).toBe('WIN');
-      expect(await page.evaluate(() => document.querySelector('game-app').solution)).toBe(guess);
+      // The answer arrives encrypted and is decrypted into app.answer; the
+      // guess itself never leaves the browser.
+      expect(answerRequests.length).toBe(answerRequestsBeforePlay);
+      expect(await page.evaluate(() => typeof document.querySelector('game-app').encryptedAnswer)).toBe('string');
+      expect(guessRequests).toHaveLength(0);
+
+      // The evaluation the board shows is the one computed locally against
+      // that answer. Only exact-position hits are asserted here -- they're
+      // unambiguous regardless of duplicate-letter accounting, which
+      // game-logic.test.js covers directly.
+      const states = await getRowTileStates(page, 0);
+      states.forEach(state => expect(['correct', 'present', 'absent']).toContain(state));
+      guess.split('').forEach((letter, i) => {
+        if (solution[i] === letter) expect(states[i]).toBe('correct');
+      });
+      expect(await page.evaluate(() => document.querySelector('game-app').rowIndex)).toBe(1);
     });
 
-    test('keeps API validation errors authoritative', async ({ page }) => {
-      let requestCount = 0;
-      await page.addInitScript(() => {
-        window.LEFT_WORDLE_CONFIG = {
-          apiGameplayEnabled: true,
-          apiGameplayShadowMode: false,
-          localGameplayFallbackEnabled: true
-        };
-      });
+    test('rejects a word that is not in the local list without calling the API', async ({ page }) => {
+      const guessRequests = [];
       await page.route('http://localhost:9292/api/v1/game/guess', async route => {
-        requestCount += 1;
-        await route.fulfill({
-          status: 400,
-          contentType: 'application/json',
-          body: JSON.stringify({ detail: 'Not in word list' })
-        });
+        guessRequests.push(route.request().postDataJSON());
+        await route.fallback();
       });
       await freshGame(page);
       await dismissHelpModal(page);
 
       await submitWord(page, 'zzzzz');
-      await expect.poll(() => requestCount).toBe(1);
+
       await expect.poll(() => page.evaluate(() => {
         const toast = document.querySelector('game-app #game-toaster game-toast');
         return toast ? toast.getAttribute('text') : null;
       })).toBe('Not in word list');
 
+      // Validation is local now, so an invalid word costs no round trip and
+      // the row stays put with the letters still on it.
+      expect(guessRequests).toHaveLength(0);
       expect(await page.evaluate(() => document.querySelector('game-app').rowIndex)).toBe(0);
       expect(await getRowTileLetters(page, 0)).toEqual(['z', 'z', 'z', 'z', 'z']);
     });
 
-    test('falls back to local evaluation for network failures', async ({ page }) => {
-      await page.addInitScript(() => {
-        window.LEFT_WORDLE_CONFIG = {
-          apiGameplayEnabled: true,
-          apiGameplayShadowMode: false,
-          localGameplayFallbackEnabled: true
-        };
-      });
+    test('plays on when the guess endpoint is unreachable', async ({ page }) => {
+      // Nothing in the critical path calls it any more, so aborting it must
+      // not disturb evaluation at all -- this is the regression guard for
+      // ever wiring gameplay back onto a live per-guess request.
       await page.route('http://localhost:9292/api/v1/game/guess', route => route.abort());
       await freshGame(page);
       await dismissHelpModal(page);
@@ -429,36 +444,33 @@ test.describe('Wordle E2E Tests', () => {
       states.forEach(state => expect(['correct', 'present', 'absent']).toContain(state));
     });
 
-    test('submits valid guesses to the API in shadow mode', async ({ page }) => {
-      const shadowRequests = [];
+    test('asks the API for a remaining-answer count when that mode is on', async ({ page }) => {
+      const countRequests = [];
       await page.route('http://localhost:9292/api/v1/game/guess', async route => {
-        const payload = route.request().postDataJSON();
-        shadowRequests.push(payload);
-        await route.fulfill({
-          contentType: 'application/json',
-          body: JSON.stringify({
-            date: payload.date,
-            evaluation: ['absent', 'absent', 'absent', 'absent', 'absent'],
-            game_status: 'IN_PROGRESS',
-            puzzle_num: 0,
-            row_index: payload.row_index + 1,
-            solution: null
-          })
-        });
+        countRequests.push(route.request().postDataJSON());
+        await route.fallback();
       });
       await freshGame(page);
       await dismissHelpModal(page);
+      await page.evaluate(() => {
+        window.StorageController.preferences.set('remainingAnswersMode', 'gameplay');
+      });
 
       const solution = await getSolution(page);
       const guess = VALID_WORDS.find(word => word !== solution);
       await submitWord(page, guess);
       await waitForRowEvaluation(page);
-      await expect.poll(() => shadowRequests.length).toBe(1);
+      await expect.poll(() => countRequests.length).toBe(1);
 
-      expect(shadowRequests[0]).toEqual({
+      // The one surviving use of /game/guess: counting answers still
+      // possible. return_remaining_count is what distinguishes it.
+      expect(countRequests[0]).toEqual({
         date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
         guess: guess,
-        row_index: 0
+        row_index: 0,
+        mode: 'regular',
+        prev_guesses: [],
+        return_remaining_count: true
       });
       expect(await page.evaluate(() => document.querySelector('game-app').rowIndex)).toBe(1);
     });
@@ -708,7 +720,7 @@ test.describe('Wordle E2E Tests', () => {
       }, { timeout: 3000 });
     });
 
-    test('settings page shows 3 toggle switches with visible sliders', async ({ page }) => {
+    test('settings page toggle switches all render a visible slider', async ({ page }) => {
       await freshGame(page);
       await dismissHelpModal(page);
 
@@ -724,7 +736,7 @@ test.describe('Wordle E2E Tests', () => {
         return gamePage && gamePage.hasAttribute('open');
       }, { timeout: 3000 });
 
-      // Verify 3 game-switch elements exist with visible switch+knob structure
+      // Verify every game-switch renders a visible switch+knob structure
       const switchInfo = await page.evaluate(() => {
         const app = document.querySelector('game-app');
         const gamePage = app.querySelector('game-page');
@@ -743,16 +755,23 @@ test.describe('Wordle E2E Tests', () => {
         });
       });
 
-      expect(switchInfo).toHaveLength(3);
+      // The regression this guards is a markup/CSS break that leaves a
+      // slider invisible or unsized -- so it checks the structure of every
+      // switch rather than how many there happen to be. The toggle list has
+      // grown repeatedly (hard mode left settings entirely; goof protection,
+      // the two hide-* options, the login prompt and answer-list warning all
+      // arrived later), and an exact count or ordered id list only ever
+      // failed for that.
+      expect(switchInfo.length).toBeGreaterThan(0);
       for (const sw of switchInfo) {
         expect(sw.hasSwitchDiv).toBe(true);
         expect(sw.hasKnob).toBe(true);
         expect(sw.switchVisible).toBe(true);
         expect(sw.switchWidth).toBe('32px');
       }
-      expect(switchInfo.map(s => s.id)).toEqual([
-        'hard-mode', 'dark-theme', 'color-blind-theme'
-      ]);
+      expect(switchInfo.map(s => s.id)).toEqual(
+        expect.arrayContaining(['dark-theme', 'color-blind-theme'])
+      );
 
       // Close settings
       await page.evaluate(() => {
@@ -836,7 +855,12 @@ test.describe('Wordle E2E Tests', () => {
 
   // ─── 11. Remaining Answers Mode ───────────────────────────────────────────
   test.describe('Remaining Answers Mode', () => {
-    test('winning row shows "0" count immediately after tile reveal', async ({ page }) => {
+    // The winning row's zero is deliberately held back ~1000ms to match the
+    // Bounce animation (see "Fixes Stats Modal Empty on Fresh Install and Win
+    // Row Count Timing"), so it lands after the animation rather than
+    // alongside a non-win row's count. Poll for it instead of asserting the
+    // instant reveal an earlier revision aimed for.
+    test('winning row shows a "0" count once the win animation completes', async ({ page }) => {
       await freshGame(page);
 
       // Enable gameplay counts before the game starts
@@ -848,9 +872,9 @@ test.describe('Wordle E2E Tests', () => {
       await submitWord(page, solution);
       await waitForTileReveal(page, 0);  // row 0: 1-guess win
 
-      // Count should be "0" as soon as the last tile reveals — no separate delay
-      const countText = await page.evaluate(() => document.getElementById('gprc0').textContent);
-      expect(countText).toBe('0');
+      await expect
+        .poll(() => page.evaluate(() => document.getElementById('gprc0').textContent), { timeout: 5000 })
+        .toBe('0');
     });
 
     test('stale answersRemaining=1 on winning row is shown as 0 after page restore', async ({ page }) => {
