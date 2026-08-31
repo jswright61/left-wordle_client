@@ -66,6 +66,21 @@ describe('serverHistoryToLocalHistory', () => {
         expect(local['101'].starter).toBe('crane');
     });
 
+    test('maps the game_id the server now stores (Phase 1 of the ownership rework)', () => {
+        const dom = loadAuth();
+        const local = dom.window.LeftWordleAuth.serverHistoryToLocalHistory({
+            '200': {
+                puzzle_num: 200,
+                date: '2022-01-05',
+                game_status: 'WIN',
+                guesses: [['crane', '22222']],
+                game_id: '0190a5c3-52ce-7d34-b1a1-0242ac120002'
+            }
+        });
+
+        expect(local['200'].game_id).toBe('0190a5c3-52ce-7d34-b1a1-0242ac120002');
+    });
+
     test('leaves result null for a WIN with no recorded guesses', () => {
         const dom = loadAuth();
         const local = dom.window.LeftWordleAuth.serverHistoryToLocalHistory({
@@ -221,7 +236,7 @@ describe('syncHistoryEntry', () => {
         });
 
         expect(importHistory).toHaveBeenCalledWith([{
-            puzzle_num: 100, date: '2021-09-27', mode: 'hard', game_status: 'WIN', completed_at: 12345
+            puzzle_num: 100, date: '2021-09-27', mode: 'hard', game_status: 'WIN', completed_at: 12345, game_id: null
         }]);
     });
 
@@ -233,7 +248,7 @@ describe('syncHistoryEntry', () => {
         dom.window.LeftWordleAuth.syncHistoryEntry({ puzzle_num: 101, date: '2021-09-28', result: 7 });
 
         expect(importHistory).toHaveBeenCalledWith([{
-            puzzle_num: 101, date: '2021-09-28', mode: 'regular', game_status: 'FAIL', completed_at: null
+            puzzle_num: 101, date: '2021-09-28', mode: 'regular', game_status: 'FAIL', completed_at: null, game_id: null
         }]);
     });
 
@@ -249,7 +264,7 @@ describe('syncHistoryEntry', () => {
         dom.window.LeftWordleAuth.syncHistoryEntry({ puzzle_num: 50, date: '2021-08-08', result: null });
 
         expect(importHistory).toHaveBeenCalledWith([{
-            puzzle_num: 50, date: '2021-08-08', mode: 'regular', game_status: null, completed_at: null
+            puzzle_num: 50, date: '2021-08-08', mode: 'regular', game_status: null, completed_at: null, game_id: null
         }]);
     });
 
@@ -261,7 +276,7 @@ describe('syncHistoryEntry', () => {
         dom.window.LeftWordleAuth.syncHistoryEntry({ puzzle_num: 51, date: '2021-08-09' });
 
         expect(importHistory).toHaveBeenCalledWith([{
-            puzzle_num: 51, date: '2021-08-09', mode: 'regular', game_status: null, completed_at: null
+            puzzle_num: 51, date: '2021-08-09', mode: 'regular', game_status: null, completed_at: null, game_id: null
         }]);
     });
 });
@@ -294,8 +309,8 @@ describe('syncHistoryEntries', () => {
 
         expect(importHistory).toHaveBeenCalledTimes(1);
         expect(importHistory).toHaveBeenCalledWith([
-            { puzzle_num: 100, date: '2021-09-27', mode: 'hard', game_status: 'WIN', completed_at: 12345 },
-            { puzzle_num: 101, date: '2021-09-28', mode: 'regular', game_status: 'FAIL', completed_at: null }
+            { puzzle_num: 100, date: '2021-09-27', mode: 'hard', game_status: 'WIN', completed_at: 12345, game_id: null },
+            { puzzle_num: 101, date: '2021-09-28', mode: 'regular', game_status: 'FAIL', completed_at: null, game_id: null }
         ]);
     });
 });
@@ -403,10 +418,27 @@ describe('pushGameProgress', () => {
         const reportProgress = jest.fn(() => Promise.reject(new Error('offline')));
         const dom = loadAuth({ client: { reportProgress } });
 
-        await dom.window.LeftWordleAuth.pushGameProgress('2021-09-27', 'regular', [['crane', '01000']]);
+        await dom.window.LeftWordleAuth.pushGameProgress(
+            '2021-09-27', 'regular', [['crane', '01000']], null, '0190a5c3-52ce-7d34-b1a1-0242ac120002'
+        );
 
         expect(reportProgress).toHaveBeenCalledTimes(1);
-        expect(reportProgress).toHaveBeenCalledWith('2021-09-27', 'regular', [['crane', '01000']]);
+        expect(reportProgress).toHaveBeenCalledWith(
+            '2021-09-27', 'regular', [['crane', '01000']], '0190a5c3-52ce-7d34-b1a1-0242ac120002'
+        );
+    });
+
+    test('resolves with the response so the caller can adopt the stored game_id, while logged in', async () => {
+        const reportProgress = jest.fn(() => Promise.resolve({ status: 'recorded', game_id: 'server-kept-id' }));
+        const dom = loadAuth({ client: { reportProgress } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        const result = await dom.window.LeftWordleAuth.pushGameProgress(
+            '2021-09-27', 'regular', [['crane', '01000']], null, 'freshly-minted-id'
+        );
+
+        expect(reportProgress).toHaveBeenCalledWith('2021-09-27', 'regular', [['crane', '01000']], 'freshly-minted-id');
+        expect(result).toEqual({ status: 'recorded', game_id: 'server-kept-id' });
     });
 
     test('resolves on the first success when logged in, with no retry', async () => {
@@ -567,5 +599,162 @@ describe('statsDiscrepancyAfterPush', () => {
         const getProfile = jest.fn(() => Promise.reject(new Error('network down')));
         const dom = loadAuth({ client: { getProfile } });
         expect(await dom.window.LeftWordleAuth.statsDiscrepancyAfterPush(5)).toBeNull();
+    });
+});
+
+describe('syncCompletion', () => {
+    test('passes the game_id through and resolves with the completion response', async () => {
+        const reportCompletion = jest.fn(() => Promise.resolve({ status: 'recorded', game_id: 'server-kept-id' }));
+        const getProfile = jest.fn(() => Promise.resolve({ preferences: {}, game_state: {}, statistics: {} }));
+        const dom = loadAuth({ client: { reportCompletion, getProfile } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        const result = await dom.window.LeftWordleAuth.syncCompletion(
+            '2021-09-27', 100, 'regular', 'WIN', [['crane', '22222']], 'freshly-minted-id'
+        );
+
+        expect(reportCompletion).toHaveBeenCalledWith(
+            '2021-09-27', 100, 'regular', 'WIN', [['crane', '22222']], 'freshly-minted-id'
+        );
+        expect(result).toEqual({ status: 'recorded', game_id: 'server-kept-id' });
+    });
+
+    test('an entry with a game_id sends it on import', async () => {
+        const importHistory = jest.fn(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { importHistory } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        await dom.window.LeftWordleAuth.syncHistoryEntry({
+            puzzle_num: 100, date: '2021-09-27', result: 3, mode: 'hard',
+            completed_at: 12345, game_id: 'local-history-id'
+        });
+
+        expect(importHistory).toHaveBeenCalledWith([{
+            puzzle_num: 100, date: '2021-09-27', mode: 'hard', game_status: 'WIN',
+            completed_at: 12345, game_id: 'local-history-id'
+        }]);
+    });
+});
+
+/**
+ * Session-death completion replay: local storage holds the finished board a
+ * mid-game 401 snapshotted (handleSessionInvalidated) plus the offline
+ * finish; the server holds the same game, still in progress, under the
+ * account. The game_id match is the entire guard -- see auth.js.
+ */
+describe('replayInterruptedCompletion', () => {
+    const GAME_ID = '0190a5c3-52ce-7d34-b1a1-0242ac120002';
+
+    function finishedLocalGame(overrides) {
+        return Object.assign({
+            gameId: GAME_ID,
+            puzzleNum: 100,
+            date: '2021-09-27',
+            boardState: ['slate', 'crane', '', '', '', ''],
+            evaluations: [
+                ['absent', 'present', 'absent', 'absent', 'present'],
+                ['correct', 'correct', 'correct', 'correct', 'correct']
+            ],
+            gameStatus: 'WIN',
+            hardMode: false,
+            insaneMode: false
+        }, overrides || {});
+    }
+
+    function loadForReplay(historyRow, localState) {
+        const getHistory = jest.fn(() => Promise.resolve(historyRow ? { 100: historyRow } : {}));
+        const reportCompletion = jest.fn(() => Promise.resolve({ status: 'recorded', game_id: GAME_ID }));
+        const getProfile = jest.fn(() => Promise.resolve({ preferences: {}, game_state: {}, statistics: {} }));
+        const dom = loadAuth({ client: { getHistory, reportCompletion, getProfile } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+        if (localState) dom.window.StorageController.gameState.replace(localState);
+        return { dom, getHistory, reportCompletion };
+    }
+
+    test('replays a finished local game the server still holds in progress under the same id', async () => {
+        const { dom, reportCompletion } = loadForReplay(
+            { puzzle_num: 100, game_status: null, game_id: GAME_ID },
+            finishedLocalGame()
+        );
+
+        await dom.window.LeftWordleAuth.replayInterruptedCompletion();
+
+        expect(reportCompletion).toHaveBeenCalledWith(
+            '2021-09-27', 100, 'regular', 'WIN',
+            [['slate', '01001'], ['crane', '22222']],
+            GAME_ID
+        );
+    });
+
+    test('respects the completed-in mode flags when picking the replayed mode', async () => {
+        const { dom, reportCompletion } = loadForReplay(
+            { puzzle_num: 100, game_status: null, game_id: GAME_ID },
+            finishedLocalGame({ completedInInsaneMode: true })
+        );
+
+        await dom.window.LeftWordleAuth.replayInterruptedCompletion();
+
+        expect(reportCompletion.mock.calls[0][2]).toBe('insane');
+    });
+
+    test('refuses when the server row carries a different game_id (ordinary offline play, no-merge rule)', async () => {
+        const { dom, reportCompletion } = loadForReplay(
+            { puzzle_num: 100, game_status: null, game_id: 'someone-elses-or-older-game' },
+            finishedLocalGame()
+        );
+
+        await dom.window.LeftWordleAuth.replayInterruptedCompletion();
+
+        expect(reportCompletion).not.toHaveBeenCalled();
+    });
+
+    test('does nothing when the server row is already completed (replay already landed)', async () => {
+        const { dom, reportCompletion } = loadForReplay(
+            { puzzle_num: 100, game_status: 'WIN', game_id: GAME_ID },
+            finishedLocalGame()
+        );
+
+        await dom.window.LeftWordleAuth.replayInterruptedCompletion();
+
+        expect(reportCompletion).not.toHaveBeenCalled();
+    });
+
+    test('does not even fetch history when the local game is still in progress', async () => {
+        const { dom, getHistory, reportCompletion } = loadForReplay(
+            { puzzle_num: 100, game_status: null, game_id: GAME_ID },
+            finishedLocalGame({ gameStatus: 'IN_PROGRESS' })
+        );
+
+        await dom.window.LeftWordleAuth.replayInterruptedCompletion();
+
+        expect(getHistory).not.toHaveBeenCalled();
+        expect(reportCompletion).not.toHaveBeenCalled();
+    });
+
+    test('does nothing when logged out or when local state has no game', async () => {
+        const { dom, getHistory, reportCompletion } = loadForReplay(
+            { puzzle_num: 100, game_status: null, game_id: GAME_ID },
+            finishedLocalGame()
+        );
+        dom.window.LeftWordleAuth.loggedIn = false;
+        await dom.window.LeftWordleAuth.replayInterruptedCompletion();
+
+        dom.window.LeftWordleAuth.loggedIn = true;
+        dom.window.StorageController.gameState.replace({});
+        await dom.window.LeftWordleAuth.replayInterruptedCompletion();
+
+        expect(getHistory).not.toHaveBeenCalled();
+        expect(reportCompletion).not.toHaveBeenCalled();
+    });
+
+    test('swallows a history fetch failure so boot never breaks (retried next boot)', async () => {
+        const getHistory = jest.fn(() => Promise.reject(new Error('network down')));
+        const reportCompletion = jest.fn();
+        const dom = loadAuth({ client: { getHistory, reportCompletion } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+        dom.window.StorageController.gameState.replace(finishedLocalGame());
+
+        await expect(dom.window.LeftWordleAuth.replayInterruptedCompletion()).resolves.toBeUndefined();
+        expect(reportCompletion).not.toHaveBeenCalled();
     });
 });

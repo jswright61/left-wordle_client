@@ -1345,8 +1345,9 @@
                 device_id: GameStateManager.getDeviceId(),
                 // Read from the game being completed rather than threaded
                 // through every caller. Null for an online device, which
-                // doesn't write game data to local storage at all -- those
-                // ids will come from the server once it stores them.
+                // doesn't write game data to local storage at all -- its
+                // ids live server-side and come back through
+                // serverHistoryToLocalHistory (e.g. online Download Backup).
                 game_id: GameStateManager.getGameState().gameId || null,
                 origin: "played"
             };
@@ -1706,6 +1707,12 @@
             this.tileIndex = 0;
             if (!this.isHistoryPlay) {
                 var saveData = {
+                    // Must ride along on every save: handleSessionInvalidated
+                    // replaces local gameState wholesale with this snapshot,
+                    // and the completion replay (auth.js's
+                    // replayInterruptedCompletion) keys on the id surviving
+                    // that handoff.
+                    gameId: this.gameId,
                     rowIndex: this.rowIndex,
                     boardState: this.boardState,
                     evaluations: this.evaluations,
@@ -1713,6 +1720,7 @@
                     gameStatus: this.gameStatus,
                     lastPlayedTs: Date.now(),
                     hardMode: this.hardMode,
+                    insaneMode: this.insaneMode,
                     puzzleNum: this.dayOffset,
                     date: DateUtils.formatLocalDate(this.today),
                     answersRemaining: this.answersRemaining
@@ -2688,7 +2696,7 @@
                 this.answer = decryptAnswer(this.encryptedAnswer);
                 GameStateManager.saveGameState({ encryptedAnswer: this.encryptedAnswer });
                 if (window.LeftWordleApi.eventQueue) {
-                    window.LeftWordleApi.eventQueue.enqueueGameStart(dateStr, response.puzzle_num);
+                    window.LeftWordleApi.eventQueue.enqueueGameStart(dateStr, response.puzzle_num, this.gameId);
                 }
                 if (this.gameStatus === GAME_STATUS_IN_PROGRESS) {
                     this.canInput = true;
@@ -2732,6 +2740,23 @@
             }).catch(() => {});
         }
 
+        // Adopt the server's stored game_id (Phase 1 of
+        // api/docs/played_games_ownership_rework.md): the server keeps the
+        // first id a row ever saw and echoes it back, so if ours differs --
+        // a pre-upgrade row that had none, or an id minted after a local
+        // wipe -- converge on the server's rather than fight it. Online
+        // devices adopt in memory only (local storage stays untouched per
+        // online_play_redesign.md); offline devices persist it so history
+        // entries and exports carry the converged id.
+        _adoptGameId(serverGameId) {
+            if (typeof serverGameId !== "string" || !serverGameId || serverGameId === this.gameId) return;
+            this.gameId = serverGameId;
+            if (this._lastSaveData) this._lastSaveData.gameId = serverGameId;
+            if (!(window.LeftWordleAuth && window.LeftWordleAuth.isLoggedIn())) {
+                GameStateManager.saveGameState({ gameId: serverGameId });
+            }
+        }
+
         _fireCompletionReport(finalRowIndex, mode, gameStatus) {
             var allGuesses = this.buildPrevGuesses(finalRowIndex + 1);
             var date = DateUtils.formatLocalDate(this.today);
@@ -2740,9 +2765,12 @@
             // best-effort fire-and-forget as before -- no account for a
             // queued retry to reconcile against.
             if (window.LeftWordleAuth && window.LeftWordleAuth.isLoggedIn()) {
-                window.LeftWordleAuth.syncCompletion(date, this.dayOffset, mode, gameStatus, allGuesses);
+                window.LeftWordleAuth.syncCompletion(date, this.dayOffset, mode, gameStatus, allGuesses, this.gameId)
+                    .then((response) => this._adoptGameId(response && response.game_id));
             } else {
-                window.LeftWordleApi.client.reportCompletion(date, this.dayOffset, mode, gameStatus, allGuesses).catch(() => {});
+                window.LeftWordleApi.client.reportCompletion(date, this.dayOffset, mode, gameStatus, allGuesses, this.gameId)
+                    .then((response) => this._adoptGameId(response && response.game_id))
+                    .catch(() => {});
             }
         }
 
@@ -2761,12 +2789,15 @@
             var isOnline = window.LeftWordleAuth && window.LeftWordleAuth.isLoggedIn();
 
             if (!window.LeftWordleAuth) {
-                window.LeftWordleApi.client.reportProgress(date, mode, allGuesses).catch(() => {});
+                window.LeftWordleApi.client.reportProgress(date, mode, allGuesses, this.gameId)
+                    .then((response) => this._adoptGameId(response && response.game_id))
+                    .catch(() => {});
                 return;
             }
 
             if (isOnline) this.awaitingOnlineProgressSync = true;
-            var push = window.LeftWordleAuth.pushGameProgress(date, mode, allGuesses, this._lastSaveData);
+            var push = window.LeftWordleAuth.pushGameProgress(date, mode, allGuesses, this._lastSaveData, this.gameId);
+            push.then((response) => this._adoptGameId(response && response.game_id));
             if (isOnline) {
                 push.then(() => {
                     this.awaitingOnlineProgressSync = false;

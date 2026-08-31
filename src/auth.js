@@ -126,6 +126,10 @@
             // previous offline stretch (see PENDING_RUNNERS below) should
             // get another chance to land.
             LeftWordleAuth.flushPendingSync();
+            // Same moment, same reasoning: a completion finished offline
+            // after a mid-game session death can only land once a session
+            // is proven again (see replayInterruptedCompletion below).
+            LeftWordleAuth.replayInterruptedCompletion();
             return profile;
         } catch (error) {
             LeftWordleAuth.sessionUnexpectedlyEnded = wasPreviouslyLoggedIn();
@@ -293,9 +297,7 @@
                 completed_at: entry.completed_at || null,
                 updated_at: null,
                 device_id: null,
-                // The server doesn't store game_id yet; the key is present
-                // so every history entry has one consistent shape.
-                game_id: null,
+                game_id: entry.game_id || null,
                 origin: "server"
             };
         });
@@ -371,7 +373,7 @@
             return api().importHistory(payload);
         },
         completion: function(payload) {
-            return api().reportCompletion(payload.date, payload.puzzleNum, payload.mode, payload.gameStatus, payload.guesses);
+            return api().reportCompletion(payload.date, payload.puzzleNum, payload.mode, payload.gameStatus, payload.guesses, payload.gameId);
         },
         // A registration push (syncGameStateOnce) has no payload and reads
         // local storage, same "ignore payload, re-read current" shape as
@@ -436,7 +438,9 @@
 
     // entry shape (agreed client<->API contract, see api/app.rb
     // import_history_row!): {puzzle_num, date, mode, game_status
-    // ("WIN"/"FAIL"), completed_at}.
+    // ("WIN"/"FAIL"), completed_at, game_id (the client-minted UUIDv7 the
+    // local entry has carried since it was captured -- stored keep-first
+    // server-side)}.
     function toHistoryImportPayload(entry) {
         // result is 1-6 (win in N), 7 (fail), or null/unknown -- e.g. a
         // server-originated WIN with no recorded guesses that came back
@@ -454,7 +458,8 @@
             date: entry.date,
             mode: entry.mode || "regular",
             game_status: gameStatus,
-            completed_at: entry.completed_at || null
+            completed_at: entry.completed_at || null,
+            game_id: entry.game_id || null
         };
     }
 
@@ -476,16 +481,20 @@
     // Retry-queued the same as the other pushes when logged in; anonymous
     // play keeps the old fire-and-forget behavior in wordle.js since there's
     // no account for a queued retry to eventually reconcile against.
-    LeftWordleAuth.syncCompletion = function(date, puzzleNum, mode, gameStatus, guesses) {
+    LeftWordleAuth.syncCompletion = function(date, puzzleNum, mode, gameStatus, guesses, gameId) {
         if (!LeftWordleAuth.isLoggedIn()) return Promise.resolve();
-        var payload = {date: date, puzzleNum: puzzleNum, mode: mode, gameStatus: gameStatus, guesses: guesses};
+        var payload = {date: date, puzzleNum: puzzleNum, mode: mode, gameStatus: gameStatus, guesses: guesses, gameId: gameId || null};
         return syncWithRetry("completion:" + puzzleNum, "completion", payload)
             // GameStats reads cachedProfile.statistics for a logged-in user
             // (see toolsmenu.js's Adjust Stats fix), which otherwise stays
             // stale from login/boot until the next full reload -- the just-
             // finished game's board is locally correct, but the aggregate
             // counters (games played, streak, distribution) wouldn't be.
-            .then(function() { return LeftWordleAuth.refreshCachedProfile(); })
+            // Resolves with the completion response (not the profile) so the
+            // caller can adopt the server's stored game_id.
+            .then(function(result) {
+                return LeftWordleAuth.refreshCachedProfile().then(function() { return result; });
+            })
             .catch(function() {});
     };
 
@@ -533,15 +542,16 @@
     // queue is for "retry next time anything succeeds, whenever that is",
     // which is exactly the silent-reconciliation-later shape this session
     // chose not to have for live gameplay.
-    LeftWordleAuth.pushGameProgress = async function(date, mode, guesses, gameStateSnapshot) {
+    LeftWordleAuth.pushGameProgress = async function(date, mode, guesses, gameStateSnapshot, gameId) {
         if (!LeftWordleAuth.isLoggedIn()) {
-            return api().reportProgress(date, mode, guesses).catch(function() {});
+            return api().reportProgress(date, mode, guesses, gameId).catch(function() {});
         }
 
         for (;;) {
             try {
-                await api().reportProgress(date, mode, guesses);
-                return;
+                // Resolves with the response ({status, game_id}) so the
+                // caller can adopt the server's stored game_id.
+                return await api().reportProgress(date, mode, guesses, gameId);
             } catch (error) {
                 if (error && error.status === 401) {
                     LeftWordleAuth.handleSessionInvalidated(gameStateSnapshot);
@@ -559,6 +569,65 @@
             }
         }
     };
+
+    // Session-death completion replay (Phase 1 of
+    // api/docs/played_games_ownership_rework.md). When a session dies
+    // mid-game, handleSessionInvalidated snapshots the board to local
+    // storage and the device finishes the game offline -- but its anonymous
+    // writes no longer land on the row the account already claimed (the
+    // api's Phase 0.5 scoping), so without this the completion would never
+    // reach the account. On the next authenticated boot, if local storage
+    // holds a finished game whose game_id matches a server history row
+    // that is still in progress, re-send that completion, now
+    // authenticated.
+    //
+    // This is deliberately NOT a merge (see online_play_redesign.md's
+    // no-merge rule): the game_id match is the guard. A server row that is
+    // in the account's history, still unfinished, with this exact id, can
+    // only be a game this device started while online -- ordinary offline
+    // play writes anonymous rows the account's history never contains, so
+    // its ids can't match and nothing else ever replays. Errors are
+    // swallowed: local state still holds the game, so the next
+    // authenticated boot simply tries again, and a replay that already
+    // landed fails the still-in-progress check.
+    LeftWordleAuth.replayInterruptedCompletion = async function() {
+        if (!LeftWordleAuth.isLoggedIn()) return;
+        var state = (StorageController.gameState && StorageController.gameState.getAll()) || {};
+        var finished = state.gameStatus === "WIN" || state.gameStatus === "FAIL";
+        if (!state.gameId || !finished || !state.date || typeof state.puzzleNum !== "number") return;
+
+        var guesses = boardToGuessPairs(state.boardState, state.evaluations);
+        if (!guesses.length) return;
+
+        try {
+            var history = await api().getHistory();
+            var entry = history && history[String(state.puzzleNum)];
+            if (!entry || entry.game_status || entry.game_id !== state.gameId) return;
+
+            var insane = state.completedInInsaneMode != null ? state.completedInInsaneMode : state.insaneMode;
+            var hard = state.completedInHardMode != null ? state.completedInHardMode : state.hardMode;
+            var mode = insane ? "insane" : hard ? "hard" : "regular";
+            await api().reportCompletion(state.date, state.puzzleNum, mode, state.gameStatus, guesses, state.gameId);
+            LeftWordleAuth.refreshCachedProfile().catch(function() {});
+        } catch (e) {
+            // Best-effort; retried on the next authenticated boot.
+        }
+    };
+
+    // gameState's boardState/evaluations -> the [word, pattern] pairs the
+    // game endpoints speak (same encoding as wordle.js's buildPrevGuesses).
+    function boardToGuessPairs(boardState, evaluations) {
+        var map = {absent: "0", present: "1", correct: "2"};
+        var pairs = [];
+        if (!Array.isArray(boardState) || !Array.isArray(evaluations)) return pairs;
+        for (var i = 0; i < boardState.length; i++) {
+            var word = boardState[i];
+            var evaluation = evaluations[i];
+            if (!word || !Array.isArray(evaluation)) continue;
+            pairs.push([word, evaluation.map(function(v) { return map[v]; }).join("")]);
+        }
+        return pairs;
+    }
 
     // Audit-trail only (see api/app.rb's local_storage_snapshot_response) --
     // captures the client's pristine local storage before any other

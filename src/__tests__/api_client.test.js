@@ -96,12 +96,12 @@ describe('LeftWordleApi', () => {
         const fetchImpl = jest.fn().mockResolvedValue(response({ body: '{"status":"recorded"}' }));
         const dom = loadClient(fetchImpl);
 
-        const result = await dom.window.LeftWordleApi.client.reportGameStart('2021-06-19', 0);
+        const result = await dom.window.LeftWordleApi.client.reportGameStart('2021-06-19', 0, null);
 
         expect(fetchImpl).toHaveBeenCalledWith(
             'http://localhost:9292/api/v1/game/start',
             expect.objectContaining({
-                body: JSON.stringify({ date: '2021-06-19', puzzle_num: 0 }),
+                body: JSON.stringify({ date: '2021-06-19', puzzle_num: 0, game_id: null }),
                 headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
                 method: 'POST'
             })
@@ -261,7 +261,7 @@ describe('LeftWordleApi', () => {
         const guesses = [['crane', '01200'], ['slate', '22222']];
 
         const result = await dom.window.LeftWordleApi.client.reportCompletion(
-            '2021-06-19', 0, 'regular', 'WIN', guesses
+            '2021-06-19', 0, 'regular', 'WIN', guesses, '0190a5c3-52ce-7d34-b1a1-0242ac120002'
         );
 
         expect(fetchImpl).toHaveBeenCalledWith(
@@ -272,12 +272,36 @@ describe('LeftWordleApi', () => {
                     puzzle_num: 0,
                     mode: 'regular',
                     game_status: 'WIN',
-                    guesses: guesses
+                    guesses: guesses,
+                    game_id: '0190a5c3-52ce-7d34-b1a1-0242ac120002'
                 }),
                 method: 'POST'
             })
         );
         expect(result).toEqual({ status: 'recorded' });
+    });
+
+    test('posts a progress report with the game_id and omits none of the fields', async () => {
+        const fetchImpl = jest.fn().mockResolvedValue(response({ body: '{"status":"recorded","game_id":"kept-id"}' }));
+        const dom = loadClient(fetchImpl);
+
+        const result = await dom.window.LeftWordleApi.client.reportProgress(
+            '2021-06-19', 'regular', [['crane', '01200']], 'minted-id'
+        );
+
+        expect(fetchImpl).toHaveBeenCalledWith(
+            'http://localhost:9292/api/v1/game/progress',
+            expect.objectContaining({
+                body: JSON.stringify({
+                    date: '2021-06-19',
+                    mode: 'regular',
+                    guesses: [['crane', '01200']],
+                    game_id: 'minted-id'
+                }),
+                method: 'POST'
+            })
+        );
+        expect(result).toEqual({ status: 'recorded', game_id: 'kept-id' });
     });
 
     test('retains queued game start events when the request is retryable', async () => {
@@ -291,7 +315,7 @@ describe('LeftWordleApi', () => {
         expect(fetchImpl).toHaveBeenCalledWith(
             'http://localhost:9292/api/v1/game/start',
             expect.objectContaining({
-                body: JSON.stringify({ date: '2021-06-19', puzzle_num: 0 }),
+                body: JSON.stringify({ date: '2021-06-19', puzzle_num: 0, game_id: null }),
                 method: 'POST'
             })
         );
@@ -321,7 +345,7 @@ describe('LeftWordleApi', () => {
         expect(fetchImpl).toHaveBeenCalledWith(
             'http://localhost:9292/api/v1/game/start',
             expect.objectContaining({
-                body: JSON.stringify({ date: '2021-06-19', puzzle_num: 0 }),
+                body: JSON.stringify({ date: '2021-06-19', puzzle_num: 0, game_id: null }),
                 method: 'POST'
             })
         );

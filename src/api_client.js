@@ -70,18 +70,24 @@
             return this.request("/api/v1/game/remaining_counts", options);
         }
 
-        async reportGameStart(date, puzzleNum, options) {
-            options = Object.assign({}, options, { body: { date: date, puzzle_num: puzzleNum }, method: "POST" });
+        // game_id on the three game writes below is the client-minted UUIDv7
+        // from gameState (Phase 1 of api/docs/played_games_ownership_rework.md).
+        // The server stores it keep-first and echoes the stored id back in
+        // the response ({status, game_id}) so the caller can adopt the
+        // winner; identity/dedup only, never authorization.
+        async reportGameStart(date, puzzleNum, gameId, options) {
+            options = Object.assign({}, options, { body: { date: date, puzzle_num: puzzleNum, game_id: gameId || null }, method: "POST" });
             return this.request("/api/v1/game/start", options);
         }
 
-        async reportCompletion(date, puzzleNum, mode, gameStatus, guesses, options) {
+        async reportCompletion(date, puzzleNum, mode, gameStatus, guesses, gameId, options) {
             var body = {
                 date: date,
                 puzzle_num: puzzleNum,
                 mode: mode,
                 game_status: gameStatus,
-                guesses: guesses
+                guesses: guesses,
+                game_id: gameId || null
             };
             options = Object.assign({}, options, { body: body, method: "POST" });
             return this.request("/api/v1/game/complete", options);
@@ -90,11 +96,12 @@
         // Live per-guess save of an in-progress (not yet WIN/FAIL) game --
         // same device_id-scoped, login-optional shape as reportCompletion,
         // called after every guess instead of only at the end.
-        async reportProgress(date, mode, guesses, options) {
+        async reportProgress(date, mode, guesses, gameId, options) {
             var body = {
                 date: date,
                 mode: mode,
-                guesses: guesses
+                guesses: guesses,
+                game_id: gameId || null
             };
             options = Object.assign({}, options, { body: body, method: "POST" });
             return this.request("/api/v1/game/progress", options);
@@ -293,12 +300,12 @@
             }
         }
 
-        enqueueGameStart(date, puzzleNum) {
+        enqueueGameStart(date, puzzleNum, gameId) {
             var jobs = this._readJobs().filter((job) => job.key !== this._gameStartKey(date));
             jobs.push({
                 attempts: 0,
                 key: this._gameStartKey(date),
-                payload: { date: date, puzzle_num: puzzleNum },
+                payload: { date: date, puzzle_num: puzzleNum, game_id: gameId || null },
                 type: "gameStart"
             });
             this._writeJobs(jobs.slice(-this.maxJobs));
@@ -338,7 +345,7 @@
             if (!job || job.type !== "gameStart" || !job.payload) {
                 return Promise.resolve();
             }
-            return this.client.reportGameStart(job.payload.date, job.payload.puzzle_num);
+            return this.client.reportGameStart(job.payload.date, job.payload.puzzle_num, job.payload.game_id);
         }
 
         _readJobs() {
