@@ -10,22 +10,34 @@ npx serve . -l 3000 --no-clipboard
 ```
 
 The frontend is available at `http://localhost:3000`. Its default local API
-configuration points to `http://localhost:9292`. Start `left_wordle_api` with
-the frontend origin in its CORS allow list:
+configuration points to `http://localhost:9292`. Start `left_wordle_api`:
 
 ```zsh
-CORS_ORIGINS=http://localhost:3000 rv run bundle exec rackup
+rv run bundle exec rackup
 ```
 
-Deployment-specific API settings and feature flags live in `app_config.js`.
-API gameplay remains locally authoritative. Shadow mode defaults on for local
-development and off for deployed hosts; it compares API evaluations in the
-background without changing the result shown to the player.
+The frontend origin must be in the API's CORS allow list. That list is read
+from `api/config/app_config.yml` (`cors_origins:`) — there is no environment
+variable for it.
 
-Set `apiGameplayEnabled` to `true` in a deployment override to make validated
-API responses authoritative. `localGameplayFallbackEnabled` permits local
-evaluation only for retryable API failures or invalid API response contracts;
-API validation errors remain authoritative.
+Deployment-specific API settings live in `app_config.js`, which merges a
+per-deployment override over its defaults. Gameplay is evaluated in the
+browser: the app fetches one encrypted answer per game from
+`/api/v1/game/answer`, decrypts it, and evaluates every guess locally.
+`/api/v1/game/guess` is used only to compute remaining-answer counts.
+
+## Tests
+
+```zsh
+npm test          # jest unit tests
+npm run test:e2e  # playwright end-to-end tests
+./test_runner.sh  # lint + unit + e2e, output tee'd to tmp/
+```
+
+The e2e suite drives the real app, so **the API must be running on 9292** —
+without it the puzzle answer never loads and the gameplay tests fail. The
+passkey spec additionally needs its own API instance and skips itself when
+that isn't reachable; see the header comment in `e2e/passkey_login.spec.js`.
 
 [wordle](https://www.powerlanguage.co.uk/wordle/), with a save and load button added, made into a single file (from `/src`) using [monolith](https://github.com/Y2Z/monolith)
 
