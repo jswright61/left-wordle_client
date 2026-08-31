@@ -167,6 +167,13 @@ arrival-order races between devices, since there's only ever one live
 writer (the current puzzle, played once, by the one device that's online
 right now).
 
+> **Partly superseded:** `api/docs/played_games_ownership_rework.md` moves
+> user-owned games to a `games` table keyed `UNIQUE (user_id, puzzle_num)`,
+> so device races are settled by the database at write time rather than
+> assumed away by the one-live-writer discipline. The anchor/contiguity
+> rule survives unchanged (it still handles out-of-order catch-up play);
+> the canonicalization layer and its arrival-order refereeing do not.
+
 `gameState` (in-progress board) updates the server after every guess while
 online, rather than the current one-time-at-registration-only push. Local
 storage may still cache the in-progress board for instant paint on
