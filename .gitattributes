@@ -23,17 +23,20 @@ jest.config.js export-ignore
 playwright.config.js export-ignore
 eslint.config.js export-ignore
 test_runner.sh export-ignore
+dev/ export-ignore
 
 # Test/QA artifacts - must never be publicly reachable
 e2e/ export-ignore
 migration_tests/ export-ignore
 src/__tests__/ export-ignore
 sample_stats.json export-ignore
+manual_testing/ export-ignore
 
 # Working files kept for reference, not ready-to-serve data
 data/wip/ export-ignore
 
 # Docs - internal, not part of the product
 docs/ export-ignore
+README.md export-ignore
 
 .gitattributes export-ignore
