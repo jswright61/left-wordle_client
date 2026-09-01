@@ -127,3 +127,30 @@
   <li>Verify it reports what it found without an error, and that already-known puzzles are flagged as duplicates rather than added again</li>
   <li><strong>Verify your stats and streak are unchanged afterwards</strong> — an import should never move your numbers on its own</li>
 </ol>
+
+<h2>Reading Game Data From the New Store (staging flag — Phase 3)</h2>
+<p>Staging can be switched to read your history and stats from the new per-account store instead of the old per-device one. Nothing about the app should look different — that's the entire point, and the only way to find out is to look hard at a real account with real history.</p>
+<p>Ask for the flag to be turned on for staging before working through this (it's a server setting, not something in the app), and note roughly when it was switched so anything odd can be tied to it.</p>
+<p><strong>Before the flag is turned on</strong> — capture what "correct" looks like, so you have something to compare against:</p>
+<ol>
+  <li>Sign in on staging and open your statistics — note games played, win %, current and max streak, and the shape of the guess distribution</li>
+  <li>Open your history and note how many puzzles are listed and the most recent few results</li>
+  <li>Export a backup and keep the file</li>
+</ol>
+<p><strong>After the flag is turned on</strong>:</p>
+<ol>
+  <li>Reload and open your statistics again — <strong>every number should be identical</strong>. Any change at all is worth reporting, however small</li>
+  <li>Open your history — same puzzle count, same results, nothing missing and nothing new</li>
+  <li>Play today's puzzle to a finish and verify stats move exactly as they should — games played up by one, streak behaving</li>
+  <li>Export a backup again and compare it against the earlier file; the games should match</li>
+  <li>Import that backup and verify it reports duplicates rather than adding anything, and that <strong>your stats do not move</strong></li>
+</ol>
+<p><strong>The two-device case</strong>, which is what this whole change is for. Needs two devices or profiles signed in to the same account:</p>
+<ol>
+  <li>On device A, start a puzzle and make a guess or two without finishing</li>
+  <li>On device B, finish that same puzzle</li>
+  <li>Verify the result counts once — not twice, not zero times</li>
+  <li>Reload device A and verify it agrees with device B about the result</li>
+  <li>Check your history shows that puzzle once, with the finished result</li>
+</ol>
+<p>If anything here looks wrong, say so before the flag goes anywhere near production — it can be switched back off without a deploy.</p>
