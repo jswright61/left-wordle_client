@@ -81,74 +81,49 @@
   <li>Verify the login prompt automatically reappears this time — logging in on a device resets the "don't ask" setting so a future logout doesn't leave you stranded on a signed-out device</li>
 </ol>
 
-<h2>Warn on Non-Answers (new in v1.0.4)</h2>
-<p>A legal word isn't always a <em>possible answer</em> — the answer list is much smaller than the list of words you're allowed to guess. This preference asks you to confirm before you spend a guess on a word that can't be the answer, starting from whichever line you choose. It's off by default.</p>
-<p>Useful words for testing (verified against the shipped lists):</p>
-<ul>
-  <li><strong>CRANE</strong> — legal <em>and</em> a possible answer, so it should never warn</li>
-  <li><strong>ADIEU</strong>, <strong>SLATS</strong>, <strong>TARES</strong> — legal but <em>not</em> possible answers, so these should warn</li>
-</ul>
-
-<p>Turning it on and setting the starting line</p>
+<h2>Everyday Play Still Works (regression — v1.0.5)</h2>
+<p>Every guess and completion now sends a little more information to the server than it used to. Nothing about that should be visible, so this is a plain "did we break playing the game" pass. Worth doing first, and worth doing both signed out and signed in.</p>
 <ol>
-  <li>Open the settings modal (gear icon in header)</li>
-  <li>Find "Warn on Non-Answers, Starting Line:" and verify the toggle is off and the stepper reads 3 by default</li>
-  <li>Click the stepper's up arrow and verify the number increases; hold at the top and verify it stops at 6</li>
-  <li>Click the down arrow repeatedly and verify it stops at 1 (it should never go to 0 or negative)</li>
-  <li>Set the starting line to 3 and turn the toggle on</li>
-  <li>Close and reopen the settings modal and verify both the toggle and the number were remembered</li>
+  <li>Signed <em>out</em>, play today's puzzle to a finish (win or lose)</li>
+  <li>Verify guesses score normally, the board reveals as usual, and the result modal appears</li>
+  <li>Verify your stats and streak updated the way you'd expect</li>
+  <li>Reload the page and verify the finished game is still shown, not a blank board</li>
+  <li>Now sign in and repeat on another puzzle (or another device/profile)</li>
+  <li>Verify the same: normal scoring, normal finish, stats updated, survives a reload</li>
+  <li>Watch for any moment where the board stops accepting letters and needs a reload — that's the failure worth reporting</li>
 </ol>
 
-<p>The warning itself</p>
+<h2>Finishing a Game After You Get Signed Out (new in v1.0.5)</h2>
+<p>If your session ends part-way through a puzzle, you drop back to playing on the device alone. Before this release, the game you then finished stayed on that device forever — it never reached your history or stats. Now it gets added the next time you sign in.</p>
+<p>To end a session on purpose, delete the login cookie in your browser's developer tools: Application (or Storage) &rarr; Cookies &rarr; the staging site &rarr; delete <code>left_wordle_session</code>. Do <em>not</em> use Log Out — logging out deliberately is a different path and won't exercise this.</p>
 <ol>
-  <li>With the setting on and the starting line at 3, start today's puzzle</li>
-  <li>On line 1, guess <strong>ADIEU</strong> — verify you are <em>not</em> warned, because line 1 is before the starting line</li>
-  <li>On line 2, guess <strong>SLATS</strong> — verify you are still not warned</li>
-  <li>On line 3, guess <strong>TARES</strong> — verify a message appears saying it's a legal word but not in the list of possible answers, with "Change my guess" and "Use anyway"</li>
-  <li>Click "Change my guess" and verify the guess is <em>not</em> submitted — the word stays on the board for you to edit, and you have not lost a turn</li>
-  <li>Guess <strong>TARES</strong> again on the same line and this time click "Use anyway"</li>
-  <li>Verify the guess is submitted normally and scores as usual</li>
-  <li>On the next line, guess <strong>CRANE</strong> and verify no warning appears — it's a possible answer</li>
+  <li>Sign in, start today's puzzle, and make one or two guesses</li>
+  <li>Delete the <code>left_wordle_session</code> cookie as above (leave the tab open)</li>
+  <li>Make another guess — verify you're told your session ended and you're now playing offline, rather than the board freezing or silently swallowing the guess</li>
+  <li>Finish the puzzle</li>
+  <li>Sign back in</li>
+  <li><strong>Verify the game you just finished is in your history</strong>, with the right result</li>
+  <li>Verify your stats reflect it — games played went up, and a win counted as a win</li>
+  <li>Reload once and verify it's still there and hasn't been counted twice</li>
 </ol>
 
-<p>Starting line and off-switch behave</p>
+<h2>The Same Puzzle on Two Devices (regression — v1.0.5)</h2>
+<p>Behind the scenes this release changes how a game played on more than one device gets recorded. You shouldn't be able to tell — this is a check that nothing about the visible behaviour moved. Needs two devices or two browser profiles, both signed in to the same account.</p>
 <ol>
-  <li>Set the starting line to 1, then start a fresh puzzle (or use a new browser profile)</li>
-  <li>Guess <strong>ADIEU</strong> on line 1 and verify you are warned immediately this time</li>
-  <li>Turn the setting off, then guess another non-answer such as <strong>SLATS</strong></li>
-  <li>Verify no warning appears at all and the guess submits directly</li>
+  <li>On device A, start today's puzzle and make a guess or two, but don't finish</li>
+  <li>On device B, open the same puzzle and finish it</li>
+  <li>Verify the win or loss counts once in your stats — not twice, and not zero times</li>
+  <li>Verify your streak moved the way it should</li>
+  <li>Check your history and verify today appears once, with the finished result</li>
+  <li>Go back to device A, reload, and verify it agrees — same result, same stats</li>
 </ol>
 
-<h2>History Import and Export (fixed in v1.0.4)</h2>
-<p>Both of these were failing for everyone before this release, so they need a real pass rather than a spot check.</p>
+<h2>Backup and Restore While Signed In (regression — v1.0.5)</h2>
+<p>The data written into a history export changed slightly this release, so a round trip is worth re-checking even though nothing about it should look different.</p>
 <ol>
-  <li>Open the Tools modal (wrench icon) and under "Backup &amp; Restore" click "Export History"</li>
-  <li>Try both formats if offered (JSON and CSV) and verify a file downloads without an error message</li>
-  <li>Open the file and verify it contains your games, one row per puzzle</li>
-  <li>Repeat the export while <em>signed in</em> — this path fetches from the server and was broken separately</li>
-  <li>Now use "Import History" and select the file you just exported</li>
-  <li>Verify it reports how many rows were valid and how many were added, with no crash and no "History import failed" message</li>
-  <li>Since every puzzle already exists locally, expect rows to be flagged as duplicates rather than added — that's correct, not an error</li>
-  <li>Verify your stats and history list are unchanged afterwards</li>
-</ol>
-
-<h2>Signing In on a Second Device (fixed in v1.0.4)</h2>
-<p>Previously, signing in on a device that had never been logged in showed a blank board and that device's own settings, instead of your account's game and preferences. Needs two devices or two browser profiles.</p>
-<ol>
-  <li>On device A (signed in), play at least one guess of today's puzzle but do <em>not</em> finish it</li>
-  <li>On device A, change a visible preference — turn on dark theme, or hard mode</li>
-  <li>On device B, which has never been signed in to this account, sign in</li>
-  <li>Verify the page reloads on its own after sign-in</li>
-  <li>Verify today's board on device B shows the guesses you made on device A, not a blank board</li>
-  <li>Verify the preference you changed on device A is now in effect on device B</li>
-  <li>Open settings on device B and confirm the setting is actually shown as on, not just visually applied</li>
-  <li>Reload device B once more and verify both the board and the settings persist</li>
-</ol>
-
-<h2>Erase While Signed In (fixed in v1.0.4)</h2>
-<ol>
-  <li>Sign in, then finish today's puzzle</li>
-  <li>Try to erase today's game</li>
-  <li>Verify you get a clear message that erase is unavailable while playing online, rather than the erase appearing to succeed</li>
-  <li>Log out, and verify erase becomes available again for a locally-played game</li>
+  <li>Signed in, open the Tools modal (wrench icon) and export your history</li>
+  <li>Verify the file downloads and contains your games, one row per puzzle</li>
+  <li>Import that same file back</li>
+  <li>Verify it reports what it found without an error, and that already-known puzzles are flagged as duplicates rather than added again</li>
+  <li><strong>Verify your stats and streak are unchanged afterwards</strong> — an import should never move your numbers on its own</li>
 </ol>
