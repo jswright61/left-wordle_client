@@ -440,9 +440,10 @@
     // Retries every queued job once, dropping whichever succeed and leaving
     // the rest queued. Re-entrant calls while one is already in flight are a
     // no-op. Every job here is naturally safe to replay (a preferences PUT
-    // is a full overwrite, a history import dedupes server-side by
-    // client_device_id+date), so retrying a job that actually already
-    // landed is harmless.
+    // is a full overwrite, a history import dedupes server-side per account
+    // and puzzle, keeping the first recorded result rather than letting a
+    // replay rewrite it), so retrying a job that actually already landed is
+    // harmless.
     LeftWordleAuth.flushPendingSync = async function() {
         if (flushingPendingQueue || !LeftWordleAuth.isLoggedIn()) return;
         var queue = readPendingQueue();
