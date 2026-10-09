@@ -2741,7 +2741,7 @@
         }
 
         // Adopt the server's stored game_id (Phase 1 of
-        // api/docs/played_games_ownership_rework.md): the server keeps the
+        // api/docs/ownership_rework.md): the server keeps the
         // first id a row ever saw and echoes it back, so if ours differs --
         // a pre-upgrade row that had none, or an id minted after a local
         // wipe -- converge on the server's rather than fight it. Online

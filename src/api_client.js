@@ -71,7 +71,7 @@
         }
 
         // game_id on the three game writes below is the client-minted UUIDv7
-        // from gameState (Phase 1 of api/docs/played_games_ownership_rework.md).
+        // from gameState (Phase 1 of api/docs/ownership_rework.md).
         // The server stores it keep-first and echoes the stored id back in
         // the response ({status, game_id}) so the caller can adopt the
         // winner; identity/dedup only, never authorization.

@@ -27,7 +27,7 @@ var SCHEMA = {
         // Client-minted UUIDv7, one per game, created when the game starts
         // (see wordle.js). Sent on every game write; the server stores it
         // keep-first and echoes the stored id back, which the client adopts
-        // (see api/docs/played_games_ownership_rework.md, Phase 1). UUIDv7
+        // (see api/docs/ownership_rework.md, Phase 1). UUIDv7
         // sorts by creation time, so an imported backup keeps true play
         // order rather than collapsing to server-arrival order.
         gameId:                     "string",

@@ -167,7 +167,7 @@ arrival-order races between devices, since there's only ever one live
 writer (the current puzzle, played once, by the one device that's online
 right now).
 
-> **Partly superseded:** `api/docs/played_games_ownership_rework.md` moves
+> **Partly superseded:** `api/docs/ownership_rework.md` moves
 > user-owned games to a `games` table keyed `UNIQUE (user_id, puzzle_num)`,
 > so device races are settled by the database at write time rather than
 > assumed away by the one-live-writer discipline. The anchor/contiguity

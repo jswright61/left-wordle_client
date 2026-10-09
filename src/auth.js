@@ -571,7 +571,7 @@
     };
 
     // Session-death completion replay (Phase 1 of
-    // api/docs/played_games_ownership_rework.md). When a session dies
+    // api/docs/ownership_rework.md). When a session dies
     // mid-game, handleSessionInvalidated snapshots the board to local
     // storage and the device finishes the game offline -- but its anonymous
     // writes no longer land on the row the account already claimed (the
