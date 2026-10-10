@@ -56,6 +56,9 @@ const wordleJsPath = path.join(__dirname, '../wordle.js');
 const validGuessesCode = fs.readFileSync(validGuessesPath, 'utf8');
 dom.window.eval(validGuessesCode);
 
+// The answer list remaining-answer counts are computed from.
+dom.window.eval(fs.readFileSync(path.join(__dirname, '../answer_list_sorted.js'), 'utf8'));
+
 const storageControllerCode = fs.readFileSync(path.join(__dirname, '../storage-controller.js'), 'utf8');
 dom.window.eval(storageControllerCode);
 
@@ -1097,150 +1100,45 @@ describe('escapeHtml', () => {
     });
 });
 
-describe('backfillAnswersRemaining', () => {
-    const backfillAnswersRemaining = testExports.backfillAnswersRemaining;
-    const buildPrevGuesses = testExports.buildPrevGuesses;
+// Remaining-answer counts are computed in the browser from the answer list
+// (they used to come from the API, one request per guess). Expected values
+// here are the API's own answers for the same boards.
+describe('countAnswersRemaining', () => {
+    const countAnswersRemaining = testExports.countAnswersRemaining;
 
-    function makeApp(overrides) {
-        return Object.assign({
-            evaluations: new Array(6).fill(null),
-            boardState: new Array(6).fill(''),
-            answersRemaining: new Array(6).fill(null),
-            gameStatus: GAME_STATUS_FAIL,
-            rowIndex: 6,
-            hardMode: false,
-            insaneMode: false,
-            isHistoryPlay: true, // keep saveGameState out of these tests
-            today: new Date(2021, 5, 25),
-            dayOffset: 6,
-            buildPrevGuesses: buildPrevGuesses
-        }, overrides);
-    }
-
-    beforeEach(() => {
-        localStorage.clear();
+    test('matches the API on a one-guess board', () => {
+        expect(countAnswersRemaining([['awful', '00101']])).toBe(25);
     });
 
-    afterEach(() => {
-        delete dom.window.LeftWordleApi;
+    test('narrows guess by guess, matching the API at each row', () => {
+        const pairs = [['caddy', '01022'], ['vapid', '01001'], ['groan', '01010']];
+        expect([1, 2, 3].map((n) => countAnswersRemaining(pairs.slice(0, n)))).toEqual([4, 4, 1]);
     });
 
-    // Regression: this used to send 1-based row indexes; the API rejects
-    // row_index 6, so the final row of a lost game could never backfill.
-    test('requests every row of a lost game with 0-based row indexes, including the final row', async () => {
-        const evaluate = jest.fn((request) => Promise.resolve({ answersRemaining: 100 - request.rowIndex }));
-        dom.window.LeftWordleApi = { gameplay: { evaluate } };
-
-        const app = makeApp({
-            evaluations: new Array(6).fill([ABSENT, ABSENT, ABSENT, ABSENT, ABSENT]),
-            boardState: ['crane', 'moist', 'gluey', 'ready', 'pours', 'light'],
-            gameStatus: GAME_STATUS_FAIL,
-            rowIndex: 6
-        });
-
-        await backfillAnswersRemaining.call(app);
-
-        expect(evaluate).toHaveBeenCalledTimes(6);
-        const sentRowIndexes = evaluate.mock.calls.map(function(call) { return call[0].rowIndex; });
-        expect(sentRowIndexes).toEqual([0, 1, 2, 3, 4, 5]);
-        expect(app.answersRemaining).toEqual([100, 99, 98, 97, 96, 95]);
-    });
-
-    test('sends each row its own prior guesses as prevGuesses', async () => {
-        const evaluate = jest.fn(() => Promise.resolve({ answersRemaining: 5 }));
-        dom.window.LeftWordleApi = { gameplay: { evaluate } };
-
-        const app = makeApp({
-            evaluations: [
-                [ABSENT, ABSENT, ABSENT, ABSENT, ABSENT],
-                [ABSENT, PRESENT, ABSENT, ABSENT, ABSENT],
-                null, null, null, null
-            ],
-            boardState: ['crane', 'moist', '', '', '', ''],
-            gameStatus: GAME_STATUS_IN_PROGRESS,
-            rowIndex: 2
-        });
-
-        await backfillAnswersRemaining.call(app);
-
-        expect(evaluate).toHaveBeenCalledTimes(2);
-        expect(evaluate.mock.calls[0][0].prevGuesses).toEqual([]);
-        expect(evaluate.mock.calls[1][0].prevGuesses).toEqual([['crane', '00000']]);
-    });
-
-    test('fills the winning row with 0 locally, without a request', async () => {
-        const evaluate = jest.fn(() => Promise.resolve({ answersRemaining: 12 }));
-        dom.window.LeftWordleApi = { gameplay: { evaluate } };
-
-        const app = makeApp({
-            evaluations: [
-                [ABSENT, ABSENT, ABSENT, ABSENT, ABSENT],
-                [CORRECT, CORRECT, CORRECT, CORRECT, CORRECT],
-                null, null, null, null
-            ],
-            boardState: ['crane', 'moist', '', '', '', ''],
-            gameStatus: GAME_STATUS_WIN,
-            rowIndex: 2
-        });
-
-        await backfillAnswersRemaining.call(app);
-
-        expect(evaluate).toHaveBeenCalledTimes(1);
-        expect(evaluate.mock.calls[0][0].rowIndex).toBe(0);
-        expect(app.answersRemaining[1]).toBe(0);
-    });
-
-    test('leaves already-known counts alone and only fills the gaps', async () => {
-        const evaluate = jest.fn(() => Promise.resolve({ answersRemaining: 42 }));
-        dom.window.LeftWordleApi = { gameplay: { evaluate } };
-
-        const app = makeApp({
-            evaluations: [
-                [ABSENT, ABSENT, ABSENT, ABSENT, ABSENT],
-                [ABSENT, PRESENT, ABSENT, ABSENT, ABSENT],
-                null, null, null, null
-            ],
-            boardState: ['crane', 'moist', '', '', '', ''],
-            answersRemaining: [87, null, null, null, null, null],
-            gameStatus: GAME_STATUS_IN_PROGRESS,
-            rowIndex: 2
-        });
-
-        await backfillAnswersRemaining.call(app);
-
-        expect(evaluate).toHaveBeenCalledTimes(1);
-        expect(evaluate.mock.calls[0][0].rowIndex).toBe(1);
-        expect(app.answersRemaining[0]).toBe(87);
-        expect(app.answersRemaining[1]).toBe(42);
+    test('is the whole list with no guesses, and 1 once solved', () => {
+        expect(countAnswersRemaining([])).toBe(dom.window.sorted_answer_words.length);
+        expect(countAnswersRemaining([['ready', '22222']])).toBe(1);
     });
 });
 
-// Regression: a middle row's live count request could fail silently, leaving
-// that row blank on screen until a share (which backfills) and a reload.
-describe('remaining-count recovery', () => {
-    const fireRemainingCountRequest = testExports.fireRemainingCountRequest;
-    const completeRowCounts = testExports.completeRowCounts;
+describe('backfillAnswersRemaining', () => {
     const backfillAnswersRemaining = testExports.backfillAnswersRemaining;
+    const completeRowCounts = testExports.completeRowCounts;
     const buildPrevGuesses = testExports.buildPrevGuesses;
+    const toEval = (code) => code.split('').map((c) => (c === '2' ? CORRECT : c === '1' ? PRESENT : ABSENT));
 
+    // Answer "ready": the API's counts for these rows are 4, 4, 1.
     function makeApp(overrides) {
         return Object.assign({
-            evaluations: new Array(6).fill(null),
-            boardState: new Array(6).fill(''),
+            evaluations: [toEval('01022'), toEval('01001'), toEval('01010'), toEval('22222'), null, null],
+            boardState: ['caddy', 'vapid', 'groan', 'ready', '', ''],
             answersRemaining: new Array(6).fill(null),
-            remainingCountsTracked: true,
-            _pendingRowCountRequests: [],
-            gameStatus: GAME_STATUS_IN_PROGRESS,
-            rowIndex: 0,
-            hardMode: false,
-            insaneMode: false,
+            gameStatus: GAME_STATUS_WIN,
+            rowIndex: 4,
             isHistoryPlay: true, // keep saveGameState out of these tests
-            today: new Date(2021, 5, 25),
-            dayOffset: 6,
             buildPrevGuesses: buildPrevGuesses,
             backfillAnswersRemaining: backfillAnswersRemaining,
-            revealRowCounts: jest.fn(),
-            updateRowCount: jest.fn()
+            revealRowCounts: jest.fn()
         }, overrides);
     }
 
@@ -1248,86 +1146,45 @@ describe('remaining-count recovery', () => {
         localStorage.clear();
     });
 
-    afterEach(() => {
-        delete dom.window.LeftWordleApi;
-    });
-
-    test('retries a transient failure once and records the count', async () => {
-        const evaluate = jest.fn()
-            .mockImplementationOnce(() => Promise.reject({ retryable: true }))
-            .mockImplementationOnce(() => Promise.resolve({ answersRemaining: 7 }));
-        dom.window.LeftWordleApi = { gameplay: { evaluate } };
+    test('computes every row locally, with 0 for the winning row', () => {
         const app = makeApp();
-
-        fireRemainingCountRequest.call(app, 1, 'moist', 'regular', [['crane', '00000']]);
-        await Promise.allSettled(app._pendingRowCountRequests);
-
-        expect(evaluate).toHaveBeenCalledTimes(2);
-        expect(app.answersRemaining[1]).toBe(7);
+        backfillAnswersRemaining.call(app);
+        expect(app.answersRemaining).toEqual([4, 4, 1, 0, null, null]);
     });
 
-    test('does not retry a non-retryable failure', async () => {
-        const evaluate = jest.fn(() => Promise.reject({ retryable: false }));
-        dom.window.LeftWordleApi = { gameplay: { evaluate } };
-        const app = makeApp();
-
-        fireRemainingCountRequest.call(app, 1, 'moist', 'regular', []);
-        await Promise.allSettled(app._pendingRowCountRequests);
-
-        expect(evaluate).toHaveBeenCalledTimes(1);
-        expect(app.answersRemaining[1]).toBeNull();
+    test('leaves already-known counts alone and only fills the gaps', () => {
+        const app = makeApp({ answersRemaining: [87, null, 1, 0, null, null] });
+        backfillAnswersRemaining.call(app);
+        expect(app.answersRemaining).toEqual([87, 4, 1, 0, null, null]);
     });
 
-    test('fills a row whose live request failed, then reveals every row', async () => {
-        const evaluate = jest.fn(() => Promise.resolve({ answersRemaining: 3 }));
-        dom.window.LeftWordleApi = { gameplay: { evaluate } };
+    test('fills every row of a lost game, including the last', () => {
         const app = makeApp({
-            evaluations: [
-                [ABSENT, ABSENT, ABSENT, ABSENT, ABSENT],
-                [ABSENT, PRESENT, ABSENT, ABSENT, ABSENT],
-                [PRESENT, PRESENT, ABSENT, ABSENT, ABSENT],
-                [CORRECT, CORRECT, CORRECT, CORRECT, CORRECT],
-                null, null
-            ],
-            boardState: ['crane', 'moist', 'gluey', 'ready', '', ''],
-            answersRemaining: [87, 12, null, 0, null, null],
-            gameStatus: GAME_STATUS_WIN,
-            rowIndex: 4
-        });
-
-        await completeRowCounts.call(app);
-
-        expect(evaluate).toHaveBeenCalledTimes(1);
-        expect(evaluate.mock.calls[0][0].rowIndex).toBe(2);
-        expect(app.answersRemaining).toEqual([87, 12, 3, 0, null, null]);
-        expect(app.revealRowCounts).toHaveBeenLastCalledWith(4);
-    });
-
-    test('waits for an in-flight live request instead of re-requesting its row', async () => {
-        const evaluate = jest.fn(() => Promise.resolve({ answersRemaining: 99 }));
-        dom.window.LeftWordleApi = { gameplay: { evaluate } };
-        const app = makeApp({
-            evaluations: [
-                [ABSENT, ABSENT, ABSENT, ABSENT, ABSENT],
-                [ABSENT, PRESENT, ABSENT, ABSENT, ABSENT],
-                null, null, null, null
-            ],
-            boardState: ['crane', 'moist', '', '', '', ''],
-            answersRemaining: [87, null, null, null, null, null],
+            evaluations: [toEval('01022'), toEval('01001'), toEval('01010'), null, null, null],
+            boardState: ['caddy', 'vapid', 'groan', '', '', ''],
             gameStatus: GAME_STATUS_IN_PROGRESS,
-            rowIndex: 2
+            rowIndex: 3
         });
-        let resolveLive;
-        app._pendingRowCountRequests.push(new Promise((resolve) => {
-            resolveLive = () => { app.answersRemaining[1] = 12; resolve(); };
-        }));
+        backfillAnswersRemaining.call(app);
+        expect(app.answersRemaining.slice(0, 3)).toEqual([4, 4, 1]);
+    });
 
-        const done = completeRowCounts.call(app);
-        resolveLive();
-        await done;
+    test('makes no network request', () => {
+        const evaluate = jest.fn();
+        dom.window.LeftWordleApi = { gameplay: { evaluate } };
+        try {
+            backfillAnswersRemaining.call(makeApp());
+            expect(evaluate).not.toHaveBeenCalled();
+        } finally {
+            delete dom.window.LeftWordleApi;
+        }
+    });
 
-        expect(evaluate).not.toHaveBeenCalled();
-        expect(app.answersRemaining[1]).toBe(12);
+    test('completeRowCounts fills the gaps, then reveals every evaluated row', () => {
+        const app = makeApp({ answersRemaining: [4, null, 1, 0, null, null] });
+        completeRowCounts.call(app);
+        expect(app.answersRemaining).toEqual([4, 4, 1, 0, null, null]);
+        expect(app.revealRowCounts).toHaveBeenCalledWith(4);
     });
 });
 

@@ -700,6 +700,30 @@
             return result;
         }
 
+        // How many answers are still possible after these [word, "01200"]
+        // pairs: the answers that would have colored every guess the same
+        // way. Same rule as the API's answers_remaining_for, over the same
+        // list (answer_list_sorted.js mirrors api/db/seeds/answers.txt --
+        // the API's deploy check fails if they differ). Null when the list
+        // isn't loaded, so a count is missing rather than wrong.
+        static countAnswersRemaining(guessPairs) {
+            if (typeof sorted_answer_words === "undefined" || !sorted_answer_words.length) return null;
+            var CODES = {};
+            CODES[GameEvaluator.CORRECT] = "2";
+            CODES[GameEvaluator.PRESENT] = "1";
+            CODES[GameEvaluator.ABSENT] = "0";
+            var count = 0;
+            for (var i = 0; i < sorted_answer_words.length; i++) {
+                var candidate = sorted_answer_words[i];
+                var consistent = guessPairs.every(function(pair) {
+                    return GameEvaluator.evaluateGuess(pair[0].toLowerCase(), candidate)
+                        .map(function(v) { return CODES[v]; }).join("") === pair[1];
+                });
+                if (consistent) count += 1;
+            }
+            return count;
+        }
+
         static validateHardMode(guess, prevGuesses) {
             if (!prevGuesses || !prevGuesses.length) return null;
             var lastPair = prevGuesses[prevGuesses.length - 1];
@@ -1518,7 +1542,6 @@
     const GAME_STATUS_FAIL = "FAIL";
     const WIN_COMMENTS = ["Genius", "Magnificent", "Impressive", "Splendid", "Great", "Whew"];
     const REMAINING_COUNT_DELAY_MS = 1800;
-    const REMAINING_COUNT_RETRY_DELAY_MS = 1000;
 
     class GameApp extends HTMLElement {
         tileIndex = 0;
@@ -1532,11 +1555,10 @@
         // mid-play doesn't show a board with its early rows missing. This
         // used to be inferred from answersRemaining[0] !== null, which also
         // went false when row 0's request merely failed or was still in
-        // flight, hiding every later row's count with it.
+        // flight, hiding every later row's count with it. Counts themselves
+        // are now computed for every guess whatever the mode; this only
+        // decides whether they're shown.
         remainingCountsTracked = false;
-        // In-flight live count requests, so the end-of-game fill-in waits for
-        // them rather than re-requesting rows that are about to arrive.
-        _pendingRowCountRequests = [];
         canInput = true;
         // Additive to canInput, never replaces it -- true only while an
         // online device's live per-guess progress push (pushGameProgress)
@@ -1903,13 +1925,14 @@
                 rowIndex: rowNumber,
                 solution: gameStatus !== GAME_STATUS_IN_PROGRESS ? this.answer : null,
                 source: "local",
-                answersRemaining: (remainingAnswersMode !== "neither" && gameStatus === GAME_STATUS_WIN) ? 0 : null
+                answersRemaining: gameStatus === GAME_STATUS_WIN ? 0
+                    : GameEvaluator.countAnswersRemaining(prevGuesses.concat([[guess, evalStr]]))
             };
 
             this.applyEvaluation(row, guess, evaluatedRowIndex, result);
 
-            if (remainingAnswersMode !== "neither" && gameStatus !== GAME_STATUS_WIN) {
-                this._fireRemainingCountRequest(evaluatedRowIndex, guess, mode, prevGuesses);
+            if (gameStatus !== GAME_STATUS_WIN) {
+                this._showRowCountAfterReveal(evaluatedRowIndex);
             }
 
             if (gameStatus !== GAME_STATUS_IN_PROGRESS) {
@@ -1964,62 +1987,30 @@
             }
         }
 
-        // answersRemaining is only ever populated live, per guess, gated on
-        // whichever remainingAnswersMode was active at that exact moment
-        // (see evaluateRow's _fireRemainingCountRequest call). Switching to a
-        // mode that needs it -- e.g. going to share a game that was played
-        // under "neither" -- leaves already-evaluated rows permanently null
-        // otherwise, since nothing re-fetches them after the fact. This
-        // recomputes any missing ones from the guesses already on the board,
-        // the same way evaluateRow does live, sequentially so each row's
-        // prevGuesses reflects the ones backfilled just before it.
-        async backfillAnswersRemaining() {
-            var completedState = GameStateManager.getGameState();
-            var isHardMode = completedState.completedInHardMode != null ? completedState.completedInHardMode : this.hardMode;
-            var isInsaneMode = completedState.completedInInsaneMode != null ? completedState.completedInInsaneMode : this.insaneMode;
-            var mode = isInsaneMode ? "insane" : isHardMode ? "hard" : "regular";
+        // Fills any evaluated row without a count -- a game saved before
+        // counts were computed locally for every guess, or whose live
+        // request failed back when they came from the API. Each row's count
+        // depends only on the guesses up to and including it.
+        backfillAnswersRemaining() {
             var evaluatedRows = this.evaluations.reduce(function(count, ev) { return ev ? count + 1 : count; }, 0);
             var changed = false;
             for (var i = 0; i < evaluatedRows; i++) {
                 if (typeof this.answersRemaining[i] === "number") continue;
-                if (this.gameStatus === GAME_STATUS_WIN && i === this.rowIndex - 1) {
-                    this.answersRemaining[i] = 0;
+                var count = (this.gameStatus === GAME_STATUS_WIN && i === this.rowIndex - 1) ? 0
+                    : GameEvaluator.countAnswersRemaining(this.buildPrevGuesses(i + 1));
+                if (typeof count === "number") {
+                    this.answersRemaining[i] = count;
                     changed = true;
-                    continue;
                 }
-                try {
-                    // rowIndex is 0-based, same as the live path in
-                    // _fireRemainingCountRequest -- the API rejects
-                    // row_index 6, so 1-based here would 400 on the final
-                    // row of a lost game and its count could never backfill.
-                    var result = await window.LeftWordleApi.gameplay.evaluate({
-                        date: DateUtils.formatLocalDate(this.today),
-                        guess: this.boardState[i],
-                        puzzleNum: this.dayOffset,
-                        rowIndex: i,
-                        mode: mode,
-                        prevGuesses: this.buildPrevGuesses(i),
-                        returnRemainingCount: true
-                    });
-                    if (typeof result.answersRemaining === "number") {
-                        this.answersRemaining[i] = result.answersRemaining;
-                        changed = true;
-                    }
-                } catch (e) {}
             }
             if (changed && !this.isHistoryPlay) {
                 GameStateManager.saveGameState({ answersRemaining: this.answersRemaining });
             }
         }
 
-        // Shows every evaluated row's count, first filling in any row whose
-        // live request failed -- otherwise that row stayed blank until a
-        // share (which backfills) followed by a reload. Waits out live
-        // requests still in flight so they aren't requested twice.
-        async completeRowCounts() {
-            this.revealRowCounts(this.rowIndex);
-            await Promise.allSettled(this._pendingRowCountRequests);
-            await this.backfillAnswersRemaining();
+        // Shows every evaluated row's count, first filling in any missing.
+        completeRowCounts() {
+            this.backfillAnswersRemaining();
             this.revealRowCounts(this.rowIndex);
         }
 
@@ -2867,41 +2858,16 @@
             }
         }
 
-        // Failures are retried once (transient only) and otherwise swallowed:
-        // the count is decoration, and completeRowCounts fills in any row
-        // still missing once the game ends.
-        _fireRemainingCountRequest(rowIndex, guess, mode, prevGuesses) {
-            var minDelay = new Promise((resolve) => setTimeout(resolve, REMAINING_COUNT_DELAY_MS));
-            var fetchCount = () => window.LeftWordleApi.gameplay.evaluate({
-                date: DateUtils.formatLocalDate(this.today),
-                guess: guess,
-                puzzleNum: this.dayOffset,
-                rowIndex: rowIndex,
-                mode: mode,
-                prevGuesses: prevGuesses,
-                returnRemainingCount: true
-            });
-            var request = fetchCount().catch((error) => {
-                if (error && error.retryable === false) throw error;
-                return new Promise((resolve) => setTimeout(resolve, REMAINING_COUNT_RETRY_DELAY_MS)).then(fetchCount);
-            }).then((result) => {
-                if (typeof result.answersRemaining === "number") {
-                    this.answersRemaining[rowIndex] = result.answersRemaining;
-                    if (!this.isHistoryPlay) {
-                        GameStateManager.saveGameState({ answersRemaining: this.answersRemaining });
-                    }
+        // The count is known as soon as the row is evaluated; it's shown once
+        // the row's tiles have finished flipping.
+        _showRowCountAfterReveal(rowIndex) {
+            setTimeout(() => {
+                var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
+                if ((remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") && this.remainingCountsTracked &&
+                    typeof this.answersRemaining[rowIndex] === "number") {
+                    this.updateRowCount(rowIndex, this.answersRemaining[rowIndex]);
                 }
-                return result;
-            });
-            this._pendingRowCountRequests.push(request);
-            Promise.all([request, minDelay]).then(([result]) => {
-                if (typeof result.answersRemaining === "number") {
-                    var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
-                    if ((remainingAnswersMode === "gameplay" || remainingAnswersMode === "both") && this.remainingCountsTracked) {
-                        this.updateRowCount(rowIndex, result.answersRemaining);
-                    }
-                }
-            }).catch(() => {});
+            }, REMAINING_COUNT_DELAY_MS);
         }
 
         // Adopt the server's stored game_id (Phase 1 of
@@ -3492,7 +3458,7 @@
             var remainingAnswersMode = StorageController.preferences.get("remainingAnswersMode") || "neither";
             var shareAnswersRemaining = null;
             if (remainingAnswersMode === "sharetext" || remainingAnswersMode === "both") {
-                await this.gameApp.backfillAnswersRemaining();
+                this.gameApp.backfillAnswersRemaining();
                 shareAnswersRemaining = this.gameApp.answersRemaining;
             }
             var completedState = GameStateManager.getGameState();
@@ -3795,7 +3761,7 @@
         // harness to construct).
         backfillAnswersRemaining: GameApp.prototype.backfillAnswersRemaining,
         completeRowCounts: GameApp.prototype.completeRowCounts,
-        fireRemainingCountRequest: GameApp.prototype._fireRemainingCountRequest,
+        countAnswersRemaining: GameEvaluator.countAnswersRemaining,
         buildPrevGuesses: GameApp.prototype.buildPrevGuesses,
         getEraseBlockReason: GameApp.prototype._getEraseBlockReason,
     };

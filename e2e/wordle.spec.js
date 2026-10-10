@@ -356,8 +356,8 @@ test.describe('Wordle E2E Tests', () => {
     // "Evaluates Guesses Client-Side Using Encrypted Answer" and "Removes Dual
     // Gameplay Path and Feature Flags" replaced all of it: the app now fetches
     // one *encrypted* answer per game, decrypts it, and evaluates every guess
-    // locally. /api/v1/game/guess survives only to compute remaining-answer
-    // counts. Rewritten to cover that architecture instead.
+    // locally. Remaining-answer counts, the last use of /api/v1/game/guess,
+    // are now computed locally too. Rewritten to cover that architecture.
 
     test('fetches the encrypted answer once and evaluates guesses locally', async ({ page }) => {
       const answerRequests = [];
@@ -444,10 +444,10 @@ test.describe('Wordle E2E Tests', () => {
       states.forEach(state => expect(['correct', 'present', 'absent']).toContain(state));
     });
 
-    test('asks the API for a remaining-answer count when that mode is on', async ({ page }) => {
-      const countRequests = [];
+    test('shows remaining-answer counts without calling the API', async ({ page }) => {
+      const guessRequests = [];
       await page.route('http://localhost:9292/api/v1/game/guess', async route => {
-        countRequests.push(route.request().postDataJSON());
+        guessRequests.push(route.request().postDataJSON());
         await route.fallback();
       });
       await freshGame(page);
@@ -460,19 +460,11 @@ test.describe('Wordle E2E Tests', () => {
       const guess = VALID_WORDS.find(word => word !== solution);
       await submitWord(page, guess);
       await waitForRowEvaluation(page);
-      await expect.poll(() => countRequests.length).toBe(1);
 
-      // The one surviving use of /game/guess: counting answers still
-      // possible. return_remaining_count is what distinguishes it.
-      expect(countRequests[0]).toEqual({
-        date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-        guess: guess,
-        row_index: 0,
-        mode: 'regular',
-        prev_guesses: [],
-        return_remaining_count: true
-      });
-      expect(await page.evaluate(() => document.querySelector('game-app').rowIndex)).toBe(1);
+      await expect
+        .poll(() => page.evaluate(() => document.getElementById('gprc0').textContent), { timeout: 5000 })
+        .toMatch(/^\d+$/);
+      expect(guessRequests).toHaveLength(0);
     });
 
     test('tiles get evaluation states after a valid non-solution guess', async ({ page }) => {
@@ -907,10 +899,12 @@ test.describe('Wordle E2E Tests', () => {
       expect(countText).toBe('0');
     });
 
-    // Regression: a middle row's live count request failing (timeout or
-    // network blip) used to leave that row blank on screen until the player
-    // shared and then reloaded. The end of the game now fills it in.
-    test('a row whose count request failed is filled in when the game ends', async ({ page }) => {
+    // Regression: a middle row's count used to come from a live API request,
+    // and when that failed the row stayed blank on screen until the player
+    // shared and then reloaded. Counts are local now, so even with the
+    // endpoint unreachable every row gets one.
+    test('every row gets a count with the guess endpoint unreachable', async ({ page }) => {
+      await page.route('http://localhost:9292/api/v1/game/guess', route => route.abort());
       await freshGame(page);
       await dismissHelpModal(page);
 
@@ -921,36 +915,17 @@ test.describe('Wordle E2E Tests', () => {
       const solution = await getSolution(page);
       const [guess1, guess2] = VALID_WORDS.filter((w) => w !== solution);
 
-      // Fail every row-1 request while the second guess is live (its first
-      // attempt and any retry), then let the network recover before the
-      // winning guess so the end-of-game fill-in can get through.
-      let failRow1 = true;
-      let row1Failures = 0;
-      await page.route('http://localhost:9292/api/v1/game/guess', async (route) => {
-        const body = route.request().postDataJSON();
-        if (body.row_index === 1 && failRow1) {
-          row1Failures += 1;
-          return route.abort();
-        }
-        return route.continue();
-      });
-
       await submitWord(page, guess1);
       await waitForRowEvaluation(page);
       await submitWord(page, guess2);
       await waitForRowEvaluation(page);
-      // Outlast the live request, its retry, and the count's display delay.
-      await page.waitForTimeout(3000);
-      expect(row1Failures).toBeGreaterThan(0);
-      expect(await page.evaluate(() => document.getElementById('gprc1').textContent)).toBe('');
-      failRow1 = false;
+      await expect
+        .poll(() => page.evaluate(() => document.getElementById('gprc1').textContent), { timeout: 5000 })
+        .toMatch(/^\d+$/);
 
       await submitWord(page, solution);
       await waitForRowEvaluation(page);
 
-      await expect
-        .poll(() => page.evaluate(() => document.getElementById('gprc1').textContent), { timeout: 10000 })
-        .toMatch(/^\d+$/);
       expect(await page.evaluate(() => document.getElementById('gprc0').textContent)).toMatch(/^\d+$/);
       await expect
         .poll(() => page.evaluate(() => document.getElementById('gprc2').textContent), { timeout: 5000 })
