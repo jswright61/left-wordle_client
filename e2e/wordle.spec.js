@@ -1086,6 +1086,168 @@ test.describe('Wordle E2E Tests', () => {
     });
   });
 
+  // ─── 11d. Played Game Display ───────────────────────────────────────────────
+  test.describe('Played Game Display', () => {
+    const GUESSES = [['crane', '01000'], ['moist', '00120'], ['spilt', '22222']];
+
+    function localDateString(date) {
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    }
+
+    // Yesterday's puzzle number and ?date= value, read from a fresh load.
+    async function yesterday(page) {
+      await freshGame(page);
+      const todayOffset = await page.evaluate(() => document.querySelector('game-app').dayOffset);
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return { puzzleNum: todayOffset - 1, date: localDateString(d) };
+    }
+
+    async function seedHistory(page, entries, extra = {}) {
+      await page.evaluate(({ entries, extra }) => {
+        localStorage.setItem('history', JSON.stringify(entries));
+        localStorage.setItem('preferences', JSON.stringify({ suppressLoginPrompt: true }));
+        Object.entries(extra).forEach(([k, v]) => localStorage.setItem(k, v));
+      }, { entries, extra });
+    }
+
+    async function waitForApp(page) {
+      await page.waitForFunction(() => {
+        const app = document.querySelector('game-app');
+        return app && app.querySelector('#board');
+      });
+    }
+
+    const rowLetters = (page, i) => page.evaluate((i) => document.querySelectorAll('game-row')[i].getAttribute('letters'), i);
+    const tileEvaluations = (page, i) => page.evaluate((i) => Array.from(
+      document.querySelectorAll('game-row')[i].querySelectorAll('game-tile')
+    ).map((t) => t.getAttribute('evaluation')), i);
+
+    test('a past puzzle played on this device shows when it was played and its board', async ({ page }) => {
+      const { puzzleNum, date } = await yesterday(page);
+      await seedHistory(page, {
+        [puzzleNum]: { puzzle_num: puzzleNum, date, result: 3, completed_at: Date.now() - 86400000, guesses: GUESSES }
+      });
+
+      await page.goto(`/?date=${date}`);
+      await waitForApp(page);
+
+      await expect(page.locator('.played-banner')).toContainText(/^Played \d{1,2} \w+, \d{4} at /);
+      await expect(page.locator('.played-banner-note')).toHaveCount(0);
+      expect(await rowLetters(page, 0)).toBe('crane');
+      expect(await rowLetters(page, 2)).toBe('spilt');
+      await expect.poll(() => tileEvaluations(page, 1)).toEqual(['absent', 'absent', 'present', 'correct', 'absent']);
+
+      // The game banner stays on top, and the board takes no input.
+      const order = await page.evaluate(() => {
+        const game = document.querySelector('#game-banner');
+        const played = document.querySelector('.played-banner');
+        return !!(game.compareDocumentPosition(played) & Node.DOCUMENT_POSITION_FOLLOWING);
+      });
+      expect(order).toBe(true);
+      await typeWord(page, 'a');
+      expect(await rowLetters(page, 3)).toBe('');
+
+      await page.locator('.played-banner-dismiss').click();
+      await expect(page.locator('.played-banner')).toHaveCount(0);
+    });
+
+    test('an entry recorded before boards were kept says so and gives the result', async ({ page }) => {
+      const { puzzleNum, date } = await yesterday(page);
+      await seedHistory(page, {
+        [puzzleNum]: { puzzle_num: puzzleNum, date, result: 4, completed_at: Date.now() - 86400000 }
+      });
+
+      await page.goto(`/?date=${date}`);
+      await waitForApp(page);
+
+      await expect(page.locator('.played-banner-note')).toHaveText('Board not recorded for this game — 4/6');
+      expect(await rowLetters(page, 0)).toBe('');
+    });
+
+    test("today's game known only from history shows its board and one stats modal", async ({ page }) => {
+      await freshGame(page);
+      const { puzzleNum, today } = await page.evaluate(() => {
+        const app = document.querySelector('game-app');
+        return { puzzleNum: app.dayOffset, today: window.StorageController.gameState.get('date') };
+      });
+      // History has today's win but the saved board is from days ago --
+      // what a signed-in device's local storage looks like.
+      await seedHistory(page, {
+        [puzzleNum]: { puzzle_num: puzzleNum, date: today, result: 3, completed_at: Date.now(), guesses: GUESSES }
+      });
+      await page.evaluate(() => {
+        localStorage.setItem('gameState', JSON.stringify({ lastPlayedTs: Date.now() - 3 * 86400000 }));
+      });
+
+      await page.reload();
+      await waitForApp(page);
+
+      await expect(page.locator('.played-banner')).toContainText('Played');
+      await expect.poll(() => rowLetters(page, 2)).toBe('spilt');
+      await expect.poll(() => page.locator('game-stats').count(), { timeout: 5000 }).toBe(1);
+      await page.waitForTimeout(500);
+      expect(await page.locator('game-stats').count()).toBe(1);
+    });
+
+    test.describe('signed in', () => {
+      const PROFILE = { email: 'player@example.com', csrf_token: 't', preferences: { suppressLoginPrompt: true }, game_state: {}, statistics: {} };
+
+      async function signedIn(page, puzzleNum, historyRoute) {
+        await page.route('http://localhost:9292/api/v2/profile', (route) =>
+          route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PROFILE) }));
+        await page.route('http://localhost:9292/api/v2/history**', historyRoute);
+        await seedHistory(page, {}, { lastKnownAuthState: 'logged_in' });
+      }
+
+      test('a past puzzle played on another device shows its board from the account', async ({ page }) => {
+        const { puzzleNum, date } = await yesterday(page);
+        await signedIn(page, puzzleNum, (route) => route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            [puzzleNum]: { puzzle_num: puzzleNum, date, game_status: 'WIN', guesses: GUESSES, completed_at: '2026-10-09T11:42:00Z' }
+          })
+        }));
+
+        await page.goto(`/?date=${date}`);
+        await waitForApp(page);
+
+        await expect(page.locator('.played-banner')).toContainText(/^Played \d{1,2} \w+, \d{4} at /);
+        await expect.poll(() => rowLetters(page, 2)).toBe('spilt');
+        await typeWord(page, 'a');
+        expect(await rowLetters(page, 3)).toBe('');
+      });
+
+      test('if the account cannot be asked, it says so instead of allowing a replay', async ({ page }) => {
+        const { puzzleNum, date } = await yesterday(page);
+        await signedIn(page, puzzleNum, (route) => route.abort());
+
+        await page.goto(`/?date=${date}`);
+        await waitForApp(page);
+
+        await expect(page.locator('.played-banner')).toContainText("Couldn't check whether you've already played this puzzle");
+        await typeWord(page, 'a');
+        expect(await rowLetters(page, 0)).toBe('');
+      });
+
+      test('an unplayed past puzzle is playable as usual', async ({ page }) => {
+        const { puzzleNum, date } = await yesterday(page);
+        await signedIn(page, puzzleNum, (route) =>
+          route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
+
+        await page.goto(`/?date=${date}`);
+        await waitForApp(page);
+        await getSolution(page);
+
+        await expect(page.locator('.played-banner')).toHaveCount(0);
+        await typeWord(page, 'a');
+        expect(await rowLetters(page, 0)).toBe('a');
+      });
+    });
+  });
+
   // ─── 12. Dark Mode ─────────────────────────────────────────────────────────
   test.describe('Dark Mode', () => {
     test('toggling dark mode applies nightmode class', async ({ page }) => {

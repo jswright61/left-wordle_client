@@ -176,7 +176,8 @@ body {
     border-bottom: 1px solid var(--color-tone-4);
 }
 
-#game-banner {
+#game-banner,
+.played-banner {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
@@ -187,12 +188,14 @@ body {
     border-bottom: 1px solid var(--color-tone-4);
 }
 
-#game-banner span {
+#game-banner span,
+.played-banner span {
     grid-column: 2;
     text-align: center;
 }
 
-#game-banner-dismiss {
+#game-banner-dismiss,
+.played-banner-dismiss {
     grid-column: 3;
     justify-self: end;
     background: none;
@@ -205,8 +208,15 @@ body {
     opacity: 0.8;
 }
 
-#game-banner-dismiss:hover {
+#game-banner-dismiss:hover,
+.played-banner-dismiss:hover {
     opacity: 1;
+}
+
+.played-banner-note {
+    font-size: 14px;
+    font-weight: 400;
+    margin-top: 2px;
 }
 
 #env-banner {
@@ -344,11 +354,6 @@ body {
     color: var(--color-tone-2);
 }
 
-.already-played-result {
-    font-size: 3.5rem;
-    font-weight: 700;
-    color: var(--color-tone-1);
-}
 
 #board-container::before {
     content: '';

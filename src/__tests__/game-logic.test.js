@@ -1366,6 +1366,72 @@ describe('getEraseBlockReason', () => {
     });
 });
 
+describe('played-game board data', () => {
+    const validGuessPairs = testExports.validGuessPairs;
+    const completionFromServerEntry = testExports.completionFromServerEntry;
+
+    beforeEach(() => {
+        dom.window.localStorage.removeItem('history');
+    });
+
+    test('a finished game records its guesses so a revisit can show the board', () => {
+        const guesses = [['crane', '01000'], ['moist', '22222']];
+        recordHistoryEntry({ puzzleNum: 500, result: 2, date: '2026-08-03', guesses });
+
+        expect(getHistoryCompletionForPuzzle(500).guesses).toEqual(guesses);
+    });
+
+    test('an entry recorded before guesses were kept has none', () => {
+        recordHistoryEntry({ puzzleNum: 500, result: 3, date: '2026-08-03' });
+
+        expect(getHistoryCompletionForPuzzle(500).guesses).toBeNull();
+    });
+
+    // A replay of an already-recorded puzzle keeps the original entry, so
+    // it must not lend that entry its own (different) board either.
+    test('a later replay does not overwrite the recorded board', () => {
+        const original = [['crane', '22222']];
+        recordHistoryEntry({ puzzleNum: 500, result: 1, date: '2026-08-03', completedAt: 1000, guesses: original });
+        recordHistoryEntry({ puzzleNum: 500, result: 2, date: '2026-08-03', completedAt: 2000, guesses: [['moist', '00000'], ['crane', '22222']] });
+
+        expect(getHistoryCompletionForPuzzle(500).guesses).toEqual(original);
+    });
+
+    test('rejects malformed guesses rather than drawing a broken board', () => {
+        expect(validGuessPairs([['crane', '01000']])).toEqual([['crane', '01000']]);
+        expect(validGuessPairs([])).toBeNull();
+        expect(validGuessPairs([['CRANE', '01000']])).toBeNull();
+        expect(validGuessPairs([['crane', '0100']])).toBeNull();
+        expect(validGuessPairs([['crane', '01003']])).toBeNull();
+        expect(validGuessPairs(new Array(7).fill(['crane', '00000']))).toBeNull();
+        expect(validGuessPairs('crane')).toBeNull();
+    });
+
+    test('reads a server history row into the same shape as a local completion', () => {
+        const completion = completionFromServerEntry({
+            game_status: 'WIN',
+            guesses: [['crane', '01000'], ['moist', '22222']],
+            completed_at: '2026-10-09T11:42:00Z'
+        });
+
+        expect(completion).toEqual({
+            isWin: true,
+            status: 'WIN',
+            rowIndex: 2,
+            completedAt: Date.parse('2026-10-09T11:42:00Z'),
+            guesses: [['crane', '01000'], ['moist', '22222']]
+        });
+    });
+
+    test('a server win without guesses has an unknown row count', () => {
+        const completion = completionFromServerEntry({ game_status: 'WIN', guesses: [], completed_at: null });
+
+        expect(completion.rowIndex).toBeNull();
+        expect(completion.guesses).toBeNull();
+        expect(completion.completedAt).toBeNull();
+    });
+});
+
 // Closing the window clears its pending timers (e.g. the remaining-count
 // display delay), which would otherwise keep the worker alive past the run.
 afterAll(() => {

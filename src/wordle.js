@@ -1229,7 +1229,8 @@
                 answer: gameResults ? gameResults.answer : null,
                 mode: gameResults && gameResults.mode ? gameResults.mode : (gameResults && gameResults.hardMode ? "hard" : "regular"),
                 hardMode: gameResults && gameResults.hardMode,
-                starter: gameResults && gameResults.starter
+                starter: gameResults && gameResults.starter,
+                guesses: gameResults && gameResults.guesses
             });
         }
     }
@@ -1349,6 +1350,10 @@
                 // ids live server-side and come back through
                 // serverHistoryToLocalHistory (e.g. online Download Backup).
                 game_id: GameStateManager.getGameState().gameId || null,
+                // So a revisit can show the finished board (_showPlayed).
+                // Local only -- syncHistoryEntry's payload doesn't carry it;
+                // the server records guesses from the live game calls.
+                guesses: HistoryManager.validGuessPairs(params.guesses),
                 origin: "played"
             };
 
@@ -1428,8 +1433,39 @@
                 isWin: result >= 1 && result <= 6,
                 status: result >= 1 && result <= 6 ? GAME_STATUS_WIN : GAME_STATUS_FAIL,
                 rowIndex: result >= 1 && result <= 6 ? result : 6,
-                completedAt: completedAt
+                completedAt: completedAt,
+                guesses: HistoryManager.validGuessPairs(entry.guesses)
             };
+        }
+
+        // A GET /api/v2/history row in the same shape as
+        // getHistoryCompletionForPuzzle's result. A win with no recorded
+        // guesses has an unknowable row count (rowIndex null).
+        static completionFromServerEntry(entry) {
+            var guesses = HistoryManager.validGuessPairs(entry.guesses);
+            var isWin = entry.game_status === GAME_STATUS_WIN;
+            var completedAt = typeof entry.completed_at === "number" ? entry.completed_at
+                : entry.completed_at ? Date.parse(entry.completed_at) : NaN;
+            return {
+                isWin: isWin,
+                status: isWin ? GAME_STATUS_WIN : GAME_STATUS_FAIL,
+                rowIndex: isWin ? (guesses ? guesses.length : null) : 6,
+                completedAt: Number.isFinite(completedAt) ? completedAt : null,
+                guesses: guesses
+            };
+        }
+
+        // [[word, "01200"], ...] -- the same pairs the game endpoints speak
+        // (see buildPrevGuesses) -- or null if anything about them is off,
+        // so a malformed entry shows "not recorded" rather than a broken
+        // board.
+        static validGuessPairs(guesses) {
+            if (!Array.isArray(guesses) || guesses.length < 1 || guesses.length > 6) return null;
+            var ok = guesses.every(function(pair) {
+                return Array.isArray(pair) && typeof pair[0] === "string" && /^[a-z]{5}$/.test(pair[0]) &&
+                    typeof pair[1] === "string" && /^[012]{5}$/.test(pair[1]);
+            });
+            return ok ? guesses.map(function(pair) { return [pair[0], pair[1]]; }) : null;
         }
 
         // Continuity is decided by puzzle-number adjacency in recorded
@@ -1458,6 +1494,15 @@
 <button id="toast">toast</button>
 <button id="modal">modal</button>
 `;
+
+    // "9 October, 2026 at 7:42 AM" -- the game banner's date style, in the
+    // device's local time.
+    function formatPlayedAt(timestamp) {
+        var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+        var d = new Date(timestamp);
+        return d.getDate() + " " + MONTHS[d.getMonth()] + ", " + d.getFullYear() +
+            " at " + d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    }
 
     function getEnvironmentLabel(hostname) {
         if (hostname === "left-wordle.com") return null;
@@ -1701,7 +1746,8 @@
                         answer: this.solution,
                         mode: this.hardMode ? "hard" : "regular",
                         hardMode: this.hardMode,
-                        starter: this.boardState && this.boardState[0] ? this.boardState[0] : null
+                        starter: this.boardState && this.boardState[0] ? this.boardState[0] : null,
+                        guesses: this.buildPrevGuesses(this.rowIndex)
                     });
                 } else {
                     var isCorrect = this.gameStatus === GAME_STATUS_WIN;
@@ -1715,7 +1761,8 @@
                         answer: this.solution,
                         mode: this.hardMode ? "hard" : "regular",
                         hardMode: this.hardMode,
-                        starter: this.boardState && this.boardState[0] ? this.boardState[0] : null
+                        starter: this.boardState && this.boardState[0] ? this.boardState[0] : null,
+                        guesses: this.buildPrevGuesses(this.rowIndex)
                     });
                 }
             }
@@ -2369,18 +2416,98 @@
             this.canInput = false;
         }
 
-        _showAlreadyPlayed(histCompletion) {
-            var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-            var dateLabel = MONTHS[this.today.getMonth()] + " " + this.today.getDate() + ", " + this.today.getFullYear();
-            var resultLabel = histCompletion.isWin ? histCompletion.rowIndex + "/6" : "X/6";
-            var banner = document.createElement("div");
-            banner.className = "already-played-banner";
-            banner.innerHTML =
-                "<div class='already-played-heading'>Already Played</div>" +
-                "<div class='already-played-meta'>" + dateLabel + " &mdash; Puzzle #" + this.dayOffset + "</div>" +
-                "<div class='already-played-result'>" + resultLabel + "</div>";
-            this.querySelector("#board-container").appendChild(banner);
+        // Shown instead of a playable board when this puzzle was already
+        // finished: a banner styled like the game banner ("Played 9
+        // October, 2026 at 7:42 AM") and, when the guesses were recorded,
+        // the finished board. Games recorded before guesses were kept only
+        // have their result. Returns whether the board was filled in.
+        _showPlayed(completion) {
             this.canInput = false;
+            var playedAt = completion.completedAt ? " " + formatPlayedAt(completion.completedAt) : "";
+            var note = null;
+            if (!completion.guesses) {
+                var resultLabel = !completion.isWin ? "X/6" : completion.rowIndex ? completion.rowIndex + "/6" : "won";
+                note = "Board not recorded for this game — " + resultLabel;
+            }
+            this._insertPlayedBanner("Played" + playedAt, note);
+            if (!completion.guesses) return false;
+            this._fillPlayedBoard(completion.guesses, completion.status);
+            return true;
+        }
+
+        _insertPlayedBanner(text, note) {
+            var banner = document.createElement("div");
+            banner.className = "played-banner";
+            var body = document.createElement("span");
+            var line = document.createElement("div");
+            line.textContent = text;
+            body.appendChild(line);
+            if (note) {
+                var noteLine = document.createElement("div");
+                noteLine.className = "played-banner-note";
+                noteLine.textContent = note;
+                body.appendChild(noteLine);
+            }
+            var dismiss = document.createElement("button");
+            dismiss.className = "played-banner-dismiss";
+            dismiss.setAttribute("aria-label", "Dismiss");
+            dismiss.textContent = "✕";
+            dismiss.addEventListener("click", () => banner.remove());
+            banner.appendChild(body);
+            banner.appendChild(dismiss);
+            this.$game.insertBefore(banner, this.$game.querySelector("#board-container"));
+            // The board was sized before this took some of its height.
+            this.sizeBoard();
+            this.positionRowCounts();
+        }
+
+        // Puts a finished game on the board through the same path a
+        // restored game takes: each row's evaluation reveals as usual, and
+        // the last one fires game-last-tile-revealed-in-row, which colors
+        // the keyboard and (for today's game) opens the stats modal.
+        _fillPlayedBoard(guesses, status) {
+            var EVALUATIONS = { "0": "absent", "1": "present", "2": "correct" };
+            this.boardState = new Array(6).fill("");
+            this.evaluations = new Array(6).fill(null);
+            guesses.forEach((pair, i) => {
+                this.boardState[i] = pair[0];
+                this.evaluations[i] = pair[1].split("").map(function(c) { return EVALUATIONS[c]; });
+            });
+            this.rowIndex = guesses.length;
+            this.gameStatus = status;
+            this.restoringFromLocalStorage = true;
+            this.letterEvaluations = GameEvaluator.aggregateLetterEvaluations(this.boardState, this.evaluations);
+            var rows = this.$board.querySelectorAll("game-row");
+            guesses.forEach((pair, i) => {
+                rows[i].setAttribute("letters", pair[0]);
+                rows[i].evaluation = this.evaluations[i];
+            });
+        }
+
+        // Signed in, the account -- not this device's local history -- knows
+        // whether a past puzzle was already played (another device may have
+        // played it), and it holds the guesses to show the board. If it
+        // can't be asked, say so rather than allow a replay.
+        async _checkPlayedOnAccountThenStart() {
+            this.canInput = false;
+            var entry;
+            try {
+                var history = await window.LeftWordleApi.client.getHistory();
+                entry = history && history[String(this.dayOffset)];
+            } catch (e) {
+                this._insertPlayedBanner("Couldn't check whether you've already played this puzzle", "Reload to try again.");
+                return;
+            }
+            if (entry && (entry.game_status === GAME_STATUS_WIN || entry.game_status === GAME_STATUS_FAIL)) {
+                this._showPlayed(HistoryManager.completionFromServerEntry(entry));
+                return;
+            }
+            var local = HistoryManager.getHistoryCompletionForPuzzle(this.dayOffset);
+            if (local) {
+                this._showPlayed(local);
+                return;
+            }
+            this._fetchAnswer();
         }
 
         connectedCallback() {
@@ -2462,11 +2589,15 @@
                     this.completeRowCounts();
                 }
             }
-            var histPlayCompletion = this.isHistoryPlay
+            var askAccountIfPlayed = this.isHistoryPlay && !this._historyPlayBlocked &&
+                !!(window.LeftWordleAuth && window.LeftWordleAuth.isLoggedIn());
+            var histPlayCompletion = this.isHistoryPlay && !askAccountIfPlayed
                 ? HistoryManager.getHistoryCompletionForPuzzle(this.dayOffset)
                 : null;
-            if (histPlayCompletion) {
-                this._showAlreadyPlayed(histPlayCompletion);
+            if (askAccountIfPlayed) {
+                this._checkPlayedOnAccountThenStart();
+            } else if (histPlayCompletion) {
+                this._showPlayed(histPlayCompletion);
             } else if (this._historyPlayBlocked) {
                 this._showFuturePlayBlocked();
             } else if (this.gameStatus === GAME_STATUS_IN_PROGRESS && !this.answer) {
@@ -2477,8 +2608,9 @@
             // normally triggers the stats modal never fires -- show the outcome here instead.
             if (willShowStatsModal && !this.evaluations.some(Boolean)) {
                 var restoredCompletion = HistoryManager.getHistoryCompletionForPuzzle(this.dayOffset);
-                if (restoredCompletion) this._showAlreadyPlayed(restoredCompletion);
-                setTimeout(() => { this.showStatsModal(); }, 100);
+                var boardFilled = restoredCompletion ? this._showPlayed(restoredCompletion) : false;
+                // A filled-in board opens the modal itself once its last row reveals.
+                if (!boardFilled) setTimeout(() => { this.showStatsModal(); }, 100);
             }
             this.$game.addEventListener("game-key-press", (event) => {
                 var key = event.detail.key;
@@ -2630,7 +2762,8 @@
             gameBannerDismiss.addEventListener("click", () => gameBanner.remove());
             gameBanner.appendChild(gameBannerText);
             gameBanner.appendChild(gameBannerDismiss);
-            this.$game.insertBefore(gameBanner, this.$game.querySelector("#board-container"));
+            // Above a played banner that _showPlayed may already have added.
+            this.$game.insertBefore(gameBanner, this.$game.querySelector(".played-banner") || this.$game.querySelector("#board-container"));
 
             var envLabel = getEnvironmentLabel(window.location.hostname);
             if (envLabel) {
@@ -3653,6 +3786,8 @@
         buildAccessibleRows: ShareUtils.buildAccessibleRows,
         recordHistoryEntry: HistoryManager.recordHistoryEntry,
         getHistoryCompletionForPuzzle: HistoryManager.getHistoryCompletionForPuzzle,
+        validGuessPairs: HistoryManager.validGuessPairs,
+        completionFromServerEntry: HistoryManager.completionFromServerEntry,
         isContinuingStreak: HistoryManager.isContinuingStreak,
         buildLegacySnapshot: HistoryManager.buildLegacySnapshot,
         // GameApp instance methods, exported unbound so tests can .call()
