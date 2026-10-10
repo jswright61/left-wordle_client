@@ -17,6 +17,7 @@
     <h2><a href="#v1-0-5">v1.0.5</a></h2>
     <h3>Online play</h3>
     <ul>
+        <li>Fixed a bug where coming back to the page on a slow connection could show "Already Played" instead of your finished game. If the server can't be reached, you'll now see a message and a Try again button.</li>
         <li>If your session ends while you're in the middle of a puzzle, you can finish it offline and it will now be added to your account the next time you sign in. Previously that game stayed on the device and never reached your history or stats.</li>
     </ul>
     <h3>Everyone</h3>
@@ -25,6 +26,7 @@
         <li>Fixed a bug where a row's remaining-answers count could be missing from the finished board until you reloaded the page.</li>
         <li>Fixed the Left Wordle title overlapping the header icons on many phones.</li>
         <li>Bigger, slightly bolder letters on the game board, sized to the tiles so they stay large on small phones too.</li>
+        <li>Revisiting a puzzle you've already played now shows when you played it and your finished board, for games played from this release on. Signed in, puzzles played on your other devices count too.</li>
         <li>Exported history files now include your finished boards, and importing one of those files brings the boards back.</li>
         <li>The Wordle Stats Checker now has a link to today's Left Wordle puzzle, for visitors who find the checker first.</li>
         <li>Groundwork for how finished games are stored, so that a puzzle you play across more than one device is recorded as the single game it actually is. Nothing changes in what you see yet — this release just puts the foundation in place.</li>
