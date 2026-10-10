@@ -1,7 +1,9 @@
-// Alphabetically-sorted copy of the answer list, used only for the
-// "Warn if guess is not in the answer list" preference. Sorted (rather
-// than reused from answer_list.js in play order) so the client bundle does
-// not reveal the puzzle-number -> word sequence.
+// Alphabetically-sorted copy of the answer list (generated from
+// api/db/seeds/answers.txt by the api's word_lists rake tasks -- don't
+// edit by hand). Used for remaining-answer counts and the "Warn if
+// guess is not in the answer list" preference. Sorted (rather than in
+// play order) so the client bundle does not reveal the puzzle-number ->
+// word sequence.
 var sorted_answer_words = ["aback",
     "abase",
     "abate",
