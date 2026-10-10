@@ -341,7 +341,9 @@
                 updated_at: null,
                 device_id: null,
                 game_id: entry.game_id || null,
-                origin: "server"
+                origin: "server",
+                // So a restored backup can show the finished board.
+                guesses: guesses.length ? guesses : null
             };
         });
         return local;

@@ -60,9 +60,11 @@ describe('serverHistoryToLocalHistory', () => {
             updated_at: null,
             device_id: null,
             game_id: null,
-            origin: 'server'
+            origin: 'server',
+            guesses: [['crane', '01001'], ['slate', '02222'], ['plate', '22222']]
         });
         expect(local['101'].result).toBe(7);
+        expect(local['101'].guesses).toHaveLength(6);
         expect(local['101'].starter).toBe('crane');
     });
 

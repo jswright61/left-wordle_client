@@ -422,6 +422,112 @@ describe('importRecords', () => {
     });
 });
 
+describe('finished boards in history export and import', () => {
+    // answer_list[0] = "cigar"
+    var board = [['crane', '10010'], ['cigar', '22222']];
+    var historyManager;
+
+    beforeEach(() => {
+        dom.window.localStorage.clear();
+        historyManager = new HistoryManager(resolver);
+    });
+
+    function storedHistory() {
+        return JSON.parse(dom.window.localStorage.getItem('history'));
+    }
+
+    test('normalizeGuessPairs reads an array, its JSON text, or the CSV form', () => {
+        expect(resolver.normalizeGuessPairs(board)).toEqual(board);
+        expect(resolver.normalizeGuessPairs(JSON.stringify(board))).toEqual(board);
+        expect(resolver.normalizeGuessPairs('CRANE:10010  cigar:22222 ')).toEqual(board);
+    });
+
+    test('normalizeGuessPairs is null for a guess count or a malformed board', () => {
+        expect(resolver.normalizeGuessPairs('4')).toBeNull();
+        expect(resolver.normalizeGuessPairs(4)).toBeNull();
+        expect(resolver.normalizeGuessPairs('')).toBeNull();
+        expect(resolver.normalizeGuessPairs('crane:1001')).toBeNull();
+        expect(resolver.normalizeGuessPairs([['crane', '10010', 'x']])).toBeNull();
+        expect(resolver.normalizeGuessPairs(new Array(7).fill(['crane', '00000']))).toBeNull();
+    });
+
+    test('guesses is a standard export column', () => {
+        expect(HistoryManager.HISTORY_BASE_FIELDS).toContain('guesses');
+    });
+
+    test('CSV export writes the board readably and imports it back', () => {
+        dom.window.localStorage.setItem('history', JSON.stringify({
+            '0': { puzzle_num: 0, date: '2021-06-19', result: 2, answer: 'cigar', guesses: board },
+            '1': { puzzle_num: 1, date: '2021-06-20', result: 4, answer: 'rebut' }
+        }));
+        var csv = historyManager.exportAsCsv().content;
+        expect(csv.split('\n')[0].split(',')).toContain('guesses');
+        expect(csv).toContain('crane:10010 cigar:22222');
+
+        dom.window.localStorage.clear();
+        var result = historyManager.importRecords(resolver.parseImportRecords(csv, 'h.csv'));
+        expect(result.addedCount).toBe(2);
+        expect(storedHistory()['0'].guesses).toEqual(board);
+        expect(storedHistory()['0'].starter).toBe('crane');
+        expect(storedHistory()['1'].guesses).toBeNull();
+    });
+
+    test('JSON export keeps the board as an array and imports it back', () => {
+        dom.window.localStorage.setItem('history', JSON.stringify({
+            '0': { puzzle_num: 0, date: '2021-06-19', result: 2, answer: 'cigar', guesses: board }
+        }));
+        var json = historyManager.exportAsJson().content;
+        expect(JSON.parse(json)[0].guesses).toEqual(board);
+
+        dom.window.localStorage.clear();
+        historyManager.importRecords(resolver.parseImportRecords(json, 'h.json'));
+        expect(storedHistory()['0'].guesses).toEqual(board);
+    });
+
+    test('a guess count in a guesses column is still read as the result', () => {
+        historyManager.importRecords([{ puzzle_num: 0, guesses: '2' }]);
+        expect(storedHistory()['0'].result).toBe(2);
+        expect(storedHistory()['0'].guesses).toBeNull();
+    });
+
+    test('derives the result from the board when the file has no result', () => {
+        var fail = new Array(6).fill(['crane', '10010']);
+        historyManager.importRecords([{ puzzle_num: 0, guesses: board }, { puzzle_num: 1, guesses: fail }]);
+        expect(storedHistory()['0'].result).toBe(2);
+        expect(storedHistory()['1'].result).toBe(7);
+    });
+
+    test('keeps the row but drops a board that disagrees with its result', () => {
+        var result = historyManager.importRecords([{ puzzle_num: 0, result: 3, guesses: board }]);
+        expect(result.flaggedRows).toHaveLength(0);
+        expect(storedHistory()['0'].result).toBe(3);
+        expect(storedHistory()['0'].guesses).toBeNull();
+        expect(storedHistory()['0'].starter).toBeNull();
+    });
+
+    test('drops a winning board that does not end on the answer', () => {
+        historyManager.importRecords([{ puzzle_num: 1, result: 2, guesses: board }]);
+        expect(storedHistory()['1'].result).toBe(2);
+        expect(storedHistory()['1'].guesses).toBeNull();
+    });
+
+    test('drops a board that keeps going after the solve', () => {
+        historyManager.importRecords([{ puzzle_num: 0, result: 3, guesses: board.concat([['crane', '10010']]) }]);
+        expect(storedHistory()['0'].guesses).toBeNull();
+    });
+
+    test('the account export carries the server board', () => {
+        var { ToolsMenu } = dom.window.toolsmenuTestExports;
+        var menu = new ToolsMenu(historyManager);
+        var entries = menu.serverHistoryToExportEntries({
+            '0': { puzzle_num: 0, date: '2021-06-19', game_status: 'WIN', guesses: board },
+            '1': { puzzle_num: 1, date: '2021-06-20', game_status: 'WIN', guesses: [] }
+        });
+        expect(entries[0].guesses).toEqual(board);
+        expect(entries[1].guesses).toBeNull();
+    });
+});
+
 describe('ToolsMenu#collectAllSettings', () => {
     var { ToolsMenu } = dom.window.toolsmenuTestExports;
     var saveMenu;

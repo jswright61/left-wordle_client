@@ -166,6 +166,49 @@ class PuzzleResolver {
         return str;
     }
 
+    // A finished board as [[word, "01200"], ...] (the shape history entries
+    // store -- see wordle.js recordHistoryEntry), or null. Accepts that
+    // array, its JSON text, or the CSV export's "crane:01200 slate:20010"
+    // form. Anything else -- including a bare guess count, which some
+    // files put in a `guesses` column -- is null, not an error.
+    normalizeGuessPairs(value) {
+        var pairs = value;
+        if (typeof value === "string") {
+            var str = value.trim();
+            if (!str) return null;
+            if (str.charAt(0) === "[") {
+                pairs = this.safeParseJSON(str, null);
+            } else {
+                pairs = str.split(/\s+/).map(function(token) { return token.split(":"); });
+            }
+        }
+        if (!Array.isArray(pairs) || pairs.length < 1 || pairs.length > 6) return null;
+        var ok = pairs.every(function(pair) {
+            return Array.isArray(pair) && pair.length === 2 &&
+                typeof pair[0] === "string" && /^[a-z]{5}$/i.test(pair[0]) &&
+                typeof pair[1] === "string" && /^[012]{5}$/.test(pair[1]);
+        });
+        if (!ok) return null;
+        return pairs.map(function(pair) { return [pair[0].toLowerCase(), pair[1]]; });
+    }
+
+    formatGuessPairsForCsv(pairs) {
+        var valid = this.normalizeGuessPairs(pairs);
+        return valid ? valid.map(function(pair) { return pair[0] + ":" + pair[1]; }).join(" ") : null;
+    }
+
+    // The result a board shows: 1-6 for a win in N, 7 for six misses, null
+    // for a board that isn't a finished game (stops short, or keeps going
+    // after the solve).
+    resultFromGuessPairs(pairs) {
+        var solvedAt = -1;
+        pairs.forEach(function(pair, i) {
+            if (solvedAt === -1 && pair[1] === "22222") solvedAt = i;
+        });
+        if (solvedAt === -1) return pairs.length === 6 ? 7 : null;
+        return solvedAt === pairs.length - 1 ? pairs.length : null;
+    }
+
     parseCsvLine(line) {
         var result = [];
         var current = "";
@@ -275,15 +318,22 @@ class PuzzleResolver {
     resolveAndValidateEntry(raw, index) {
         if (!raw || typeof raw !== "object") return { entry: null, flag: "invalid row (not an object)" };
 
-        // Parse result — still required
+        // Parse result — still required. `guesses` doubles as a guess-count
+        // column in some files; it's only that when it isn't a board.
+        var guessPairs = this.normalizeGuessPairs(raw.guesses);
+        var boardResult = guessPairs ? this.resultFromGuessPairs(guessPairs) : null;
         var result = this.normalizeResult(
             raw.result !== undefined ? raw.result :
-            raw.guesses !== undefined ? raw.guesses :
+            (raw.guesses !== undefined && !guessPairs) ? raw.guesses :
             raw.num_guesses !== undefined ? raw.num_guesses :
             raw.numGuesses !== undefined ? raw.numGuesses :
             raw.outcome
         );
+        if (!Number.isFinite(result) && boardResult !== null) result = boardResult;
         if (!Number.isFinite(result)) return { entry: null, flag: "missing or invalid result" };
+        // A board that disagrees with the result is dropped, not flagged:
+        // the result is what stats count, and it's still good on its own.
+        if (guessPairs && boardResult !== result) guessPairs = null;
 
         // Parse the three deterministic fields
         var puzzleNum = this.normalizePuzzleNum(raw);
@@ -364,6 +414,10 @@ class PuzzleResolver {
         if (!hasAnswer) {
             answer = this.puzzleNumToAnswer(puzzleNum);
         }
+        // A winning board must end on the puzzle's answer (when it's known).
+        if (guessPairs && result <= 6 && answer && guessPairs[guessPairs.length - 1][0] !== answer) {
+            guessPairs = null;
+        }
 
         return {
             entry: {
@@ -372,7 +426,7 @@ class PuzzleResolver {
                 result: result,
                 answer: answer,
                 mode: null,
-                starter: null,
+                starter: guessPairs ? guessPairs[0][0] : null,
                 completed_at: null,
                 updated_at: null,
                 device_id: null,
@@ -380,6 +434,7 @@ class PuzzleResolver {
                 // minted by the device that played the game, and re-minting
                 // one here would invent a play time that never happened.
                 game_id: this.normalizeGameId(raw),
+                guesses: guessPairs,
                 origin: null
             },
             flag: null
@@ -405,7 +460,8 @@ class HistoryManager {
             "updated_at",
             "device_id",
             "game_id",
-            "origin"
+            "origin",
+            "guesses"
         ];
     }
 
@@ -541,7 +597,8 @@ class HistoryManager {
         sorted.forEach(function(entry) {
             var normalized = self.normalizeEntryForExport(entry, fields);
             var row = fields.map(function(field) {
-                return self.resolver.escapeCsvValue(normalized[field]);
+                var value = field === "guesses" ? self.resolver.formatGuessPairsForCsv(normalized[field]) : normalized[field];
+                return self.resolver.escapeCsvValue(value);
             });
             lines.push(row.join(","));
         });
@@ -1093,7 +1150,8 @@ class ToolsMenu {
                 updated_at: null,
                 device_id: null,
                 game_id: null,
-                origin: "server"
+                origin: "server",
+                guesses: resolver.normalizeGuessPairs(entry.guesses)
             };
         });
     }
