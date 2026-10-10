@@ -1,7 +1,19 @@
 # Missed Days Do Not End Streaks
 
-A preference that lets a player choose whether missing a day ends their
-streak. Designed 2026-10-10, **deferred**. Not built.
+Missing a day will no longer end a player's streak; only finishing a puzzle
+without solving it will. This becomes the default for everyone. Existing
+players see a one-time announcement that lets them keep the old rule.
+Designed 2026-10-10, **deferred**. Not built.
+
+## Why
+
+A streak that ends when a day is missed creates pressure to keep it going,
+often more than subtle pressure, and the longer the streak, the more pressure
+there is. For a game, that's the wrong trade. A streak should be something a
+player enjoys, not something they feel they have to protect.
+
+That's why this is a new default for everyone rather than an opt-in buried
+in Preferences. Players who prefer the old rule keep it with one choice.
 
 ## Status and timing
 
@@ -11,7 +23,7 @@ after Phase 3.
 
 Reasons for deferring:
 
-- **Size.** Roughly a day's work with tests. It touches the most sensitive
+- **Size.** About a day's work with tests. It touches the most sensitive
   code in the app, statistics, in both repos.
 - **Phase 3 overlap.** The server's streak rule lives in
   `next_statistics_for`, called from `apply_played_game_to_statistics!`.
@@ -20,9 +32,24 @@ Reasons for deferring:
   `develop` avoids one more conflict in that code.
 - `v1.0.5` was already large.
 
-## Preference copy
+## The rule
 
-**Missed days end streaks**
+The only difference is what counts as continuing a streak.
+
+| | Win | Loss |
+|---|---|---|
+| **Missed days ignored** (new default) | Always continues the streak, whatever the gap | Streak goes to 0 |
+| **Missed days end streaks** (old rule, opt-in) | Continues the streak only if it's the next puzzle after the last one completed; a gap starts a new streak of 1 | Streak goes to 0 |
+
+"Missed day" means a gap in puzzle numbers, which is how both the client and
+the server already measure continuity. It doesn't depend on timestamps or
+time zones.
+
+Max streak follows current streak as it does today.
+
+## The preference
+
+**Missed days end streaks**, off by default.
 
 - *Enabled:* Missing a day or completing a puzzle without solving it ends
   your streak.
@@ -32,105 +59,105 @@ Reasons for deferring:
 Placement is still open: next to Hard Mode, or in a new "Statistics" group
 in Preferences.
 
-## The rule
+### One default, everywhere
 
-The only difference is what counts as continuing a streak.
+**A missing value means off (missed days ignored)**, on the device and on
+the account. Only players who choose the old rule have the preference
+stored as on.
 
-| | Win | Loss |
-|---|---|---|
-| **Enabled** (today's behaviour) | Continues the streak only if it's the next puzzle after the last one completed; a gap starts a new streak of 1 | Streak goes to 0 |
-| **Disabled** | Always continues the streak, whatever the gap | Streak goes to 0 |
+That single default is what makes this simple. An earlier version of this
+design defaulted new players off and existing players on, which needed a
+per-device decision about who counts as existing. That broke down at sign-in:
+`mergeFromServer` only overwrites keys the account has, and a preferences
+sync pushes the device's whole blob, so a new device could silently switch
+an existing account's rule. With one default there's nothing to clash.
 
-"Missed day" means a gap in puzzle numbers, which is how both the client and
-the server already measure continuity. It doesn't depend on timestamps or
-time zones.
+Switching the preference in Preferences applies from the next game. It
+never changes the current streak by itself (see "Stats are never
+recalculated" below). A player who wants a different number uses Tools >
+Adjust Stats, which already exists for this.
 
-Max streak follows current streak as it does today.
+## The announcement
 
-## Defaults: disabled for new players, enabled for existing ones
+Existing players see a one-time modal explaining the change, with a choice.
+New players don't see it: they start with the new default, and the
+preference is in Preferences for anyone who looks.
 
-The plan is to default the preference to **disabled for new players**.
-Existing players default to **enabled**, because flipping their rule would
-be an unexpected change to their stats.
+### Copy
 
-This means the default can't be one value in `DEFAULT_PREFERENCES`. It has
-to be decided once, written explicitly, and never inferred again:
+> **Missed days no longer end your streak**
+>
+> Starting today, only finishing a puzzle without solving it ends your
+> streak. Missing a day doesn't. A streak should be something you enjoy, not
+> something you feel you have to protect, and that pressure only grows the
+> longer the streak gets.
+>
+> If you'd rather keep the old rule, choose it below. You can change this any
+> time in Preferences.
+>
+> **[Keep the new rule]**   [Missed days end my streak]
 
-- **Device, first load after release:** if the preference is unset and the
-  device has any history or statistics (`gamesPlayed > 0` or a non-empty
-  history), write **enabled**. Otherwise it's a new player: write
-  **disabled**.
-- **Server:** a missing key in an account's preferences means **enabled**.
-  Every account that exists before this ships lacks the key, so missing must
-  mean "today's behaviour".
+- **Keep the new rule** (primary): leaves the preference off.
+- **Missed days end my streak**: turns it on, so everything continues as
+  before.
+- No ✕ and no click-outside dismissal: the modal needs one of the two
+  answers, so its "seen" flag is never set without a choice.
 
-### The sign-in trap
+### Who sees it
 
-`StorageController.preferences.mergeFromServer` only overwrites keys the
-account actually has, and a preferences sync pushes the device's whole
-blob (`putPreferences(getAll())`). So:
+An **existing player** is one with a completed game from before the release.
+Defining it by the release, not just "has played", means a new player
+never qualifies later, after their own first game. Nothing has to be written
+for new players either, which keeps the sign-in problem above from coming
+back.
 
-1. An existing account holder (no key on the account, so enabled) opens the
-   site on a new device.
-1. The device has no history, decides they're a new player, and writes
-   **disabled**.
-1. They sign in. The account has no key to overwrite it with, and the next
-   preferences push writes **disabled** to the account, silently changing
-   an existing player's rule.
+- Mark the release with a constant: the puzzle number of the release day,
+  set in the release commit.
+- **Signed out:** the device has a history entry with a puzzle number before
+  the release puzzle, or has statistics (`gamesPlayed > 0`) with no history
+  at all (pre-history devices).
+- **Signed in:** the same test against the account's data. History isn't
+  fetched at load today, so settle the data source when building (see Open
+  questions).
 
-That must not happen. Options, to settle when building:
+### Once per player, not per device
 
-- On sign-in, an account with no key gets **enabled** written locally
-  before any push, so the account's (implicit) value wins over the
-  device's guess. This is probably the right one.
-- Or write the key to every existing account in a one-off migration
-  (`enabled`), so the account always has an explicit value. Mind the stats
-  immutability rule: this only writes a preference, not stats, so it's
-  allowed. But it's a data migration on `user_profiles`, so it needs the
-  usual expand/contract care.
+Answering either way writes a "seen" flag as a preference. Preferences sync
+to the account, so:
 
-A new account created from a new device keeps the device's **disabled**,
-which is the intended new-player default.
+- A signed-in player answers once, and their other devices pick up the flag
+  when they load.
+- A signed-out device asks once for itself.
 
-## Changing the preference: the dialogue
+### Shown before play
+
+The modal appears at load, before the player can enter a guess, so their
+answer is in place before their next game is recorded.
+
+### Old gaps
+
+A player whose last game was a few days before the release still has that
+streak saved. Under the new rule their next win **continues** it rather than
+restarting at 1. That's deliberate: it's what "missed days are ignored"
+means, and it's a small kindness. A player who wants that gap to count
+chooses "Missed days end my streak", and the gap breaks the streak as
+before.
+
+## Stats are never recalculated
 
 Stats change only from a live completion or the player's own manual
 adjustment, never from a recalculation; a past recompute-from-history
-approach caused real data loss (`client/docs/migration_rethink.md`). So switching the
-preference **does not touch the current streak by itself**. It applies going
-forward only.
+approach caused real data loss (`client/docs/migration_rethink.md`). This
+design keeps to that:
 
-Instead, every change of the preference opens a small modal asking the player
-what their current streak should be. Their answer is a manual adjustment.
-
-- A number field filled in with the current streak, and two buttons:
-  **Keep N** and **Set**. Closing the modal any other way means keep.
-- Suggested copy: *"Your current streak is 12. Keep it, or set a new
-  number."*
-- Not "press Enter": phones play with the on-screen keyboard, which has no
-  Enter key for this.
-- **Max streak:** if the new number is above the max streak, the max rises to
-  match (Adjust Stats already requires max ≥ current). Say so in the modal
-  rather than change it silently, e.g. *"Your max streak will also become
-  15."*
-- **Show it on every change**, both directions. It's cheap, and it keeps the
-  number in the player's hands.
-- **Don't suggest a number.** Calculating "what your streak would be under
-  the new rule" from history is the recalculation the stats rule exists to
-  prevent, and history is often incomplete (pre-history aggregates, imports
-  without guesses).
-- **Turning the rule on after missed days:** a kept streak still shows N,
-  but under the stricter rule it ends at the next game after a gap. The
-  modal is the player's chance to set it to what they think is fair.
-
-### Recording the adjustment
-
-- **Signed in:** go through the same path as Tools > Adjust Stats
-  (`stats_adjust_response`), so the server's `stats_adjustments` audit row
-  has source `manual`. Don't add a new source label unless the audit trail
-  needs to distinguish "set on preference change" from Adjust Stats. If it
-  does, add it to `STATS_ADJUSTMENT_SOURCES`; that's a permanent label.
-- **Signed out:** use the same local mechanism Adjust Stats uses.
+- Neither the release, the announcement, nor a change in Preferences
+  touches the current or max streak. The rule only decides whether a
+  **future** win continues the streak.
+- There's no "what your streak would have been" calculation anywhere. It
+  would be the recalculation the rule exists to prevent, and history is often
+  incomplete anyway (pre-history aggregates, imports without guesses).
+- Players who want a different number use Adjust Stats, which is recorded as
+  a manual adjustment.
 
 ## Implementation notes
 
@@ -138,12 +165,15 @@ what their current streak should be. Their answer is a manual adjustment.
 
 - **Streak continuity:** `HistoryManager.isContinuingStreak(dayOffset)`
   decides `isStreak`, which `StatisticsEngine.updateStatistics` uses. With
-  the preference disabled, a win continues the streak if there's any earlier
+  the preference off, a win continues the streak if there's any earlier
   completion, whatever the gap.
-- **Preference:** add the key to `StorageController`'s preferences schema
-  (`storage-controller.js`) and `DEFAULT_PREFERENCES` in `wordle.js`. Note
-  the default-at-first-load logic above: the key's absence must be resolved
-  once, not read through a default.
+- **Preferences:** add two keys to the preferences schema in
+  `storage-controller.js` and to `DEFAULT_PREFERENCES` in `wordle.js`: the
+  rule (off by default) and the announcement's "seen" flag. Missing means
+  off for both.
+- **Announcement:** a modal at load, after account preferences are applied
+  (`applyAccountPreferences`) so a signed-in player's flag from another
+  device is already in place.
 - Check anything else that reads streak continuity, e.g. the "streak at
   risk" calculation near `todayCompletion` in `wordle.js`, and the
   `terminatedStreak` handling that restores a streak.
@@ -156,47 +186,67 @@ what their current streak should be. Their answer is a manual adjustment.
 
 - `next_statistics_for` in `app.rb`:
   `is_continuation = anchor && puzzle_num == anchor + 1` becomes "any anchor
-  continues" when the account's preference is disabled. The rest (loss
-  resets, max streak, anchor update) is unchanged.
+  continues" unless the account has the preference on. Loss resets, max
+  streak and the anchor update are unchanged.
 - The server reads the preference from `user_profiles.preferences` inside
   the transaction in `apply_played_game_to_statistics!`, which already locks
-  the profile row. Missing key means enabled.
+  the profile row. A missing key means off.
 - **API contract:** the server has never interpreted anything inside the
   preferences blob, so this is a contract change. Document the key in
   `api/docs/api_interface.md`.
 - History imports go through the same function, so the account's current
-  preference applies to imported rows too. That's consistent with "going
-  forward": the import happens now.
+  preference applies to imported rows too. That's consistent with "from the
+  next game": the import happens now.
 
 ### Deploy order
 
-api first, then client. Same as the usual order: the server must honour the
-preference before any client can set it, or a signed-in player who turns it
-off would still see the server break their streak.
+api first, then client, as usual. Once the api is live, the new rule applies
+to every signed-in completion, including from browsers still on the old
+client that haven't shown the announcement. In that window the change only
+ever goes the kind way: a win after a gap continues a streak instead of
+restarting it. The window is the time between the two deploys, plus however
+long old clients linger, and needs no handling.
+
+Signed-out devices on the old client keep the old rule locally until they
+load the new code.
 
 ### Multi-device race
 
-The preference is account-wide. If a player turns it off on device A and
+The preference is account-wide. If a player switches it on device A and
 finishes a game on device B before A's preferences push lands, that one
-completion uses the old rule. That's acceptable, and the player can fix the
-number with Adjust Stats. Don't build anything for it.
+completion uses the previous rule. That's acceptable, and Adjust Stats fixes
+the number if they care. Don't build anything for it.
+
+## Release notes
+
+Under "Everyone":
+
+> Missed days no longer end your streak: only finishing a puzzle without
+> solving it does. Prefer the old rule? Turn on "Missed days end streaks" in
+> Preferences.
 
 ## Tests
 
 - **Client unit:** the continuity rule both ways (gap and win, gap and loss,
-  consecutive); first-load default for an empty device versus a device with
-  history; the sign-in case where the account has no key.
-- **API:** `next_statistics_for` with the preference enabled, disabled, and
-  missing (behaves as enabled); the adjustment from the dialogue recorded as
-  `manual`.
-- **e2e:** toggling opens the dialogue; Keep leaves stats unchanged; Set
-  changes current streak and raises max when needed; with the preference
-  disabled, a win after a skipped puzzle continues the streak.
+  consecutive); missing preference behaves as off; the existing-player test
+  (history before the release puzzle, pre-history stats with no history, a
+  new player who has played since the release).
+- **API:** `next_statistics_for` with the preference on, off, and missing
+  (behaves as off).
+- **e2e:**
+  - An existing player sees the announcement, a new player doesn't.
+  - Either button sets the flag, and it doesn't show again.
+  - "Missed days end my streak" turns the preference on.
+  - With the preference off, a win after a skipped puzzle continues the
+    streak; with it on, it restarts at 1.
+  - Switching in Preferences leaves the current streak unchanged.
 
 ## Open questions
 
 1. Placement in Preferences: next to Hard Mode, or a new "Statistics" group.
-1. Sign-in trap: which fix (write enabled on sign-in when the account has no
-   key, or a one-off migration).
-1. Whether the dialogue's adjustment needs its own audit source label.
+1. Signed-in existing-player test: where the data comes from at load. The
+   account's statistics are already loaded (`cachedProfile`), but statistics
+   alone can't tell a game before the release from one after. Options: fetch
+   history when the flag is unset, or have the server report the account's
+   earliest completed puzzle number.
 1. Release vehicle: with Phase 3, or standalone after it.
