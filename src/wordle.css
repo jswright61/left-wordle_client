@@ -544,8 +544,16 @@ game-help[page] section {
 }
 
 /* game-tile styles */
+/* The tile is a size container so its letter can scale with it (cqi =
+   1% of the tile's width) -- on a short phone the board shrinks, and a
+   fixed font size either crowds the tile or (as the old max-height: 600px
+   override did) drops to 16px. 64% of the tile, capped at 34px, matches
+   NYT Wordle's small-screen proportion and is a little larger than its
+   32px elsewhere. The 1.7rem line is the fallback for browsers without
+   container units. */
 game-tile {
     display: inline-block;
+    container-type: inline-size;
 }
 
 game-tile .tile {
@@ -554,8 +562,11 @@ game-tile .tile {
     justify-content: center;
     align-items: center;
     font-size: 1.7rem;
-    line-height: 1.7rem;
+    font-size: min(64cqi, 34px);
+    line-height: 1;
     font-weight: bold;
+    /* A touch heavier than the system bold, as the row counts do. */
+    -webkit-text-stroke: 0.5px currentColor;
     vertical-align: middle;
     box-sizing: border-box;
     color: var(--tile-text-color);
@@ -567,13 +578,6 @@ game-tile .tile::before {
     content: '';
     display: inline-block;
     padding-bottom: 100%;
-}
-
-@media (max-height: 600px) {
-    game-tile .tile {
-        font-size: 1em;
-        line-height: 1em;
-    }
 }
 
 
