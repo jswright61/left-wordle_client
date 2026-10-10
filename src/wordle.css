@@ -265,18 +265,19 @@ body {
     pointer-events: none;
 }
 
-@media (max-width: 360px) {
+/* Below 480px the centered title has to fit between the two icon groups
+   (about 105px each), and fixed steps left it overlapping them from 361px
+   to 430px wide. Instead it scales with the room left over: at 0.05em
+   spacing "Left Wordle" is about 6 font-px wide per px of font size, so
+   (100vw - 222px) / 6 leaves ~6px clear on each side. */
+@media (max-width: 479px) {
     .game-header .title {
-        font-size: 22px;
-        letter-spacing: 0.1rem;
+        font-size: clamp(16px, calc(16.7vw - 37px), 36px);
+        letter-spacing: 0.05em;
     }
 }
 
 @media (max-width: 330px) {
-    .game-header .title {
-        font-size: 19px;
-        letter-spacing: 0.085rem;
-    }
     #board {
         padding: 3px;
     }
