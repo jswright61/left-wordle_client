@@ -1215,6 +1215,122 @@ describe('backfillAnswersRemaining', () => {
     });
 });
 
+// Regression: a middle row's live count request could fail silently, leaving
+// that row blank on screen until a share (which backfills) and a reload.
+describe('remaining-count recovery', () => {
+    const fireRemainingCountRequest = testExports.fireRemainingCountRequest;
+    const completeRowCounts = testExports.completeRowCounts;
+    const backfillAnswersRemaining = testExports.backfillAnswersRemaining;
+    const buildPrevGuesses = testExports.buildPrevGuesses;
+
+    function makeApp(overrides) {
+        return Object.assign({
+            evaluations: new Array(6).fill(null),
+            boardState: new Array(6).fill(''),
+            answersRemaining: new Array(6).fill(null),
+            remainingCountsTracked: true,
+            _pendingRowCountRequests: [],
+            gameStatus: GAME_STATUS_IN_PROGRESS,
+            rowIndex: 0,
+            hardMode: false,
+            insaneMode: false,
+            isHistoryPlay: true, // keep saveGameState out of these tests
+            today: new Date(2021, 5, 25),
+            dayOffset: 6,
+            buildPrevGuesses: buildPrevGuesses,
+            backfillAnswersRemaining: backfillAnswersRemaining,
+            revealRowCounts: jest.fn(),
+            updateRowCount: jest.fn()
+        }, overrides);
+    }
+
+    beforeEach(() => {
+        localStorage.clear();
+    });
+
+    afterEach(() => {
+        delete dom.window.LeftWordleApi;
+    });
+
+    test('retries a transient failure once and records the count', async () => {
+        const evaluate = jest.fn()
+            .mockImplementationOnce(() => Promise.reject({ retryable: true }))
+            .mockImplementationOnce(() => Promise.resolve({ answersRemaining: 7 }));
+        dom.window.LeftWordleApi = { gameplay: { evaluate } };
+        const app = makeApp();
+
+        fireRemainingCountRequest.call(app, 1, 'moist', 'regular', [['crane', '00000']]);
+        await Promise.allSettled(app._pendingRowCountRequests);
+
+        expect(evaluate).toHaveBeenCalledTimes(2);
+        expect(app.answersRemaining[1]).toBe(7);
+    });
+
+    test('does not retry a non-retryable failure', async () => {
+        const evaluate = jest.fn(() => Promise.reject({ retryable: false }));
+        dom.window.LeftWordleApi = { gameplay: { evaluate } };
+        const app = makeApp();
+
+        fireRemainingCountRequest.call(app, 1, 'moist', 'regular', []);
+        await Promise.allSettled(app._pendingRowCountRequests);
+
+        expect(evaluate).toHaveBeenCalledTimes(1);
+        expect(app.answersRemaining[1]).toBeNull();
+    });
+
+    test('fills a row whose live request failed, then reveals every row', async () => {
+        const evaluate = jest.fn(() => Promise.resolve({ answersRemaining: 3 }));
+        dom.window.LeftWordleApi = { gameplay: { evaluate } };
+        const app = makeApp({
+            evaluations: [
+                [ABSENT, ABSENT, ABSENT, ABSENT, ABSENT],
+                [ABSENT, PRESENT, ABSENT, ABSENT, ABSENT],
+                [PRESENT, PRESENT, ABSENT, ABSENT, ABSENT],
+                [CORRECT, CORRECT, CORRECT, CORRECT, CORRECT],
+                null, null
+            ],
+            boardState: ['crane', 'moist', 'gluey', 'ready', '', ''],
+            answersRemaining: [87, 12, null, 0, null, null],
+            gameStatus: GAME_STATUS_WIN,
+            rowIndex: 4
+        });
+
+        await completeRowCounts.call(app);
+
+        expect(evaluate).toHaveBeenCalledTimes(1);
+        expect(evaluate.mock.calls[0][0].rowIndex).toBe(2);
+        expect(app.answersRemaining).toEqual([87, 12, 3, 0, null, null]);
+        expect(app.revealRowCounts).toHaveBeenLastCalledWith(4);
+    });
+
+    test('waits for an in-flight live request instead of re-requesting its row', async () => {
+        const evaluate = jest.fn(() => Promise.resolve({ answersRemaining: 99 }));
+        dom.window.LeftWordleApi = { gameplay: { evaluate } };
+        const app = makeApp({
+            evaluations: [
+                [ABSENT, ABSENT, ABSENT, ABSENT, ABSENT],
+                [ABSENT, PRESENT, ABSENT, ABSENT, ABSENT],
+                null, null, null, null
+            ],
+            boardState: ['crane', 'moist', '', '', '', ''],
+            answersRemaining: [87, null, null, null, null, null],
+            gameStatus: GAME_STATUS_IN_PROGRESS,
+            rowIndex: 2
+        });
+        let resolveLive;
+        app._pendingRowCountRequests.push(new Promise((resolve) => {
+            resolveLive = () => { app.answersRemaining[1] = 12; resolve(); };
+        }));
+
+        const done = completeRowCounts.call(app);
+        resolveLive();
+        await done;
+
+        expect(evaluate).not.toHaveBeenCalled();
+        expect(app.answersRemaining[1]).toBe(12);
+    });
+});
+
 describe('getEraseBlockReason', () => {
     const getEraseBlockReason = testExports.getEraseBlockReason;
 
@@ -1248,4 +1364,10 @@ describe('getEraseBlockReason', () => {
         const reason = getEraseBlockReason.call(makeApp({ isHistoryPlay: true }));
         expect(reason).toMatch(/historical puzzle/i);
     });
+});
+
+// Closing the window clears its pending timers (e.g. the remaining-count
+// display delay), which would otherwise keep the worker alive past the run.
+afterAll(() => {
+    dom.window.close();
 });

@@ -48,6 +48,7 @@ var SCHEMA = {
         updatedAt:                  "number",
         restoringFromLocalStorage:  "boolean",
         answersRemaining:           "array",
+        remainingCountsTracked:     "boolean",
         encryptedAnswer:            "string"
     },
     statistics: {

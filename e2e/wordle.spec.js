@@ -906,6 +906,56 @@ test.describe('Wordle E2E Tests', () => {
       const countText = await page.evaluate(() => document.getElementById('gprc0').textContent);
       expect(countText).toBe('0');
     });
+
+    // Regression: a middle row's live count request failing (timeout or
+    // network blip) used to leave that row blank on screen until the player
+    // shared and then reloaded. The end of the game now fills it in.
+    test('a row whose count request failed is filled in when the game ends', async ({ page }) => {
+      await freshGame(page);
+      await dismissHelpModal(page);
+
+      await page.evaluate(() => {
+        window.StorageController.preferences.set('remainingAnswersMode', 'gameplay');
+      });
+
+      const solution = await getSolution(page);
+      const [guess1, guess2] = VALID_WORDS.filter((w) => w !== solution);
+
+      // Fail every row-1 request while the second guess is live (its first
+      // attempt and any retry), then let the network recover before the
+      // winning guess so the end-of-game fill-in can get through.
+      let failRow1 = true;
+      let row1Failures = 0;
+      await page.route('http://localhost:9292/api/v1/game/guess', async (route) => {
+        const body = route.request().postDataJSON();
+        if (body.row_index === 1 && failRow1) {
+          row1Failures += 1;
+          return route.abort();
+        }
+        return route.continue();
+      });
+
+      await submitWord(page, guess1);
+      await waitForRowEvaluation(page);
+      await submitWord(page, guess2);
+      await waitForRowEvaluation(page);
+      // Outlast the live request, its retry, and the count's display delay.
+      await page.waitForTimeout(3000);
+      expect(row1Failures).toBeGreaterThan(0);
+      expect(await page.evaluate(() => document.getElementById('gprc1').textContent)).toBe('');
+      failRow1 = false;
+
+      await submitWord(page, solution);
+      await waitForRowEvaluation(page);
+
+      await expect
+        .poll(() => page.evaluate(() => document.getElementById('gprc1').textContent), { timeout: 10000 })
+        .toMatch(/^\d+$/);
+      expect(await page.evaluate(() => document.getElementById('gprc0').textContent)).toMatch(/^\d+$/);
+      await expect
+        .poll(() => page.evaluate(() => document.getElementById('gprc2').textContent), { timeout: 5000 })
+        .toBe('0');
+    });
   });
 
   // ─── 11b. Warn If Guess Is Not In Answer List ───────────────────────────────
