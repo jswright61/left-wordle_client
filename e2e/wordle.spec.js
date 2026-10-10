@@ -1056,6 +1056,36 @@ test.describe('Wordle E2E Tests', () => {
     });
   });
 
+  // ─── 11c. Server Unreachable At Boot ────────────────────────────────────────
+  test.describe('Server Unreachable At Boot', () => {
+    // Regression: a previously signed-in device whose profile fetch failed
+    // on the network used to fall back to offline play, rebuilding its
+    // board from stale local storage as a blank "Already Played" game.
+    test('a signed-in device that cannot reach the server says so instead of loading a game', async ({ page }) => {
+      await page.goto('/');
+      await page.evaluate(() => {
+        localStorage.clear();
+        localStorage.setItem('lastKnownAuthState', 'logged_in');
+      });
+      await page.route('http://localhost:9292/api/v2/profile', (route) => route.abort());
+
+      await page.goto('/');
+      await expect(page.locator('.server-unreachable-heading')).toHaveText("Can't reach the server", { timeout: 15000 });
+      expect(await page.evaluate(() => !!(document.querySelector('game-app') || {}).$board)).toBe(false);
+      expect(await page.evaluate(() => localStorage.getItem('lastKnownAuthState'))).toBe('logged_in');
+
+      // Once the server answers again (here with "not signed in"), Try
+      // again loads the game normally.
+      await page.unroute('http://localhost:9292/api/v2/profile');
+      await page.locator('.server-unreachable-retry').click();
+      await page.waitForFunction(() => {
+        const app = document.querySelector('game-app');
+        return app && app.querySelector('#board');
+      }, { timeout: 15000 });
+      await expect(page.locator('.server-unreachable')).toHaveCount(0);
+    });
+  });
+
   // ─── 12. Dark Mode ─────────────────────────────────────────────────────────
   test.describe('Dark Mode', () => {
     test('toggling dark mode applies nightmode class', async ({ page }) => {

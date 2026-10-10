@@ -24,6 +24,12 @@
         // surprise online_play_redesign.md's offline indicator is meant to
         // prevent. Not set on an explicit logout -- the user already knows.
         sessionUnexpectedlyEnded: false,
+        // Set by refreshProfile() when a device that was logged in last
+        // visit couldn't reach the server at all this load (timeouts,
+        // network errors, 5xx -- not a rejected session). wordle.js shows a
+        // "can't reach the server" message instead of the game, since the
+        // board lives server-side and local storage can't stand in for it.
+        serverUnreachable: false,
         // In-memory only -- {preferences, game_state, statistics} from the
         // account's last GET /profile fetch. This is what an online device
         // reads for display (Stats screen, etc.) instead of
@@ -106,9 +112,35 @@
         return LeftWordleAuth.loggedIn;
     };
 
+    // A previously-logged-in device can't render its board without this
+    // fetch (online play keeps the board server-side), so a slow or flaky
+    // network at boot gets a longer timeout and a couple of retries before
+    // giving up.
+    var BOOT_PROFILE_ATTEMPTS = 3;
+    var BOOT_PROFILE_TIMEOUT_MS = 8000;
+    var BOOT_PROFILE_RETRY_DELAY_MS = 1000;
+
+    async function fetchProfileForBoot() {
+        var persistent = wasPreviouslyLoggedIn();
+        for (var attempt = 1; ; attempt++) {
+            try {
+                return await api().getProfile(persistent ? { timeoutMs: BOOT_PROFILE_TIMEOUT_MS } : undefined);
+            } catch (error) {
+                if (!persistent || !isTransientFailure(error) || attempt >= BOOT_PROFILE_ATTEMPTS) throw error;
+                await delay(BOOT_PROFILE_RETRY_DELAY_MS);
+            }
+        }
+    }
+
+    // Timeouts, network errors and 5xx -- the server never answered the
+    // question "is this session valid?", as opposed to a 4xx that did.
+    function isTransientFailure(error) {
+        return !!(error && error.name === "ApiClientError" && error.retryable === true);
+    }
+
     LeftWordleAuth.refreshProfile = async function() {
         try {
-            var profile = await api().getProfile();
+            var profile = await fetchProfileForBoot();
             applyProfile(profile);
             cacheProfile(profile);
             // Deliberately before flushPendingSync, not after: the queued
@@ -132,8 +164,19 @@
             LeftWordleAuth.replayInterruptedCompletion();
             return profile;
         } catch (error) {
-            LeftWordleAuth.sessionUnexpectedlyEnded = wasPreviouslyLoggedIn();
             clearSessionState();
+            // Only a real answer ends the session. Falling back to offline
+            // play on a mere network failure used to rebuild the board from
+            // local storage, which online play never writes -- so today's
+            // finished game came back as a blank board plus "Already
+            // Played" (local history does record the completion). The
+            // logged-in marker stays, so the next load waits for the
+            // session check again instead of racing it.
+            if (isTransientFailure(error) && wasPreviouslyLoggedIn()) {
+                LeftWordleAuth.serverUnreachable = true;
+                return null;
+            }
+            LeftWordleAuth.sessionUnexpectedlyEnded = wasPreviouslyLoggedIn();
             forgetLoggedIn();
             return null;
         }
@@ -344,9 +387,11 @@
         }
     }
 
-    function enqueuePending(key, type, payload) {
+    function enqueuePending(key, type, payload, stamp) {
         var queue = readPendingQueue().filter(function(job) { return job.key !== key; });
-        queue.push({key: key, type: type, payload: payload});
+        var job = {key: key, type: type, payload: payload};
+        if (stamp !== undefined) job.stamp = stamp;
+        queue.push(job);
         writePendingQueue(queue);
     }
 
@@ -403,21 +448,83 @@
 
         flushingPendingQueue = true;
         try {
-            var remaining = [];
+            var done = new Set();
             for (var i = 0; i < queue.length; i++) {
                 var job = queue[i];
                 var runner = PENDING_RUNNERS[job.type];
                 try {
-                    if (runner) await runner(job.payload);
+                    if (job.type === "gameState") {
+                        await putGameStateInOrder(job.payload, job.stamp || 0);
+                    } else if (runner) {
+                        await runner(job.payload);
+                    }
+                    done.add(JSON.stringify(job));
                 } catch (e) {
-                    remaining.push(job);
+                    // left queued
                 }
             }
-            writePendingQueue(remaining);
+            // Re-read rather than writing back the snapshot taken above, so
+            // a job queued by a push that failed while this flush was
+            // running isn't silently dropped.
+            writePendingQueue(readPendingQueue().filter(function(job) {
+                return !done.has(JSON.stringify(job));
+            }));
         } finally {
             flushingPendingQueue = false;
         }
     };
+
+    // Each game-state PUT replaces the account's whole board, so they must
+    // land in the order they were made: a stale push landing after a newer
+    // one (a failed earlier guess's push, queued and replayed after the
+    // finishing push succeeded) rolls a finished board back to an
+    // unfinished one, and every later load shows "Already Played" instead.
+    // Every push -- live, registration, or replayed from the queue -- goes
+    // through here one at a time, stamped when it was made, and is skipped
+    // if a newer one has already landed.
+    var gameStateTail = null;
+    var lastGameStateStamp = 0;
+    var newestGameStateLanded = 0;
+
+    function nextGameStateStamp() {
+        lastGameStateStamp = Math.max(Date.now(), lastGameStateStamp + 1);
+        return lastGameStateStamp;
+    }
+
+    function putGameStateInOrder(payload, stamp) {
+        var attempt = function() {
+            if (stamp < newestGameStateLanded) return Promise.resolve(null);
+            try {
+                return Promise.resolve(PENDING_RUNNERS.gameState(payload)).then(function(result) {
+                    newestGameStateLanded = Math.max(newestGameStateLanded, stamp);
+                    return result;
+                });
+            } catch (e) {
+                return Promise.reject(e);
+            }
+        };
+        // Runs straight away when nothing is in flight, otherwise waits for
+        // the previous push to settle either way.
+        var run = gameStateTail ? gameStateTail.then(attempt) : attempt();
+        var tail = run.catch(function() {});
+        gameStateTail = tail;
+        tail.then(function() {
+            if (gameStateTail === tail) gameStateTail = null;
+        });
+        return run;
+    }
+
+    function syncGameStateWithRetry(payload) {
+        var stamp = nextGameStateStamp();
+        return putGameStateInOrder(payload, stamp).then(function(result) {
+            dequeuePending("gameState");
+            LeftWordleAuth.flushPendingSync();
+            return result;
+        }).catch(function(error) {
+            if (stamp >= newestGameStateLanded) enqueuePending("gameState", "gameState", payload, stamp);
+            throw error;
+        });
+    }
 
     function syncWithRetry(key, type, payload) {
         var runner = PENDING_RUNNERS[type];
@@ -501,7 +608,7 @@
     // One-time push of the current in-progress game, at registration only.
     LeftWordleAuth.syncGameStateOnce = function() {
         if (!LeftWordleAuth.isLoggedIn()) return Promise.resolve();
-        return syncWithRetry("gameState", "gameState", null).catch(function() {});
+        return syncGameStateWithRetry(null).catch(function() {});
     };
 
     // Live push of the current in-progress board, called after every guess
@@ -513,7 +620,7 @@
     // pushGameProgress/reportProgress).
     LeftWordleAuth.pushGameState = function(gameStateBlob) {
         if (!LeftWordleAuth.isLoggedIn()) return Promise.resolve();
-        return syncWithRetry("gameState", "gameState", gameStateBlob).catch(function() {});
+        return syncGameStateWithRetry(gameStateBlob).catch(function() {});
     };
 
     var PROGRESS_RETRY_DELAY_MS = 2000;

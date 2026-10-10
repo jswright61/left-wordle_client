@@ -446,6 +446,9 @@
             if (!config.passkeyAuthEnabled) return;
             if (!window.LeftWordleWebauthn || !window.LeftWordleWebauthn.isSupported()) return;
             await window.LeftWordleAuth.ready;
+            // Still logged in as far as anyone knows -- the server just
+            // couldn't be reached to confirm it (wordle.js shows that).
+            if (window.LeftWordleAuth.serverUnreachable) return;
             this.announceSessionExpiredIfNeeded();
             if (window.LeftWordleAuth.isLoggedIn()) return;
             if (StorageController.preferences.get("suppressLoginPrompt")) return;

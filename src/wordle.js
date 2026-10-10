@@ -2880,8 +2880,35 @@
     // empty local cache -- online play doesn't write to local storage.
     // ready never rejects (refreshProfile always catches internally), so
     // no .catch needed.
+    // Replaces the "Loading your game…" placeholder when a logged-in
+    // device couldn't reach the server at boot. Its board lives
+    // server-side, so there is nothing truthful to show until it can.
+    function showServerUnreachable() {
+        var app = document.querySelector("game-app");
+        if (!app) return;
+        var box = document.createElement("div");
+        box.className = "server-unreachable";
+        var heading = document.createElement("div");
+        heading.className = "server-unreachable-heading";
+        heading.textContent = "Can't reach the server";
+        var detail = document.createElement("p");
+        detail.textContent = "Your game is saved to your account, and this device couldn't load it. Check your connection and try again.";
+        var retry = document.createElement("button");
+        retry.className = "server-unreachable-retry";
+        retry.textContent = "Try again";
+        retry.addEventListener("click", function() { window.location.reload(); });
+        box.appendChild(heading);
+        box.appendChild(detail);
+        box.appendChild(retry);
+        app.replaceChildren(box);
+    }
+
     if (window.LeftWordleAuth && window.LeftWordleAuth.wasPreviouslyLoggedIn && window.LeftWordleAuth.wasPreviouslyLoggedIn()) {
         window.LeftWordleAuth.ready.then(function() {
+            if (window.LeftWordleAuth.serverUnreachable) {
+                showServerUnreachable();
+                return;
+            }
             customElements.define("game-app", GameApp);
         });
     } else {

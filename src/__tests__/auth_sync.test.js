@@ -758,3 +758,130 @@ describe('replayInterruptedCompletion', () => {
         expect(reportCompletion).not.toHaveBeenCalled();
     });
 });
+
+describe('refreshProfile at boot', () => {
+    const transient = () => ({ name: 'ApiClientError', code: 'timeout', retryable: true, status: null });
+    const rejected = () => ({ name: 'ApiClientError', code: 'http_error', retryable: false, status: 401 });
+
+    // Regression: a network failure here used to sign a logged-in device
+    // out, and its board (kept server-side) then rebuilt from stale local
+    // storage as a blank "Already Played" game.
+    test('a previously logged-in device that cannot reach the server stays logged in as far as the marker goes', async () => {
+        const getProfile = jest.fn(() => Promise.reject(transient()));
+        const dom = loadAuth({ client: { getProfile } });
+        dom.window.localStorage.setItem('lastKnownAuthState', 'logged_in');
+
+        await dom.window.LeftWordleAuth.refreshProfile();
+
+        expect(getProfile).toHaveBeenCalledTimes(3);
+        expect(getProfile.mock.calls[0][0]).toEqual({ timeoutMs: 8000 });
+        expect(dom.window.LeftWordleAuth.serverUnreachable).toBe(true);
+        expect(dom.window.LeftWordleAuth.sessionUnexpectedlyEnded).toBe(false);
+        expect(dom.window.LeftWordleAuth.isLoggedIn()).toBe(false);
+        expect(dom.window.localStorage.getItem('lastKnownAuthState')).toBe('logged_in');
+    });
+
+    test('recovers when a retry succeeds', async () => {
+        const getProfile = jest.fn()
+            .mockImplementationOnce(() => Promise.reject(transient()))
+            .mockImplementationOnce(() => Promise.resolve({ email: 'a@b.c', game_state: { puzzleNum: 7 } }));
+        const dom = loadAuth({ client: { getProfile } });
+        dom.window.localStorage.setItem('lastKnownAuthState', 'logged_in');
+
+        await dom.window.LeftWordleAuth.refreshProfile();
+
+        expect(getProfile).toHaveBeenCalledTimes(2);
+        expect(dom.window.LeftWordleAuth.serverUnreachable).toBe(false);
+        expect(dom.window.LeftWordleAuth.isLoggedIn()).toBe(true);
+        expect(dom.window.LeftWordleAuth.cachedProfile.game_state).toEqual({ puzzleNum: 7 });
+    });
+
+    test('a rejected session still ends it, without retrying', async () => {
+        const getProfile = jest.fn(() => Promise.reject(rejected()));
+        const dom = loadAuth({ client: { getProfile } });
+        dom.window.localStorage.setItem('lastKnownAuthState', 'logged_in');
+
+        await dom.window.LeftWordleAuth.refreshProfile();
+
+        expect(getProfile).toHaveBeenCalledTimes(1);
+        expect(dom.window.LeftWordleAuth.serverUnreachable).toBe(false);
+        expect(dom.window.LeftWordleAuth.sessionUnexpectedlyEnded).toBe(true);
+        expect(dom.window.localStorage.getItem('lastKnownAuthState')).toBeNull();
+    });
+
+    test('a device that was never logged in tries once and plays offline as before', async () => {
+        const getProfile = jest.fn(() => Promise.reject(transient()));
+        const dom = loadAuth({ client: { getProfile } });
+
+        await dom.window.LeftWordleAuth.refreshProfile();
+
+        expect(getProfile).toHaveBeenCalledTimes(1);
+        expect(dom.window.LeftWordleAuth.serverUnreachable).toBe(false);
+        expect(dom.window.LeftWordleAuth.sessionUnexpectedlyEnded).toBe(false);
+    });
+});
+
+describe('game-state push ordering', () => {
+    function deferred() {
+        let resolve, reject;
+        const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+        return { promise, resolve, reject };
+    }
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+    test('waits for an earlier push to settle before sending the next', async () => {
+        const first = deferred();
+        const putGameState = jest.fn()
+            .mockImplementationOnce(() => first.promise)
+            .mockImplementation(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { putGameState } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        dom.window.LeftWordleAuth.pushGameState({ rowIndex: 3, gameStatus: 'IN_PROGRESS' });
+        dom.window.LeftWordleAuth.pushGameState({ rowIndex: 4, gameStatus: 'WIN' });
+        await settle();
+        expect(putGameState).toHaveBeenCalledTimes(1);
+
+        first.resolve({});
+        await settle();
+        expect(putGameState).toHaveBeenCalledTimes(2);
+        expect(putGameState.mock.calls[1][0]).toEqual({ rowIndex: 4, gameStatus: 'WIN' });
+    });
+
+    // Regression: the failed earlier push used to be queued and replayed
+    // after the finishing push, rolling the account's board back.
+    test('a failed earlier push is not replayed over a newer one that landed', async () => {
+        const first = deferred();
+        const putGameState = jest.fn()
+            .mockImplementationOnce(() => first.promise)
+            .mockImplementation(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { putGameState } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        dom.window.LeftWordleAuth.pushGameState({ rowIndex: 3, gameStatus: 'IN_PROGRESS' });
+        dom.window.LeftWordleAuth.pushGameState({ rowIndex: 4, gameStatus: 'WIN' });
+        first.reject(new Error('network down'));
+        await settle();
+        await settle();
+        await dom.window.LeftWordleAuth.flushPendingSync();
+
+        const sent = putGameState.mock.calls.map((call) => call[0].gameStatus);
+        expect(sent).toEqual(['IN_PROGRESS', 'WIN']);
+        expect(JSON.parse(dom.window.localStorage.getItem('pendingSyncQueue') || '[]')).toEqual([]);
+    });
+
+    test('a queued push older than one that already landed is dropped, not sent', async () => {
+        const putGameState = jest.fn(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { putGameState } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+
+        await dom.window.LeftWordleAuth.pushGameState({ rowIndex: 4, gameStatus: 'WIN' });
+        dom.window.localStorage.setItem('pendingSyncQueue', JSON.stringify([
+            { key: 'gameState', type: 'gameState', payload: { rowIndex: 3, gameStatus: 'IN_PROGRESS' }, stamp: 1 }
+        ]));
+        await dom.window.LeftWordleAuth.flushPendingSync();
+
+        expect(putGameState).toHaveBeenCalledTimes(1);
+        expect(JSON.parse(dom.window.localStorage.getItem('pendingSyncQueue'))).toEqual([]);
+    });
+});
