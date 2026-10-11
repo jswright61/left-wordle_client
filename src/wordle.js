@@ -2415,11 +2415,8 @@
         _showPlayed(completion) {
             this.canInput = false;
             var playedAt = completion.completedAt ? " " + formatPlayedAt(completion.completedAt) : "";
-            var note = null;
-            if (!completion.guesses) {
-                var resultLabel = !completion.isWin ? "X/6" : completion.rowIndex ? completion.rowIndex + "/6" : "won";
-                note = "Board not recorded for this game — " + resultLabel;
-            }
+            var note = !completion.isWin ? "X/6" : completion.rowIndex ? completion.rowIndex + "/6" : "Solved";
+            if (!completion.guesses) note += " — board not recorded";
             this._insertPlayedBanner("Played" + playedAt, note);
             if (!completion.guesses) return false;
             this._fillPlayedBoard(completion.guesses, completion.status);
@@ -2473,6 +2470,19 @@
                 rows[i].setAttribute("letters", pair[0]);
                 rows[i].evaluation = this.evaluations[i];
             });
+            // History keeps the guesses, not the counts, so work them out
+            // again; each depends only on the guesses up to its row. Not
+            // saved: this board isn't the device's saved game.
+            this.answersRemaining = new Array(6).fill(null);
+            guesses.forEach((pair, i) => {
+                this.answersRemaining[i] = (status === GAME_STATUS_WIN && i === guesses.length - 1) ? 0
+                    : GameEvaluator.countAnswersRemaining(guesses.slice(0, i + 1));
+            });
+            this.remainingCountsTracked = true;
+            // Same rule as a restored finished game.
+            if ((StorageController.preferences.get("remainingAnswersMode") || "neither") !== "neither") {
+                this.revealRowCounts(this.rowIndex);
+            }
         }
 
         // Signed in, the account -- not this device's local history -- knows

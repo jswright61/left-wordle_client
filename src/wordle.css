@@ -213,9 +213,21 @@ body {
     opacity: 1;
 }
 
+.played-banner,
+.played-banner-dismiss {
+    color: var(--color-error);
+}
+
+.played-banner {
+    font-weight: 700;
+}
+
+.played-banner-dismiss {
+    opacity: 1;
+}
+
 .played-banner-note {
     font-size: 14px;
-    font-weight: 400;
     margin-top: 2px;
 }
 

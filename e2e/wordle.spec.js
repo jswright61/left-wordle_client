@@ -1109,7 +1109,7 @@ test.describe('Wordle E2E Tests', () => {
       await waitForApp(page);
 
       await expect(page.locator('.played-banner')).toContainText(/^Played \d{1,2} \w+, \d{4} at /);
-      await expect(page.locator('.played-banner-note')).toHaveCount(0);
+      await expect(page.locator('.played-banner-note')).toHaveText('3/6');
       expect(await rowLetters(page, 0)).toBe('crane');
       expect(await rowLetters(page, 2)).toBe('spilt');
       await expect.poll(() => tileEvaluations(page, 1)).toEqual(['absent', 'absent', 'present', 'correct', 'absent']);
@@ -1137,8 +1137,51 @@ test.describe('Wordle E2E Tests', () => {
       await page.goto(`/?date=${date}`);
       await waitForApp(page);
 
-      await expect(page.locator('.played-banner-note')).toHaveText('Board not recorded for this game — 4/6');
+      await expect(page.locator('.played-banner-note')).toHaveText('4/6 — board not recorded');
       expect(await rowLetters(page, 0)).toBe('');
+    });
+
+    test('a lost game says X/6', async ({ page }) => {
+      const { puzzleNum, date } = await yesterday(page);
+      await seedHistory(page, {
+        [puzzleNum]: { puzzle_num: puzzleNum, date, result: 7, completed_at: Date.now() - 86400000 }
+      });
+
+      await page.goto(`/?date=${date}`);
+      await waitForApp(page);
+
+      await expect(page.locator('.played-banner-note')).toHaveText('X/6 — board not recorded');
+    });
+
+    test('the board shows remaining-answer counts when the preference is on', async ({ page }) => {
+      const { puzzleNum, date } = await yesterday(page);
+      // Real evaluations against "spilt", so the counts are too.
+      const guesses = [['crane', '00000'], ['moist', '00212'], ['spilt', '22222']];
+      await seedHistory(page, {
+        [puzzleNum]: { puzzle_num: puzzleNum, date, result: 3, completed_at: Date.now() - 86400000, guesses }
+      });
+      await page.evaluate(() => {
+        localStorage.setItem('preferences', JSON.stringify({ suppressLoginPrompt: true, remainingAnswersMode: 'gameplay' }));
+      });
+
+      await page.goto(`/?date=${date}`);
+      await waitForApp(page);
+
+      await expect.poll(() => page.evaluate(() =>
+        [0, 1, 2].map((i) => document.getElementById('gprc' + i).textContent))).toEqual(['263', '4', '0']);
+    });
+
+    test('the board shows no counts when the preference is off', async ({ page }) => {
+      const { puzzleNum, date } = await yesterday(page);
+      await seedHistory(page, {
+        [puzzleNum]: { puzzle_num: puzzleNum, date, result: 3, completed_at: Date.now() - 86400000, guesses: GUESSES }
+      });
+
+      await page.goto(`/?date=${date}`);
+      await waitForApp(page);
+
+      await expect.poll(() => rowLetters(page, 2)).toBe('spilt');
+      expect(await page.evaluate(() => document.getElementById('gprc0').textContent)).toBe('');
     });
 
     test("today's game known only from history shows its board and one stats modal", async ({ page }) => {
