@@ -209,3 +209,23 @@ td {
     line-height: normal;
     margin-top: 1em;
 }
+
+/* "Production Release" badge on the latest version that reached
+   production, added to that version's h2 by bin/mark-production-release.
+   Lives here rather than being injected by the script: this page has no
+   inline <style> block, and a rule that exists before any badge does
+   means the script only ever touches the h2. */
+.release-notes .prod-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #f0faf0;
+    border: 1px solid #6aaa64;
+    color: #538d4e;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.03rem;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
