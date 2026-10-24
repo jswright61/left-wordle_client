@@ -361,8 +361,9 @@
     // Statistics are never pushed as a client-computed blob -- the server
     // derives gamesPlayed/gamesWon/streak itself from each played_games
     // event (see api/app.rb's apply_played_game_to_statistics!), so a
-    // completed game reaching the server via syncHistoryEntry is what
-    // actually moves the numbers, not a separate stats push.
+    // completed game reaching the server -- via /game/complete or
+    // syncHistoryEntry, whichever lands first -- is what moves the numbers,
+    // not a separate stats push.
     //
     // Every push below is retry-on-failure rather than fire-and-forget: a
     // failed call is queued (see PENDING_RUNNERS/flushPendingSync) and
@@ -549,7 +550,28 @@
     // import_history_row!): {puzzle_num, date, mode, game_status
     // ("WIN"/"FAIL"), completed_at, game_id (the client-minted UUIDv7 the
     // local entry has carried since it was captured -- stored keep-first
-    // server-side)}.
+    // server-side), guesses ([[word, "01200"], ...] or null)}.
+    //
+    // guesses matters most for a live completion: this import goes out
+    // alongside /game/complete, and whichever reaches the server first
+    // applies the stats, bucketing the win by the board it finds. Without
+    // the board here, an import that won the race left the last progress
+    // save -- one guess short -- in place, and the win was counted a bucket
+    // low. Sent only when it agrees with the result (a win of N has N
+    // guesses, a loss has 6), since the server takes its length as the
+    // guess count.
+    function guessesForImport(entry, result) {
+        var guesses = entry.guesses;
+        if (!Array.isArray(guesses) || guesses.length < 1 || guesses.length > 6) return null;
+        var wellFormed = guesses.every(function(pair) {
+            return Array.isArray(pair) && typeof pair[0] === "string" && /^[a-z]{5}$/.test(pair[0]) &&
+                typeof pair[1] === "string" && /^[012]{5}$/.test(pair[1]);
+        });
+        if (!wellFormed) return null;
+        var expected = result === 7 ? 6 : result;
+        return guesses.length === expected ? guesses.map(function(pair) { return [pair[0], pair[1]]; }) : null;
+    }
+
     function toHistoryImportPayload(entry) {
         // result is 1-6 (win in N), 7 (fail), or null/unknown -- e.g. a
         // server-originated WIN with no recorded guesses that came back
@@ -568,7 +590,8 @@
             mode: entry.mode || "regular",
             game_status: gameStatus,
             completed_at: entry.completed_at || null,
-            game_id: entry.game_id || null
+            game_id: entry.game_id || null,
+            guesses: gameStatus ? guessesForImport(entry, result) : null
         };
     }
 

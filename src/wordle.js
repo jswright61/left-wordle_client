@@ -1239,9 +1239,12 @@
             // Local-only, for instant UI feedback -- the server never trusts
             // this computed blob (see api/app.rb's
             // apply_played_game_to_statistics!). It derives its own
-            // authoritative numbers from the played_games event that
+            // authoritative numbers from the game itself, which reaches it
+            // twice at once when signed in: /game/complete
+            // (_fireCompletionReport) and the history import that
             // HistoryManager.recordHistoryEntry below pushes via
-            // syncHistoryEntry; this device picks that up on next sync-down.
+            // syncHistoryEntry. Whichever lands first applies the stats; this
+            // device picks them up on next sync-down.
             StorageController.statistics.replace(stats);
 
             var result = gameResults.isWin ? gameResults.numGuesses : 7;
@@ -1374,9 +1377,9 @@
                 // ids live server-side and come back through
                 // serverHistoryToLocalHistory (e.g. online Download Backup).
                 game_id: GameStateManager.getGameState().gameId || null,
-                // So a revisit can show the finished board (_showPlayed).
-                // Local only -- syncHistoryEntry's payload doesn't carry it;
-                // the server records guesses from the live game calls.
+                // So a revisit can show the finished board (_showPlayed),
+                // and so syncHistoryEntry's import carries the full board
+                // (see toHistoryImportPayload in auth.js).
                 guesses: HistoryManager.validGuessPairs(params.guesses),
                 origin: "played"
             };

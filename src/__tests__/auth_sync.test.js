@@ -238,7 +238,7 @@ describe('syncHistoryEntry', () => {
         });
 
         expect(importHistory).toHaveBeenCalledWith([{
-            puzzle_num: 100, date: '2021-09-27', mode: 'hard', game_status: 'WIN', completed_at: 12345, game_id: null
+            puzzle_num: 100, date: '2021-09-27', mode: 'hard', game_status: 'WIN', completed_at: 12345, game_id: null, guesses: null
         }]);
     });
 
@@ -250,7 +250,7 @@ describe('syncHistoryEntry', () => {
         dom.window.LeftWordleAuth.syncHistoryEntry({ puzzle_num: 101, date: '2021-09-28', result: 7 });
 
         expect(importHistory).toHaveBeenCalledWith([{
-            puzzle_num: 101, date: '2021-09-28', mode: 'regular', game_status: 'FAIL', completed_at: null, game_id: null
+            puzzle_num: 101, date: '2021-09-28', mode: 'regular', game_status: 'FAIL', completed_at: null, game_id: null, guesses: null
         }]);
     });
 
@@ -266,7 +266,7 @@ describe('syncHistoryEntry', () => {
         dom.window.LeftWordleAuth.syncHistoryEntry({ puzzle_num: 50, date: '2021-08-08', result: null });
 
         expect(importHistory).toHaveBeenCalledWith([{
-            puzzle_num: 50, date: '2021-08-08', mode: 'regular', game_status: null, completed_at: null, game_id: null
+            puzzle_num: 50, date: '2021-08-08', mode: 'regular', game_status: null, completed_at: null, game_id: null, guesses: null
         }]);
     });
 
@@ -278,8 +278,44 @@ describe('syncHistoryEntry', () => {
         dom.window.LeftWordleAuth.syncHistoryEntry({ puzzle_num: 51, date: '2021-08-09' });
 
         expect(importHistory).toHaveBeenCalledWith([{
-            puzzle_num: 51, date: '2021-08-09', mode: 'regular', game_status: null, completed_at: null, game_id: null
+            puzzle_num: 51, date: '2021-08-09', mode: 'regular', game_status: null, completed_at: null, game_id: null, guesses: null
         }]);
+    });
+});
+
+describe('syncHistoryEntry guesses', () => {
+    function pushed(entry) {
+        const importHistory = jest.fn(() => Promise.resolve({}));
+        const dom = loadAuth({ client: { importHistory } });
+        dom.window.LeftWordleAuth.loggedIn = true;
+        dom.window.LeftWordleAuth.syncHistoryEntry(Object.assign({ puzzle_num: 100, date: '2021-09-27' }, entry));
+        return importHistory.mock.calls[0][0][0].guesses;
+    }
+    const board = [['crane', '01001'], ['stole', '11111'], ['toles', '22222']];
+
+    // The import races /game/complete; the server buckets the win by the
+    // board on whichever arrives first, so the import must carry it.
+    test('a win carries its full board', () => {
+        expect(pushed({ result: 3, guesses: board })).toEqual(board);
+    });
+
+    test('a loss carries its six-guess board', () => {
+        const six = board.concat(board).map(([w]) => [w, '00000']);
+        expect(pushed({ result: 7, guesses: six })).toEqual(six);
+    });
+
+    test('a board that disagrees with the result is left out', () => {
+        expect(pushed({ result: 4, guesses: board })).toBeNull();
+        expect(pushed({ result: 7, guesses: board })).toBeNull();
+    });
+
+    test('a malformed board is left out', () => {
+        expect(pushed({ result: 3, guesses: [['crane', '01001'], ['STOLE', '11111'], ['toles', '22222']] })).toBeNull();
+        expect(pushed({ result: 1, guesses: 'toles:22222' })).toBeNull();
+    });
+
+    test('an unknown result sends no board', () => {
+        expect(pushed({ result: null, guesses: board })).toBeNull();
     });
 });
 
@@ -311,8 +347,8 @@ describe('syncHistoryEntries', () => {
 
         expect(importHistory).toHaveBeenCalledTimes(1);
         expect(importHistory).toHaveBeenCalledWith([
-            { puzzle_num: 100, date: '2021-09-27', mode: 'hard', game_status: 'WIN', completed_at: 12345, game_id: null },
-            { puzzle_num: 101, date: '2021-09-28', mode: 'regular', game_status: 'FAIL', completed_at: null, game_id: null }
+            { puzzle_num: 100, date: '2021-09-27', mode: 'hard', game_status: 'WIN', completed_at: 12345, game_id: null, guesses: null },
+            { puzzle_num: 101, date: '2021-09-28', mode: 'regular', game_status: 'FAIL', completed_at: null, game_id: null, guesses: null }
         ]);
     });
 });
@@ -633,7 +669,7 @@ describe('syncCompletion', () => {
 
         expect(importHistory).toHaveBeenCalledWith([{
             puzzle_num: 100, date: '2021-09-27', mode: 'hard', game_status: 'WIN',
-            completed_at: 12345, game_id: 'local-history-id'
+            completed_at: 12345, game_id: 'local-history-id', guesses: null
         }]);
     });
 });
