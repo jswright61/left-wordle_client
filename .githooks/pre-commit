@@ -44,8 +44,9 @@ git add -- "$version_file"
 # Guard: on main, every commit must include a staged change to app_version.js
 if git diff --cached --quiet -- "$version_file"; then
   echo "ERROR: $version_file did not end up staged as a change for this commit on main." >&2
-  echo "       This usually means hooks aren't running (core.hooksPath not set) or staging is unusual." >&2
+  echo "       The version bump above didn't produce a staged change; check that $version_file" >&2
+  echo "       isn't ignored or marked assume-unchanged." >&2
   echo "" >&2
-  echo "Fix: git config core.hooksPath .githooks" >&2
+  echo "If this hook isn't running at all on main, set up hooks with: bin/setup-hooks" >&2
   exit 1
 fi

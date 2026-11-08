@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-git config core.hooksPath .githooks
-echo "Configured git hooks path to .githooks"
+# With git skeleton installed, its .git/hooks stubs run the shared hooks and then .githooks/.
+# core.hooksPath would bypass those stubs, so it's only the fallback for machines without skeleton.
+if git config --get alias.skeleton >/dev/null 2>&1; then
+  git config --unset core.hooksPath || true
+  git skeleton install-hooks
+  echo "Installed git skeleton hooks; they run .githooks after the shared hooks"
+else
+  git config core.hooksPath .githooks
+  echo "Configured git hooks path to .githooks"
+fi
