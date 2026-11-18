@@ -184,6 +184,38 @@ describe('LeftWordleApi', () => {
         });
     });
 
+    // api/config/caddy/maintenance/left-wordle.com answers API paths with
+    // exactly this body while paula is in maintenance. Open tabs only retry
+    // their pushes if it comes back retryable.
+    test('treats the maintenance JSON 503 as retryable', async () => {
+        const fetchImpl = jest.fn().mockResolvedValue(response({
+            body: '{"detail":"Left Wordle is down for maintenance. Please try again in a few minutes."}',
+            ok: false,
+            status: 503
+        }));
+        const dom = loadClient(fetchImpl);
+
+        await expect(dom.window.LeftWordleApi.client.health()).rejects.toMatchObject({
+            code: 'http_error',
+            retryable: true,
+            status: 503
+        });
+    });
+
+    // Why the maintenance site must not serve its HTML page on API paths.
+    test('does not mark a non-JSON 503 retryable', async () => {
+        const fetchImpl = jest.fn().mockResolvedValue(response({
+            body: '<html>Down for maintenance</html>',
+            ok: false,
+            status: 503
+        }));
+        const dom = loadClient(fetchImpl);
+
+        const error = await dom.window.LeftWordleApi.client.health().catch((e) => e);
+        expect(error).toMatchObject({ code: 'invalid_response', status: 503 });
+        expect(error.retryable).not.toBe(true);
+    });
+
     test('rejects invalid JSON responses', async () => {
         const fetchImpl = jest.fn().mockResolvedValue(response({ body: '<html>Error</html>' }));
         const dom = loadClient(fetchImpl);
