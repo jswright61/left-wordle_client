@@ -1545,6 +1545,9 @@
     const GAME_STATUS_FAIL = "FAIL";
     const WIN_COMMENTS = ["Genius", "Magnificent", "Impressive", "Splendid", "Great", "Whew"];
     const REMAINING_COUNT_DELAY_MS = 1800;
+    const MAINTENANCE_NOTICE_TEXT = "The server will be down for maintenance Sun, 11/22 at 12:00 EST (17:00 UTC). " +
+        "We estimate it will be down for less than 10 minutes.";
+    const MAINTENANCE_NOTICE_UNTIL = Date.parse("2026-11-22T18:00:00Z");
 
     class GameApp extends HTMLElement {
         tileIndex = 0;
@@ -2803,6 +2806,12 @@
 
             if (window.leftWordleLoginUI && typeof window.leftWordleLoginUI.maybePromptLogin === "function") {
                 setTimeout(() => { window.leftWordleLoginUI.maybePromptLogin(); }, 1500);
+            }
+
+            // Hotfix notice for the 2026-11-22 server migration. Stops showing
+            // once the window has passed, so a lingering deploy is harmless.
+            if (Date.now() < MAINTENANCE_NOTICE_UNTIL) {
+                this.addToast(MAINTENANCE_NOTICE_TEXT, null, true, true);
             }
         }
 
