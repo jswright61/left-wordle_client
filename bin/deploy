@@ -11,7 +11,7 @@ report_remotes_and_tags() {
     echo "Pushed to remotes:"
     printf '%s\n' "${remotes_pushed_to[@]}"
   fi
-  bin/check-remote-tags.sh || true
+  bin/check-remote-tags.sh "${REMOTE:-}" || true
   exit "$exit_code"
 }
 trap report_remotes_and_tags EXIT
@@ -30,6 +30,11 @@ case "$ENV" in
     exit 1
     ;;
 esac
+
+# The app's OS account on ellen has its own bare repo for the client (server_setup's
+# add_app.rb --www) — must match repo_url in config/deploy.rb.
+REMOTE="left_wordle_${ENV}@ellen-degeneres:/home/left_wordle_${ENV}/git/left_wordle_www.git"
+API_REMOTE="left_wordle_${ENV}@ellen-degeneres:/home/left_wordle_${ENV}/git/left_wordle.git"
 
 TAG=""
 
@@ -64,7 +69,7 @@ if [[ -z "$TAG" ]]; then
   if [[ -z "$VERSION" ]]; then
     echo "Error: tip of '$BRANCH' has no semantic version tag." >&2
     echo "Tag the commit before deploying:" >&2
-    echo "  git tag -a vX.Y.Z -m 'Release X.Y.Z' && git push paula-poundstone vX.Y.Z" >&2
+    echo "  git tag -a vX.Y.Z -m 'Release X.Y.Z' && git push $REMOTE vX.Y.Z" >&2
     exit 1
   fi
 fi
@@ -97,7 +102,7 @@ if ! bin/check-sibling-release "$VERSION" "$BRANCH"; then
   echo "" >&2
   echo "✗ api not tagged $VERSION on $BRANCH — aborting deploy." >&2
   echo "Tag api's $BRANCH before deploying client:" >&2
-  echo "  cd ../api && git tag -a $VERSION -m 'Release $VERSION' && git push paula-poundstone $VERSION" >&2
+  echo "  cd ../api && git tag -a $VERSION -m 'Release $VERSION' && git push $API_REMOTE $VERSION" >&2
   exit 1
 fi
 
@@ -117,6 +122,8 @@ if ! mise exec -- npm test; then
   exit 1
 fi
 
+# Every named remote is a mirror; the deploy target is $REMOTE above. paula's
+# old deploy repo is skipped until its remote is removed after the move.
 mirror_remotes=()
 while IFS= read -r remote; do
   [[ "$remote" == "paula-poundstone" ]] && continue
@@ -124,9 +131,9 @@ while IFS= read -r remote; do
 done < <(git remote)
 
 if [[ -n "$TAG" ]]; then
-  echo "→ Pushing $VERSION to paula-poundstone..."
-  git push paula-poundstone "$VERSION"
-  remotes_pushed_to+=("paula-poundstone")
+  echo "→ Pushing $VERSION to left_wordle_$ENV@ellen-degeneres..."
+  git push "$REMOTE" "$VERSION"
+  remotes_pushed_to+=("left_wordle_$ENV@ellen-degeneres")
 
   for remote in "${mirror_remotes[@]}"; do
     echo "→ Pushing $VERSION to $remote (background)..."
@@ -135,9 +142,9 @@ if [[ -n "$TAG" ]]; then
     remotes_pushed_to+=("$remote")
   done
 else
-  echo "→ Pushing $BRANCH + tags to paula-poundstone..."
-  git push paula-poundstone "$BRANCH" --tags
-  remotes_pushed_to+=("paula-poundstone")
+  echo "→ Pushing $BRANCH + tags to left_wordle_$ENV@ellen-degeneres..."
+  git push "$REMOTE" "$BRANCH" --tags
+  remotes_pushed_to+=("left_wordle_$ENV@ellen-degeneres")
 
   for remote in "${mirror_remotes[@]}"; do
     echo "→ Pushing $BRANCH + tags to $remote (background)..."

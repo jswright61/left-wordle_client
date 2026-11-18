@@ -59,7 +59,7 @@ namespace :deploy do
           Deploy aborted: tag '#{deploy_tag}' not found on remote.
           Push the tag before deploying:
 
-            git push paula-poundstone #{deploy_tag}
+            git push #{repo} #{deploy_tag}
 
         MSG
       end
@@ -90,7 +90,7 @@ namespace :deploy do
           Deploy aborted: #{commit_sha[0, 8]} (tip of '#{branch}') has no version tag.
           Tag the commit before deploying:
 
-            git tag -a vX.Y.Z -m "Release X.Y.Z" && git push origin vX.Y.Z
+            git tag -a vX.Y.Z -m "Release X.Y.Z" && bin/deploy #{fetch(:stage)}
 
         MSG
       end

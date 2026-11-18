@@ -58,6 +58,9 @@ report() {
 
 local_tag_lines | report "local"
 
+# Named remotes, plus any remote URLs passed as arguments (bin/deploy passes
+# the ellen deploy repo, which has no named remote).
 while IFS= read -r remote; do
+  [[ -n "$remote" ]] || continue
   remote_tag_lines "$remote" | report "$remote"
-done < <(git remote)
+done < <(git remote; printf '%s\n' "$@")
